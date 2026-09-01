@@ -1,0 +1,26 @@
+# Closed-loop acceptance flow. Object entries are safe approach poses,
+# not the physical cube centers. Manipulation runs after each navigation leg.
+flow_execution:
+  plan_timeout_sec: 45.0
+  navigation_timeout_sec: 180.0
+  manipulation_timeout_sec: 45.0
+  max_flow_duration_sec: 295.0
+  max_navigation_retries: 1
+  retry_delay_sec: 2.0
+
+  object_approaches:
+    red_cube_1:  {x: -8.78, y: 3.90, yaw: 0.0}
+    red_cube_2:  {x: -6.58, y: 3.90, yaw: 0.0}
+    red_cube_3:  {x: -4.38, y: 3.90, yaw: 0.0}
+    red_cube_4:  {x: -2.18, y: 3.90, yaw: 0.0}
+    red_cube_5:  {x: 0.02, y: 3.90, yaw: 0.0}
+    blue_cube_1: {x: -8.78, y: 1.70, yaw: 0.0}
+    blue_cube_2: {x: -6.58, y: 1.70, yaw: 0.0}
+    blue_cube_3: {x: -4.38, y: 1.70, yaw: 0.0}
+    blue_cube_4: {x: -2.18, y: 1.70, yaw: 0.0}
+    blue_cube_5: {x: 0.02, y: 1.70, yaw: 0.0}
+
+  destinations:
+    A: {x: -11.0, y: -7.0, yaw: 0.0}
+    B: {x: 0.0, y: -11.5, yaw: 0.0}
+    C: {x: 11.0, y: -10.0, yaw: 0.0}

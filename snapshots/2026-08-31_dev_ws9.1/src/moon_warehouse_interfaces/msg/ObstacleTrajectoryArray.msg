@@ -1,0 +1,2 @@
+std_msgs/Header header
+moon_warehouse_interfaces/ObstacleTrajectory[] trajectories

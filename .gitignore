@@ -1,0 +1,17 @@
+# Local transfer packages; their extracted contents are stored under snapshots/.
+/incoming_archives/
+
+# Generated/interpreter files that should never be versioned.
+**/.git/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.egg-info/
+.pytest_cache/
+
+# Editor and operating-system noise.
+*.swp
+*.tmp
+.DS_Store
+Thumbs.db

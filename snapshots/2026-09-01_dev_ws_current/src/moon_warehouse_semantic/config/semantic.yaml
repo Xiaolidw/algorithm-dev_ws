@@ -1,0 +1,12 @@
+question_source_node:
+  ros__parameters:
+    generator_path: "/home/ros/dev_ws/题目生成器/TMSCQtest_x86_x64.bin"
+    generator_workdir: "/home/ros/dev_ws/题目生成器"
+    generator_timeout_sec: 5.0
+
+semantic_solver_node:
+  ros__parameters:
+    base_url: "https://api.deepseek.com"
+    model: "deepseek-v4-flash"
+    request_timeout_sec: 30.0
+
