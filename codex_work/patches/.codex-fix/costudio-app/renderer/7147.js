@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunk=self.webpackChunk||[]).push([["7147"],{7600(e,r,t){t.d(r,{A:()=>s});let s={nextTick:function(e){for(var r=arguments.length,t=Array(r>1?r-1:0),s=1;s<r;s++)t[s-1]=arguments[s];queueMicrotask(()=>{e(...t)})},title:"browser",browser:!0,env:{},argv:[]}},74923(){}}]);
+//# sourceMappingURL=7147.js.map

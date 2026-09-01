@@ -1,0 +1,16 @@
+# Goal: execute one bounded manipulation operation.
+# Production operations: "pick" or "place".
+# Phase-1 calibration operations: "home", "pick_pose", "lift",
+# "place_pose", "open", or "close".
+string operation
+string object_id
+---
+# Result error codes:
+# 0 success; 1 invalid goal; 2 dependency unavailable; 3 arm failed;
+# 4 gripper failed; 5 attach/detach failed; 6 cancelled; 99 internal error.
+bool success
+int32 error_code
+string message
+---
+string stage
+float32 progress

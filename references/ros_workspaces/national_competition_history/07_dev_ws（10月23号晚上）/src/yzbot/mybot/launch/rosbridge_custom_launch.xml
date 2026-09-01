@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <!-- rosapi节点：提供话题查询服务 -->
+  <node 
+    name="rosapi" 
+    pkg="rosapi" 
+    exec="rosapi_node" 
+    output="screen"
+  >
+    <param 
+      name="topics_whitelist" 
+      value="[
+        '/chat', '/nav_status', '/arm_status', '/amcl_pose', 
+        '/current_target_cube', '/color', '/ask', '/pick', '/cur'
+      ]"
+    />
+    <param name="service_call_timeout" value="5.0" />
+  </node>
+
+  <!-- rosbridge节点：引用优化配置 -->
+  <node 
+    name="rosbridge_websocket" 
+    pkg="rosbridge_server" 
+    exec="rosbridge_websocket" 
+    output="screen"
+  >
+    <param from="$(find-pkg-share mybot)/config/rosbridge_custom.yaml" />
+    <param name="port" value="9090" />
+  </node>
+</launch>

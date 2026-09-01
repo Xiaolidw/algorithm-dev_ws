@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Predict moving-obstacle trajectories using the reference topic contract.
+
+The first runnable version uses a filtered constant-velocity predictor.  The
+node and topic names intentionally match the reference LSTM architecture so a
+calibrated model can replace the predictor core without changing consumers.
+"""
+
+from collections import defaultdict, deque
+import math
+
+import rclpy
+from geometry_msgs.msg import Pose
+from rclpy.node import Node
+
+from moon_warehouse_interfaces.msg import ObstacleTrajectory, ObstacleTrajectoryArray
+
+
+class LstmObstaclePredictor(Node):
+    def __init__(self):
+        super().__init__('dynamic_obstacle_predictor_node')
+        self.declare_parameter('prediction_horizon', 3.0)
+        self.declare_parameter('prediction_dt', 0.1)
+        self.declare_parameter('history_size', 8)
+        self.declare_parameter('frame_id', 'map')
+        self.declare_parameter('predictor_mode', 'constant_velocity')
+        self.declare_parameter('observation_timeout', 0.5)
+        self.declare_parameter('maximum_speed', 0.8)
+        self.declare_parameter('route_ids', ['moving_obstacle_1', 'moving_obstacle_2'])
+        self.declare_parameter('route_axes', ['x', 'x'])
+        self.declare_parameter('route_mins', [-2.0, 5.5])
+        self.declare_parameter('route_maxs', [1.0, 8.0])
+        self.declare_parameter('route_fixed_coordinates', [2.8, -6.0])
+
+        self.horizon = max(0.5, float(self.get_parameter('prediction_horizon').value))
+        self.dt = max(0.02, float(self.get_parameter('prediction_dt').value))
+        self.history_size = max(3, int(self.get_parameter('history_size').value))
+        self.frame_id = str(self.get_parameter('frame_id').value)
+        self.mode = str(self.get_parameter('predictor_mode').value)
+        self.observation_timeout = max(
+            0.1, float(self.get_parameter('observation_timeout').value))
+        self.maximum_speed = max(0.1, float(self.get_parameter('maximum_speed').value))
+        route_ids = list(self.get_parameter('route_ids').value)
+        route_axes = list(self.get_parameter('route_axes').value)
+        route_mins = list(self.get_parameter('route_mins').value)
+        route_maxs = list(self.get_parameter('route_maxs').value)
+        route_fixed = list(self.get_parameter('route_fixed_coordinates').value)
+        lengths = {len(route_ids), len(route_axes), len(route_mins), len(route_maxs), len(route_fixed)}
+        if len(lengths) != 1:
+            raise ValueError('Dynamic-obstacle route parameter arrays must have equal length')
+        self.routes = {
+            str(obstacle_id): (str(axis), float(lower), float(upper), float(fixed))
+            for obstacle_id, axis, lower, upper, fixed in zip(
+                route_ids, route_axes, route_mins, route_maxs, route_fixed)
+        }
+
+        self.histories = defaultdict(lambda: deque(maxlen=self.history_size))
+        self.pose_subscriptions = []
+        for obstacle_id in route_ids:
+            topic = f'/{obstacle_id}/current_pose'
+            self.pose_subscriptions.append(self.create_subscription(
+                Pose,
+                topic,
+                lambda msg, name=str(obstacle_id): self.pose_callback(name, msg),
+                20,
+            ))
+        self.publisher = self.create_publisher(
+            ObstacleTrajectoryArray,
+            '/moon_warehouse/dynamic_obstacle_trajectories',
+            10,
+        )
+        self.timer = self.create_timer(self.dt, self.timer_callback)
+
+        self.get_logger().info(
+            f'Predictor ready: horizon={self.horizon:.1f}s dt={self.dt:.2f}s '
+            'output=/moon_warehouse/dynamic_obstacle_trajectories')
+
+    def pose_callback(self, obstacle_id, msg):
+        stamp = self.get_clock().now().nanoseconds * 1e-9
+        self.histories[obstacle_id].append((
+            stamp,
+            float(msg.position.x),
+            float(msg.position.y),
+            float(msg.position.z),
+        ))
+
+    def estimate_velocity(self, history):
+        points = list(history)
+        if len(points) < 3:
+            return 0.0, 0.0
+        t0 = points[0][0]
+        ts = [p[0] - t0 for p in points]
+        mean_t = sum(ts) / len(ts)
+        denom = sum((t - mean_t) ** 2 for t in ts)
+        if denom < 1e-6:
+            return 0.0, 0.0
+        mean_x = sum(p[1] for p in points) / len(points)
+        mean_y = sum(p[2] for p in points) / len(points)
+        vx = sum((t - mean_t) * (p[1] - mean_x) for t, p in zip(ts, points)) / denom
+        vy = sum((t - mean_t) * (p[2] - mean_y) for t, p in zip(ts, points)) / denom
+        speed = math.hypot(vx, vy)
+        if speed > self.maximum_speed:
+            scale = self.maximum_speed / speed
+            vx *= scale
+            vy *= scale
+        return vx, vy
+
+    @staticmethod
+    def reflect_1d(position, velocity, lower, upper, future_time):
+        length = upper - lower
+        if length <= 1e-6:
+            return position
+        phase = (min(max(position, lower), upper) - lower + velocity * future_time) % (
+            2.0 * length)
+        if phase <= length:
+            return lower + phase
+        return lower + 2.0 * length - phase
+
+    def timer_callback(self):
+        now = self.get_clock().now().nanoseconds * 1e-9
+        output = ObstacleTrajectoryArray()
+        output.header.stamp = self.get_clock().now().to_msg()
+        output.header.frame_id = self.frame_id
+
+        for obstacle_id, history in list(self.histories.items()):
+            if len(history) < 3 or now - history[-1][0] > self.observation_timeout:
+                continue
+            vx, vy = self.estimate_velocity(history)
+            _, x0, y0, z0 = history[-1]
+            route = self.routes.get(obstacle_id)
+            trajectory = ObstacleTrajectory()
+            trajectory.id = obstacle_id
+            trajectory.type = 'obstacle_dynamic'
+            steps = max(1, int(self.horizon / self.dt))
+            for step in range(1, steps + 1):
+                future_time = step * self.dt
+                pose = Pose()
+                if route is None:
+                    pose.position.x = x0 + vx * future_time
+                    pose.position.y = y0 + vy * future_time
+                else:
+                    axis, lower, upper, fixed = route
+                    if axis == 'x':
+                        pose.position.x = self.reflect_1d(
+                            x0, vx, lower, upper, future_time)
+                        pose.position.y = fixed
+                    else:
+                        pose.position.x = fixed
+                        pose.position.y = self.reflect_1d(
+                            y0, vy, lower, upper, future_time)
+                pose.position.z = z0
+                pose.orientation.w = 1.0
+                trajectory.future_poses.append(pose)
+                trajectory.future_times.append(float(future_time))
+            output.trajectories.append(trajectory)
+
+        if output.trajectories:
+            self.publisher.publish(output)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = LstmObstaclePredictor()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

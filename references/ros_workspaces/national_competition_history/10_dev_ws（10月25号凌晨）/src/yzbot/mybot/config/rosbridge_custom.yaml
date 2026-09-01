@@ -1,0 +1,27 @@
+rosbridge_websocket:
+  ros__parameters:
+    # ===================== 内存优化核心配置 =====================
+    max_message_queue_size: 1          # 仅缓存1条最新消息，避免堆积
+    unregister_timeout: 3.0            # 5秒无订阅自动取消话题，释放资源
+    disable_stats: true                # 禁用统计信息，减少内存消耗
+    use_compression: false             # 禁用压缩（避免额外计算和内存占用）
+    supported_protocols: ["rosbridge_websocket"]  # 仅启用WebSocket，减少冗余
+
+    # ===================== 话题白名单（关键：仅转发过滤后的低频话题） =====================
+    topic_whitelist: [
+      "/chat",               # 任务指令（低频）
+      "/nav_status",          # 导航状态（低频）
+      "/arm_status",          # 机械臂状态（低频）
+      "/amcl_pose_throttled",  # 过滤后的机器人位置（2Hz，核心优化）
+      "/current_target_cube", # 目标物块（低频）
+      "/color",               # Foxglove颜色状态（低频）
+      "/ask",                 # Foxglove任务状态（低频）
+      "/pick",                # Foxglove抓取状态（低频）
+      "/cur"                  # Foxglove作业状态（低频）
+    ]
+
+    # ===================== 服务调用兼容配置 =====================
+    allow_services: true                  # 允许服务调用（Foxglove连接需要）
+    default_call_service_timeout: 5.0     # 服务调用超时5秒，避免无限阻塞
+    call_services_in_new_thread: true     # 新线程处理服务，避免阻塞主线程
+    send_action_goals_in_new_thread: true # 新线程处理动作目标，避免阻塞

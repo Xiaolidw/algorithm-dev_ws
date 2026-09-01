@@ -1,0 +1,35 @@
+# Closed-loop acceptance flow. Object entries are safe approach poses,
+# not the physical cube centers. Manipulation runs after each navigation leg.
+flow_execution:
+  plan_timeout_sec: 45.0
+  # Front-end Gazebo/RViz rendering can make a valid aisle traversal slower
+  # than headless execution.  Do not classify it as a navigation failure.
+  navigation_timeout_sec: 300.0
+  manipulation_timeout_sec: 45.0
+  # Five physical pick/place cycles exceed the old 295 s demo limit even
+  # when every navigation leg succeeds. Keep per-leg timeouts strict while
+  # allowing a complete official five-object plan to finish.
+  max_flow_duration_sec: 1200.0
+  # A transient controller reset must not end an official question early.
+  max_navigation_retries: 3
+  retry_delay_sec: 2.0
+
+  object_approaches:
+    # Map-validated stand-off poses outside the shelf inflation layer.
+    red_cube_1:  {x: -8.78, y: 3.90, yaw: 0.0}
+    red_cube_2:  {x: -6.58, y: 3.90, yaw: 0.0}
+    red_cube_3:  {x: -4.38, y: 3.90, yaw: 0.0}
+    red_cube_4:  {x: -2.18, y: 3.90, yaw: 0.0}
+    red_cube_5:  {x: 0.02, y: 3.90, yaw: 0.0}
+    blue_cube_1: {x: -8.78, y: 1.70, yaw: 0.0}
+    blue_cube_2: {x: -6.58, y: 1.70, yaw: 0.0}
+    blue_cube_3: {x: -4.38, y: 1.70, yaw: 0.0}
+    blue_cube_4: {x: -2.18, y: 1.70, yaw: 0.0}
+    blue_cube_5: {x: 0.02, y: 1.70, yaw: 0.0}
+
+  destinations:
+    # Use the map-safe approach poses from competition_v2_semantics.yaml,
+    # not the geometric centers inside the marked placement regions.
+    A: {x: -10.311, y: -6.421, yaw: -2.443}
+    B: {x: -0.450, y: -12.279, yaw: 1.047}
+    C: {x: 10.263, y: -9.484, yaw: -0.611}

@@ -4,9 +4,19 @@
 # Generated/interpreter files that should never be versioned.
 **/.git/
 **/__pycache__/
+**/node_modules/
+**/build/
+**/install/
+**/log/
+**/logs/
+**/runtime_logs/
 *.py[cod]
 *.pyo
 *.so
+*.o
+*.db3
+*.log
+*.map
 *.egg-info/
 .pytest_cache/
 

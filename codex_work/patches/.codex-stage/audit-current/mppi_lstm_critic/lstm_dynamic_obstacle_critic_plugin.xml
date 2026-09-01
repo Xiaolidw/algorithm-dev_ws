@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<library path="mppi_lstm_critic">
+  <class
+    name="mppi::critics::LSTMDynamicObstacleCritic"
+    type="mppi_lstm_critic::LSTMDynamicObstacleCritic"
+    base_class_type="mppi::critics::CriticFunction">
+    <description>Scores MPPI samples against predicted moving obstacles.</description>
+  </class>
+</library>

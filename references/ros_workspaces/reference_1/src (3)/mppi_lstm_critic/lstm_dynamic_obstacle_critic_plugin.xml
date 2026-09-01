@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<library path="mppi_lstm_critic">
+
+  <!--
+    name  = 插件 ID（给 pluginlib / MPPIController 用）
+    type  = 实际 C++ 类名（你的命名空间）
+    base_class_type = 基类类型（Nav2 MPPI 的 CriticFunction）
+  -->
+  <class
+      name="mppi::critics::LSTMDynamicObstacleCritic"
+      type="mppi_lstm_critic::LSTMDynamicObstacleCritic"
+      base_class_type="mppi::critics::CriticFunction">
+
+    <description>
+      LSTM Dynamic Obstacle Critic for MPPI Controller
+    </description>
+
+  </class>
+
+</library>
+

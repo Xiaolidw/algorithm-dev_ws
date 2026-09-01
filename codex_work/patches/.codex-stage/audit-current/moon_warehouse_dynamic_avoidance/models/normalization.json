@@ -1,0 +1,32 @@
+{
+  "input_features": [
+    "relative_x",
+    "relative_y",
+    "vx",
+    "vy"
+  ],
+  "target_features": [
+    "future_relative_x",
+    "future_relative_y"
+  ],
+  "input_mean": [
+    0.0002618682080048495,
+    0.0,
+    -8.611006627190596e-05,
+    0.0
+  ],
+  "input_std": [
+    0.25859704519941296,
+    1.0,
+    0.24364863229105763,
+    1.0
+  ],
+  "target_mean": [
+    -0.0019064427118290254,
+    0.0
+  ],
+  "target_std": [
+    0.3996702216035853,
+    1.0
+  ]
+}

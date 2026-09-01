@@ -1,0 +1,14 @@
+perception_node:
+  ros__parameters:
+    image_topic: /camera/image_raw
+    detections_topic: /perception/detections_2d
+    annotated_image_topic: /perception/annotated_image
+    min_area_px: 500.0
+    process_every_n_frames: 1
+    morphology_kernel_px: 5
+    red_lower_1: [0, 80, 50]
+    red_upper_1: [10, 255, 255]
+    red_lower_2: [170, 80, 50]
+    red_upper_2: [179, 255, 255]
+    blue_lower: [95, 80, 50]
+    blue_upper: [130, 255, 255]

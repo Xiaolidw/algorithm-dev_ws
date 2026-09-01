@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>mybot</name>
+  <version>0.3.0</version>
+  <description>
+     An automatically generated package with all the configuration and launch files for using the six_arm with the MoveIt Motion Planning Framework
+  </description>
+  <maintainer email="yzhcat@qq.com">yzhcat</maintainer>
+
+  <license>BSD</license>
+
+  <url type="website">http://moveit.ros.org/</url>
+  <url type="bugtracker">https://github.com/ros-planning/moveit2/issues</url>
+  <url type="repository">https://github.com/ros-planning/moveit2</url>
+
+  <author email="yzhcat@qq.com">yzhcat</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- 原有依赖：MoveIt、机器人状态发布等 -->
+  <exec_depend>moveit_ros_move_group</exec_depend>
+  <exec_depend>moveit_kinematics</exec_depend>
+  <exec_depend>moveit_planners</exec_depend>
+  <exec_depend>moveit_simple_controller_manager</exec_depend>
+  <exec_depend>joint_state_publisher</exec_depend>
+  <exec_depend>joint_state_publisher_gui</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>moveit_configs_utils</exec_depend>
+  <exec_depend>moveit_ros_move_group</exec_depend>
+  <exec_depend>moveit_ros_visualization</exec_depend>
+  <exec_depend>moveit_ros_warehouse</exec_depend>
+  <exec_depend>moveit_setup_assistant</exec_depend>
+  <exec_depend>mybot_description</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>rviz_common</exec_depend>
+  <exec_depend>rviz_default_plugins</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>warehouse_ros_mongo</exec_depend>
+  <exec_depend>xacro</exec_depend>
+
+  <!-- 新增依赖：自定义消息和Gazebo插件所需 -->
+  <!-- 1. 消息编译依赖（build时需要） -->
+  <build_depend>rosidl_default_generators</build_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
+  <!-- 2. ROS 2核心依赖（C++节点、消息类型） -->
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+
+  <!-- 3. Gazebo依赖（C++ API访问、插件加载） -->
+  <depend>gazebo_dev</depend>
+  <depend>gazebo_ros</depend>
+
+  <export>
+      <build_type>ament_cmake</build_type>
+  </export>
+</package>

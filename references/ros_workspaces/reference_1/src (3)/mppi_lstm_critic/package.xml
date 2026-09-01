@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>mppi_lstm_critic</name>
+  <version>0.0.1</version>
+  <description>LSTM-based dynamic obstacle critic for Nav2 MPPI controller</description>
+
+  <maintainer email="your_email@example.com">Your Name</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <build_depend>rclcpp</build_depend>
+  <build_depend>rclcpp_lifecycle</build_depend>
+  <build_depend>nav2_costmap_2d</build_depend>
+  <build_depend>nav2_mppi_controller</build_depend>
+  <build_depend>nav2_util</build_depend>
+  <build_depend>pluginlib</build_depend>
+  <build_depend>mybot</build_depend>
+
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>rclcpp_lifecycle</exec_depend>
+  <exec_depend>nav2_costmap_2d</exec_depend>
+  <exec_depend>nav2_mppi_controller</exec_depend>
+  <exec_depend>nav2_util</exec_depend>
+  <exec_depend>pluginlib</exec_depend>
+  <exec_depend>mybot</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+    <pluginlib plugin="${prefix}/lstm_dynamic_obstacle_critic_plugin.xml"/>
+  </export>
+</package>
+

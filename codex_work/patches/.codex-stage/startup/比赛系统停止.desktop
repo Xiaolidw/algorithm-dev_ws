@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=比赛系统停止
+Comment=干净停止全部赛题进程并释放 9090 端口
+Exec=/home/ros/dev_ws/scripts/competition_control.sh stop
+Icon=process-stop
+Terminal=false
+Categories=Development;Science;
+

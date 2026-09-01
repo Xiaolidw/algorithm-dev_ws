@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>mppi_lstm_critic</name>
+  <version>0.1.0</version>
+  <description>Predicted dynamic obstacle critic for Nav2 MPPI.</description>
+  <maintainer email="team@example.com">moon warehouse team</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>nav2_costmap_2d</depend>
+  <depend>nav2_mppi_controller</depend>
+  <depend>pluginlib</depend>
+  <depend>moon_warehouse_interfaces</depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+    <pluginlib plugin="${prefix}/lstm_dynamic_obstacle_critic_plugin.xml"/>
+  </export>
+</package>

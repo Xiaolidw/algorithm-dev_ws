@@ -1,0 +1,350 @@
+{
+  "configById": {
+    "aerospaceboy.yzbot-competition.topic-area!topic-area": {
+      "title": "题目与大模型解析",
+      "pathLabel": "/some/topic.msgs[0].field",
+      "placeholder": "No topic selected",
+      "foxglovePanelTitle": "题目",
+      "mode": "LIVE",
+      "topic": "/competition/status",
+      "statusTopic": "/competition/status",
+      "problemTopic": "/competition/task/problem"
+    },
+    "aerospaceboy.yzbot-competition.status-card!red-count": {
+      "title": "红色数量",
+      "topic": "/competition/status",
+      "path": "resources.red",
+      "fallback": "3",
+      "background": "#E86875",
+      "color": "#FFFFFF",
+      "fontSize": 32,
+      "fontWeight": 700,
+      "foxglovePanelTitle": "红色数量",
+      "kind": "red-count",
+      "mode": "LIVE",
+      "statusTopic": "/competition/status"
+    },
+    "aerospaceboy.yzbot-competition.status-card!blue-count": {
+      "title": "蓝色数量",
+      "topic": "/competition/status",
+      "path": "resources.blue",
+      "fallback": "2",
+      "background": "#3B5AEF",
+      "color": "#FFFFFF",
+      "fontSize": 32,
+      "fontWeight": 700,
+      "foxglovePanelTitle": "蓝色数量",
+      "kind": "blue-count",
+      "mode": "LIVE",
+      "statusTopic": "/competition/status"
+    },
+    "aerospaceboy.yzbot-competition.status-card!blue-task": {
+      "title": "蓝色",
+      "topic": "/competition/status",
+      "path": "target_zones.blue",
+      "prefix": "蓝色到",
+      "suffix": "区",
+      "fallback": "A",
+      "background": "#8FC0E0",
+      "color": "#191F1A",
+      "fontSize": 30,
+      "fontWeight": 700,
+      "foxglovePanelTitle": "蓝色",
+      "kind": "blue-task",
+      "mode": "LIVE",
+      "statusTopic": "/competition/status"
+    },
+    "aerospaceboy.yzbot-competition.status-card!red-task": {
+      "title": "红色",
+      "topic": "/competition/status",
+      "path": "target_zones.red",
+      "prefix": "红色到",
+      "suffix": "区",
+      "fallback": "C",
+      "background": "#F1AF94",
+      "color": "#191F1A",
+      "fontSize": 30,
+      "fontWeight": 700,
+      "foxglovePanelTitle": "红色",
+      "kind": "red-task",
+      "mode": "LIVE",
+      "statusTopic": "/competition/status"
+    },
+    "aerospaceboy.yzbot-competition.vision-image!raw": {
+      "title": "相机画面",
+      "topic": "/camera_rgbd/camera_rgbd/image_raw",
+      "placeholder": "等待图片信息中...",
+      "background": "#F4F4F5",
+      "foxglovePanelTitle": "识别画面",
+      "variant": "raw",
+      "mode": "LIVE"
+    },
+    "aerospaceboy.yzbot-competition.vision-image!annotated": {
+      "title": "识别结果",
+      "topic": "/competition/perception/debug_image",
+      "placeholder": "等待图片信息中...",
+      "background": "#F4F4F5",
+      "foxglovePanelTitle": "识别画面",
+      "variant": "detection",
+      "mode": "LIVE"
+    },
+    "aerospaceboy.yzbot-competition.status-card!progress": {
+      "title": "任务进度",
+      "topic": "/competition/status",
+      "path": "current_index",
+      "prefix": "第",
+      "suffix": "个",
+      "fallback": "4",
+      "background": "#C1ECCA",
+      "color": "#191F1A",
+      "fontSize": 30,
+      "fontWeight": 700,
+      "foxglovePanelTitle": "任务进度",
+      "kind": "progress",
+      "mode": "LIVE",
+      "statusTopic": "/competition/status"
+    },
+    "aerospaceboy.yzbot-competition.status-card!current-task": {
+      "title": "当前任务",
+      "topic": "/competition/status",
+      "mappingMode": "current_action",
+      "fallback": "前往资源点",
+      "background": "#C1ECCA",
+      "color": "#191F1A",
+      "fontSize": 30,
+      "fontWeight": 700,
+      "foxglovePanelTitle": "当前任务",
+      "kind": "current-task",
+      "mode": "LIVE",
+      "statusTopic": "/competition/status"
+    },
+    "aerospaceboy.yzbot-competition.status-card!manipulation": {
+      "title": "机械臂抓取状态",
+      "topic": "/competition/status",
+      "background": "#D8E8F7",
+      "color": "#191F1A",
+      "fontSize": 25,
+      "fontWeight": 700,
+      "foxglovePanelTitle": "机械臂抓取状态",
+      "kind": "manipulation",
+      "mode": "LIVE",
+      "statusTopic": "/competition/status"
+    },
+    "aerospaceboy.yzbot-competition.status-card!completion": {
+      "title": "本轮完成情况",
+      "topic": "/competition/status",
+      "background": "#DDF1D5",
+      "color": "#191F1A",
+      "fontSize": 25,
+      "fontWeight": 700,
+      "foxglovePanelTitle": "本轮完成情况",
+      "kind": "completion",
+      "mode": "LIVE",
+      "statusTopic": "/competition/status"
+    },
+    "aerospaceboy.yzbot-competition.status-card!status": {
+      "title": "状态",
+      "topic": "/competition/status",
+      "mappingMode": "status_label",
+      "fallback": "已释放",
+      "background": "#C1ECCA",
+      "color": "#191F1A",
+      "fontSize": 30,
+      "fontWeight": 700,
+      "foxglovePanelTitle": "状态",
+      "kind": "status",
+      "mode": "LIVE",
+      "statusTopic": "/competition/status"
+    },
+    "aerospaceboy.yzbot-competition.start-button!start": {
+      "title": "开始任务",
+      "buttonLabel": "开始任务",
+      "topic": "/competition/mission/start",
+      "statusTopic": "/competition/status",
+      "hint": "Connect to a data source that supports publishing",
+      "foxglovePanelTitle": "开始按钮",
+      "mode": "LIVE"
+    },
+    "3D!competition": {
+      "layers": {
+        "competition-grid": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "Competition grid",
+          "instanceId": "competition-grid",
+          "layerId": "foxglove.Grid",
+          "size": 30,
+          "divisions": 30,
+          "lineWidth": 1,
+          "color": "#455a64",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "order": 1
+        }
+      },
+      "cameraState": {
+        "perspective": false,
+        "distance": 28,
+        "phi": 0.0001,
+        "thetaOffset": 0,
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.01,
+        "far": 5000
+      },
+      "followMode": "follow-none",
+      "followTf": "map",
+      "scene": {},
+      "transforms": {
+        "frame:map": {
+          "visible": true
+        },
+        "frame:odom": {
+          "visible": false
+        },
+        "frame:base_link": {
+          "visible": true
+        }
+      },
+      "topics": {
+        "/competition/map": {
+          "visible": true,
+          "drawBehind": true
+        },
+        "/plan": {
+          "visible": true,
+          "type": "line",
+          "lineWidth": 0.12,
+          "gradient": [
+            "#00e5ffff",
+            "#2979ffff"
+          ]
+        },
+        "/local_plan": {
+          "visible": true,
+          "type": "line",
+          "lineWidth": 0.08,
+          "gradient": [
+            "#ffea00ff",
+            "#ff9100ff"
+          ]
+        },
+        "/amcl_pose": {
+          "visible": true,
+          "type": "axis"
+        },
+        "/competition/navigation/current_goal": {
+          "visible": true,
+          "type": "axis"
+        },
+        "/competition/scene_markers": {
+          "visible": true
+        },
+        "/robot_description": {
+          "visible": true,
+          "displayMode": "visual",
+          "fallbackColor": "#3B5AEF"
+        },
+        "/joint_states": {
+          "visible": true
+        }
+      },
+      "imageMode": {},
+      "foxglovePanelTitle": "三维"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "column",
+    "first": "aerospaceboy.yzbot-competition.topic-area!topic-area",
+    "second": {
+      "direction": "row",
+      "first": {
+        "direction": "column",
+        "first": {
+          "direction": "row",
+          "first": "aerospaceboy.yzbot-competition.status-card!red-count",
+          "second": {
+            "direction": "row",
+            "first": "aerospaceboy.yzbot-competition.status-card!blue-count",
+            "second": "aerospaceboy.yzbot-competition.status-card!blue-task",
+            "splitPercentage": 45.2
+          },
+          "splitPercentage": 30.8
+        },
+        "second": {
+          "direction": "column",
+          "first": {
+            "direction": "row",
+            "first": "aerospaceboy.yzbot-competition.vision-image!raw",
+            "second": "aerospaceboy.yzbot-competition.vision-image!annotated",
+            "splitPercentage": 50
+          },
+          "second": "3D!competition",
+          "splitPercentage": 42.7
+        },
+        "splitPercentage": 17
+      },
+      "second": {
+        "direction": "column",
+        "first": "aerospaceboy.yzbot-competition.status-card!red-task",
+        "second": {
+          "direction": "column",
+          "first": "aerospaceboy.yzbot-competition.status-card!progress",
+          "second": {
+            "direction": "column",
+            "first": "aerospaceboy.yzbot-competition.status-card!current-task",
+            "second": {
+              "direction": "column",
+              "first": "aerospaceboy.yzbot-competition.status-card!manipulation",
+              "second": {
+                "direction": "column",
+                "first": "aerospaceboy.yzbot-competition.status-card!completion",
+                "second": {
+                  "direction": "column",
+                  "first": "aerospaceboy.yzbot-competition.status-card!status",
+                  "second": "aerospaceboy.yzbot-competition.start-button!start",
+                  "splitPercentage": 50
+                },
+                "splitPercentage": 33.333
+              },
+              "splitPercentage": 25
+            },
+            "splitPercentage": 20
+          },
+          "splitPercentage": 16.667
+        },
+        "splitPercentage": 14.286
+      },
+      "splitPercentage": 70.7
+    },
+    "splitPercentage": 28
+  }
+}

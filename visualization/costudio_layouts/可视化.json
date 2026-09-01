@@ -1,0 +1,317 @@
+{
+  "configById": {
+    "RawMessages!3o3lizc": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "",
+      "fontSize": 9
+    },
+    "Tab!u7p6y3": {
+      "activeTabIdx": 0,
+      "tabs": [
+        {
+          "title": "题目",
+          "layout": "RawMessages!3o3lizc"
+        }
+      ]
+    },
+    "Indicator!2h77mwf": {
+      "path": "",
+      "style": "background",
+      "fallbackColor": "#eb6774",
+      "fallbackLabel": "3",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#68e24a",
+          "label": "True"
+        }
+      ],
+      "foxglovePanelTitle": "红色数量"
+    },
+    "Indicator!3e09x78": {
+      "path": "",
+      "style": "background",
+      "fallbackColor": "#2b5def",
+      "fallbackLabel": "2",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#68e24a",
+          "label": "True"
+        }
+      ],
+      "foxglovePanelTitle": "蓝色数量"
+    },
+    "Indicator!2b8xvlo": {
+      "path": "",
+      "style": "background",
+      "fallbackColor": "#8bc1e0",
+      "fallbackLabel": "蓝色到A区",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#68e24a",
+          "label": "True"
+        }
+      ],
+      "foxglovePanelTitle": "蓝色"
+    },
+    "Indicator!2vb1y0s": {
+      "path": "",
+      "style": "background",
+      "fallbackColor": "#f3ae93",
+      "fallbackLabel": "红色到C区",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#68e24a",
+          "label": "True"
+        }
+      ],
+      "foxglovePanelTitle": "红色"
+    },
+    "Image!42iutju": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "foxglovePanelTitle": "识别画面"
+    },
+    "Image!37wr55x": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "foxglovePanelTitle": "识别画面"
+    },
+    "Indicator!2f185h3": {
+      "path": "",
+      "style": "background",
+      "fallbackColor": "#c0ecca",
+      "fallbackLabel": "第4个",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#68e24a",
+          "label": "True"
+        }
+      ],
+      "foxglovePanelTitle": "任务进度"
+    },
+    "Indicator!3d51705": {
+      "path": "",
+      "style": "background",
+      "fallbackColor": "#c0ecca",
+      "fallbackLabel": "前往资源点",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#68e24a",
+          "label": "True"
+        }
+      ],
+      "foxglovePanelTitle": "当前任务"
+    },
+    "Indicator!dztld5": {
+      "path": "",
+      "style": "background",
+      "fallbackColor": "#c0ecca",
+      "fallbackLabel": "已释放",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#68e24a",
+          "label": "True"
+        }
+      ],
+      "foxglovePanelTitle": "状态"
+    },
+    "Publish!2dnsmft": {
+      "buttonText": "开始任务",
+      "buttonTooltip": "",
+      "advancedView": false,
+      "value": "{}",
+      "foxglovePanelTitle": "开始按钮"
+    },
+    "3D!274x6jb": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 19.999999999999986,
+        "phi": 60.00000000000001,
+        "thetaOffset": 45.000000000000014,
+        "targetOffset": [
+          -0.028821860487590625,
+          0.02882186048759064,
+          -2.262649289840096e-18
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {}
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "layout": {
+    "first": "Tab!u7p6y3",
+    "second": {
+      "first": {
+        "first": "Indicator!2h77mwf",
+        "second": {
+          "first": "Indicator!3e09x78",
+          "second": {
+            "first": "Indicator!2b8xvlo",
+            "second": "Indicator!2vb1y0s",
+            "direction": "row",
+            "splitPercentage": 47.727742319718594
+          },
+          "direction": "row",
+          "splitPercentage": 27.981651376146786
+        },
+        "direction": "row",
+        "splitPercentage": 21.621275894425924
+      },
+      "second": {
+        "first": {
+          "first": {
+            "first": "Image!42iutju",
+            "second": "Image!37wr55x",
+            "direction": "row"
+          },
+          "second": "3D!274x6jb",
+          "direction": "column",
+          "splitPercentage": 42.49752952236589
+        },
+        "second": {
+          "first": "Indicator!2f185h3",
+          "second": {
+            "first": "Indicator!3d51705",
+            "second": {
+              "first": "Indicator!dztld5",
+              "second": "Publish!2dnsmft",
+              "direction": "column"
+            },
+            "direction": "column",
+            "splitPercentage": 36.202736024514984
+          },
+          "direction": "column",
+          "splitPercentage": 24.953530183045896
+        },
+        "direction": "row",
+        "splitPercentage": 70.34361409862028
+      },
+      "direction": "column",
+      "splitPercentage": 17.042135573099635
+    },
+    "direction": "column",
+    "splitPercentage": 16.534391534391535
+  }
+}

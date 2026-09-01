@@ -1,0 +1,21 @@
+[Unit]
+Description=Moon Warehouse competition simulation and ROS 2 stack
+After=graphical-session.target
+PartOf=graphical-session.target
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ros/dev_ws
+ExecStart=/home/ros/dev_ws/scripts/run_competition.sh
+ExecStartPost=/home/ros/dev_ws/scripts/wait_nav_ready.sh
+KillMode=control-group
+KillSignal=SIGINT
+TimeoutStopSec=25
+SendSIGKILL=yes
+Restart=on-failure
+RestartSec=8
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,50 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name="oscillating_obstacle">
+    <static>false</static>
+    <pose>-2.0 0.0 0.15 0 0 0</pose>
+    
+    <!-- 加载移动插件 -->
+    <plugin name="moving_obstacle_plugin" filename="libmoving_obstacle_plugin.so">
+      <speed>1.0</speed>      <!-- 角速度 (rad/s) -->
+      <amplitude>2.0</amplitude>  <!-- 振幅 (m) -->
+      <update_rate>50.0</update_rate> <!-- 更新频率 (Hz) -->
+    </plugin>
+    
+    <link name="body">
+      <inertial>
+        <mass>1.0</mass>
+        <inertia>
+          <ixx>0.01</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>0.01</iyy>
+          <iyz>0.0</iyz>
+          <izz>0.01</izz>
+        </inertia>
+      </inertial>
+      
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.3 0.3 0.3</size>
+          </box>
+        </geometry>
+      </collision>
+      
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.3 0.3 0.3</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/Green</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

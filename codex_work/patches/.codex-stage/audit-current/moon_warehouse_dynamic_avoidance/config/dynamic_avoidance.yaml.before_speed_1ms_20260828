@@ -1,0 +1,86 @@
+dynamic_obstacle_predictor_node:
+  ros__parameters:
+    use_sim_time: true
+    prediction_horizon: 3.0
+    prediction_dt: 0.1
+    history_size: 20
+    frame_id: map
+    predictor_mode: lstm
+    model_filename: dynamic_obstacle_lstm.ts
+    normalization_filename: normalization.json
+    inference_timeout_ms: 20.0
+    enable_fallback: true
+    observation_timeout: 0.5
+    maximum_speed: 0.8
+    # Known simulator routes. When the team changes the map, only these arrays
+    # need updating; unknown obstacle IDs still use constant velocity.
+    route_ids: [moving_obstacle_1, moving_obstacle_2]
+    route_axes: [x, x]
+    route_mins: [-1.8, 5.7]
+    route_maxs: [0.8, 7.8]
+    route_fixed_coordinates: [2.8, -6.0]
+departure_heading_lock:
+  ros__parameters:
+    use_sim_time: true
+    global_frame: map
+    robot_base_frame: base_footprint
+    goal_change_distance: 0.25
+    heading_lookahead: 0.65
+    heading_lock_entry_angle: 0.60
+    heading_kp: 1.5
+    heading_max_angular_speed: 0.90
+    heading_min_angular_speed: 0.25
+    heading_exit_tolerance: 0.10
+    heading_settle_time: 0.20
+    tf_timeout: 0.05
+sipp_decision_node:
+  ros__parameters:
+    use_sim_time: true
+    shadow_mode: false
+    decision_frequency: 10.0
+    conflict_radius: 0.72
+    conflict_longitudinal_margin: 0.30
+    time_margin: 0.8
+    half_vehicle_length: 0.20
+    static_stop_margin: 0.50
+    comfortable_deceleration: 0.60
+    stop_reached_tolerance: 0.12
+    minimum_prediction_speed: 0.30
+    maximum_prediction_speed: 0.70
+    endpoint_distance: 0.40
+    data_timeout: 0.6
+    global_frame: map
+    robot_base_frame: base_footprint
+    plan_timeout: 2.5
+    tf_timeout: 0.05
+    maximum_path_deviation: 0.75
+    maximum_index_backtrack: 2
+    maximum_occupancy_gap: 0.25
+    same_goal_tolerance: 0.25
+    route_change_threshold: 0.50
+    route_change_confirm_cycles: 3
+    conflict_confirm_cycles: 2
+    conflict_release_time: 0.60
+    conflict_match_radius: 0.45
+    conflict_clear_margin: 0.35
+    prepare_lead_time: 0.70
+    departure_heading_lookahead: 0.40
+    departure_yaw_tolerance: 0.08
+    prepare_yaw_kp: 1.50
+    prepare_max_angular_speed: 0.50
+    prepare_min_angular_speed: 0.15
+    prepare_settle_time: 0.20
+    fast_cruise_speed: 0.70
+    normal_cruise_speed: 0.50
+    cautious_speed: 0.30
+    fast_cruise_horizon: 3.0
+    fast_cruise_min_goal_distance: 1.0
+    fast_cruise_max_heading_error: 0.15
+    fast_cruise_max_curvature: 0.35
+sipp_velocity_gate:
+  ros__parameters:
+    use_sim_time: true
+    decision_timeout: 0.5
+    comfortable_deceleration: 0.60
+    approach_angular_zero_distance: 0.30
+    prepare_max_angular_speed: 0.50

@@ -1,0 +1,13 @@
+{
+  "main": "main/main.js",
+  "name": "honeybee",
+  "productName": "coStudio",
+  "version": "0.3.6",
+  "description": "coScene's robot visualization platform",
+  "productDescription": "coScene Studio",
+  "license": "MPL-2.0 AND Proprietary",
+  "author": {
+    "name": "coScene Technologies",
+    "email": "hi@coscene.io"
+  }
+}

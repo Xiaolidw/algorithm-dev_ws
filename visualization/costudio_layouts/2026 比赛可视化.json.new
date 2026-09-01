@@ -1,0 +1,243 @@
+{
+  "configById": {
+    "大模型技术创新赛 · 比赛看板.大模型技术创新赛 · 比赛看板!3vr25zc": {},
+    "Image!38iuuqg": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-none",
+      "followTf": "map",
+      "scene": {},
+      "transforms": {
+        "frame:map": {
+          "visible": true
+        },
+        "frame:base_link": {
+          "visible": true
+        }
+      },
+      "topics": {
+        "/map": {
+          "visible": true,
+          "drawBehind": true
+        },
+        "/plan": {
+          "visible": true,
+          "type": "line",
+          "lineWidth": 0.1,
+          "gradient": [
+            "#79e6ff",
+            "#427bff"
+          ]
+        },
+        "/local_plan": {
+          "visible": true,
+          "type": "line",
+          "lineWidth": 0.07,
+          "gradient": [
+            "#ffdf6e",
+            "#ff8f56"
+          ]
+        },
+        "/amcl_pose": {
+          "visible": true,
+          "type": "axis"
+        },
+        "/robot_description": {
+          "visible": true,
+          "displayMode": "visual",
+          "fallbackColor": "#4388da"
+        },
+        "/joint_states": {
+          "visible": true
+        }
+      },
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/perception/annotated_image",
+        "calibrationTopic": "/camera/camera_info"
+      },
+      "foxglovePanelTitle": "识别画面"
+    },
+    "Image!24g94l": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/camera_rgbd/camera_rgbd/image_raw",
+        "calibrationTopic": "/camera_rgbd/camera_rgbd/camera_info"
+      },
+      "foxglovePanelTitle": "RGB相机"
+    },
+    "3D!4h38pwh": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-none",
+      "followTf": "map",
+      "scene": {},
+      "transforms": {
+        "frame:map": {
+          "visible": true
+        },
+        "frame:base_link": {
+          "visible": true
+        }
+      },
+      "topics": {
+        "/map": {
+          "visible": true,
+          "drawBehind": true
+        },
+        "/plan": {
+          "visible": true,
+          "type": "line",
+          "lineWidth": 0.1,
+          "gradient": [
+            "#79e6ff",
+            "#427bff"
+          ]
+        },
+        "/local_plan": {
+          "visible": true,
+          "type": "line",
+          "lineWidth": 0.07,
+          "gradient": [
+            "#ffdf6e",
+            "#ff8f56"
+          ]
+        },
+        "/amcl_pose": {
+          "visible": true,
+          "type": "axis"
+        },
+        "/robot_description": {
+          "visible": true,
+          "displayMode": "visual",
+          "fallbackColor": "#4388da"
+        },
+        "/joint_states": {
+          "visible": true
+        }
+      },
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {}
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "layout": {
+    "first": {
+      "first": "大模型技术创新赛 · 比赛看板.大模型技术创新赛 · 比赛看板!3vr25zc",
+      "second": {
+        "direction": "row",
+        "first": "Image!38iuuqg",
+        "second": "Image!24g94l",
+        "splitPercentage": 50
+      },
+      "direction": "column",
+      "splitPercentage": 67.72486772486772
+    },
+    "second": "3D!4h38pwh",
+    "direction": "column",
+    "splitPercentage": 68.25396825396825
+  }
+}

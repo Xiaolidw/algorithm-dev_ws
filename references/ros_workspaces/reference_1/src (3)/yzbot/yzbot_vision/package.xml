@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>yzbot_vision</name>
+  <version>0.0.0</version>
+  <description>Vision module for lunar resource detection (ROS2 + OpenCV)</description>
+  <maintainer email="your_email@example.com">Your Name</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- 1. 构建依赖（编译时需要） -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <!-- 2. 执行依赖（运行时需要） -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>numpy</exec_depend>
+  <exec_depend>opencv-python</exec_depend>
+
+  <!-- 3. 测试依赖（可选，用于单元测试） -->
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>pytest</test_depend>
+
+  <!-- 4. 导出依赖（供其他功能包依赖此包时使用） -->
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

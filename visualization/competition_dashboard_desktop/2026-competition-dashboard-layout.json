@@ -1,0 +1,94 @@
+{
+  "configById": {
+    "大模型技术创新赛 · 比赛看板.大模型技术创新赛 · 比赛看板!mission-command": {},
+    "Image!live-camera": {
+      "imageMode": {
+        "imageTopic": "/camera/image_raw",
+        "calibrationTopic": "/camera/camera_info"
+      },
+      "foxglovePanelTitle": "实时相机",
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      }
+    },
+    "Image!detection-camera": {
+      "imageMode": {
+        "imageTopic": "/perception/annotated_image",
+        "calibrationTopic": "/camera/camera_info"
+      },
+      "foxglovePanelTitle": "置信度筛选识别画面"
+    },
+    "3D!warehouse-scene": {
+      "cameraState": {
+        "perspective": false,
+        "distance": 24,
+        "phi": 0.0001,
+        "thetaOffset": 0,
+        "targetOffset": [0, 0, 0],
+        "target": [0, 0, 0],
+        "targetOrientation": [0, 0, 0, 1],
+        "fovy": 45,
+        "near": 0.01,
+        "far": 5000
+      },
+      "followMode": "follow-none",
+      "followTf": "map",
+      "scene": {},
+      "transforms": {
+        "frame:map": { "visible": true },
+        "frame:base_link": { "visible": true }
+      },
+      "topics": {
+        "/map": { "visible": true, "drawBehind": true },
+        "/plan": { "visible": true, "type": "line", "lineWidth": 0.1, "gradient": ["#79e6ff", "#427bff"] },
+        "/local_plan": { "visible": true, "type": "line", "lineWidth": 0.07, "gradient": ["#ffdf6e", "#ff8f56"] },
+        "/amcl_pose": { "visible": true, "type": "axis" },
+        "/robot_description": { "visible": true, "displayMode": "visual", "fallbackColor": "#4388da" },
+        "/joint_states": { "visible": true }
+      },
+      "layers": {
+        "warehouse-grid": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "Warehouse reference grid",
+          "instanceId": "warehouse-grid",
+          "layerId": "foxglove.Grid",
+          "size": 24,
+          "divisions": 24,
+          "lineWidth": 1,
+          "color": "#314b66",
+          "position": [0, 0, 0],
+          "rotation": [0, 0, 0],
+          "order": 1
+        }
+      },
+      "imageMode": {},
+      "foxglovePanelTitle": "仓储空间与导航轨迹"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": { "speed": 1 },
+  "layout": {
+    "direction": "column",
+    "first": "大模型技术创新赛 · 比赛看板.大模型技术创新赛 · 比赛看板!mission-command",
+    "second": {
+      "direction": "row",
+      "first": {
+        "direction": "row",
+        "first": "Image!live-camera",
+        "second": "Image!detection-camera",
+        "splitPercentage": 49
+      },
+      "second": "3D!warehouse-scene",
+      "splitPercentage": 56
+    },
+    "splitPercentage": 48
+  }
+}
