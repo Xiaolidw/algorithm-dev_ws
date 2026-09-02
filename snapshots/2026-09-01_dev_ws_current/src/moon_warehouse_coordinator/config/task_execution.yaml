@@ -66,7 +66,7 @@ flow_execution:
   # 0.28~0.30 m 导航残差，但此时动态槽位 IK 仅 1.3 mm 残差且真实
   # 方块完整位于区域内。只对 B 区扩大“导航到机械臂”的接管门限；
   # A/C、动态 IK、区域边界真值检查和释放确认保持原精度。
-  dropoff_acceptance_by_destination: {B: 0.20}
+  dropoff_acceptance_by_destination: {B: 0.32}
   dropoff_yaw_tolerance_rad: 0.10
   # 最后一段不再交给会避开目标方块本身的全局规划器。先导航到沿夹取
   # 朝向后退 0.5m 的安全工位，再以低速直线闭环驶入最终停车点；这样
