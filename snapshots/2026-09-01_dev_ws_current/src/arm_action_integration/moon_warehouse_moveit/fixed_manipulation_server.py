@@ -1268,8 +1268,37 @@ class FixedManipulationServer(Node):
                     self.ATTACH_FAILED,
                     f'{object_id} held-slot correction exceeds safe arm reach '
                     f'({float(np.linalg.norm(target)):.3f}m).')
-            corrected_joints, residual = self._solve_grasp_center_ik(
-                target, joints)
+            # The arm can sit close to an elbow singularity over the second
+            # zone slot.  Solving only from the last command occasionally
+            # converges to a 5--8 cm local minimum even though the same bounded
+            # target is reachable from a neighbouring elbow/yaw branch.  Try a
+            # small deterministic set of vertical-gripper seeds and execute
+            # only the lowest-residual solution; the unchanged residual and
+            # Gazebo-truth release gates remain the safety authority.
+            seed_candidates = [('current', list(joints))]
+            for name, index, offset in (
+                ('yaw_left', 0, 0.35),
+                ('yaw_right', 0, -0.35),
+                ('elbow_left', 1, 0.25),
+                ('elbow_right', 1, -0.25),
+            ):
+                candidate = list(joints)
+                candidate[index] += offset
+                if index == 1:
+                    candidate[2] -= offset
+                seed_candidates.append((name, candidate))
+            solutions = []
+            for seed_name, seed in seed_candidates:
+                solution, solution_residual = self._solve_grasp_center_ik(
+                    target, seed)
+                solutions.append((solution_residual, seed_name, solution))
+            residual, selected_seed, corrected_joints = min(
+                solutions, key=lambda item: item[0])
+            self.get_logger().info(
+                f'{object_id} held-slot IK selected {selected_seed} seed: '
+                f'residual={residual:.4f}m; candidates=' + ', '.join(
+                    f'{name}:{candidate_residual:.4f}'
+                    for candidate_residual, name, _solution in solutions))
             # This is an intermediate, measured closed-loop correction rather
             # than the release gate.  A first solve can retain 3--4 cm error
             # when descending from the transport pose; execute that bounded
