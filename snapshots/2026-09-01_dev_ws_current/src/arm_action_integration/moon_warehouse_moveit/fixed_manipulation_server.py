@@ -1189,154 +1189,50 @@ class FixedManipulationServer(Node):
                 f'{self._attached_drift_tolerance:.6f}m.')
 
     async def _align_held_cube_to_selected_slot(self, object_id, seed_joints):
-        """Close the 3-D gap between model IK and the physically held cube.
+        """Verify the real held cube once, without oscillatory arm correction.
 
-        Dynamic place IK positions the gripper centre, while CubeCarryPlugin
-        preserves the measured cube-to-tool transform.  Before opening the
-        fingers, verify the *actual held cube* in the zone frame and use up to
-        four bounded, smooth arm corrections.  XY-only calibration can leave a
-        cube 10--15 cm above the visual-only zone floor, so the actual cube
-        centre must also reach the configured ground-contact height before the
-        fingers open.  This is deliberately a low-rate pre-release calibration,
-        never a service-based carry loop.
+        A failed place is retried by the mission layer after returning the arm
+        home.  Gazebo evidence showed that repeatedly adding measured cube
+        error to the gripper-centre IK target can invert the vertical response
+        and make the held cube bounce between roughly 9 and 19 cm.  Keep the
+        strict physical release window, but fail this attempt immediately when
+        the first settled pose is outside it.  The existing bounded retry then
+        approaches the same slot afresh instead of shaking above the zone.
         """
         active = self._active_placement
         if active is None:
             return seed_joints
         zone = active['zone']
         slot_x, slot_y = active['slot']
-        reference = f'{self._robot_model}::{self._arm_ik_reference_link}'
-        target = np.asarray(active['target'], dtype=float).copy()
-        joints = list(seed_joints)
-
-        correction_count = 4
-        max_correction_step = 0.055
-        for correction_index in range(correction_count):
-            cube_in_zone = await self._get_entity_pose(object_id, zone)
-            if cube_in_zone is None:
-                raise ManipulationError(
-                    self.ATTACH_FAILED,
-                    f'Cannot measure held {object_id} relative to {zone}.')
-            error_x = slot_x - float(cube_in_zone.position.x)
-            error_y = slot_y - float(cube_in_zone.position.y)
-            error_z = (
-                self._placement_drop_height
-                - float(cube_in_zone.position.z)
-            )
-            planar_error = math.hypot(error_x, error_y)
-            self.get_logger().info(
-                f'{object_id} held-slot alignment '
-                f'{correction_index}/{correction_count}: '
-                f'actual=({cube_in_zone.position.x:.3f},'
-                f'{cube_in_zone.position.y:.3f},'
-                f'{cube_in_zone.position.z:.3f}), '
-                f'target=({slot_x:.3f},{slot_y:.3f},'
-                f'{self._placement_drop_height:.3f}), '
-                f'planar_error={planar_error:.4f}m, '
-                f'vertical_error={abs(error_z):.4f}m.')
-            if (
-                planar_error <= self._placement_slot_correction_limit
-                and abs(error_z) <= 0.012
-            ):
-                return joints
-
-            zone_in_base = await self._get_entity_pose(zone, reference)
-            if zone_in_base is None:
-                raise ManipulationError(
-                    self.ATTACH_FAILED,
-                    f'Cannot express {zone} correction in {reference}.')
-            q = zone_in_base.orientation
-            correction_x, correction_y, correction_z = (
-                self._rotate_by_quaternion(
-                    (q.x, q.y, q.z, q.w),
-                    (error_x, error_y, error_z),
-                )
-            )
-            correction = np.asarray(
-                (correction_x, correction_y, correction_z), dtype=float)
-            correction_length = float(np.linalg.norm(correction))
-            if correction_length > max_correction_step:
-                correction *= max_correction_step / correction_length
-                self.get_logger().info(
-                    f'{object_id} held-slot correction split into a bounded '
-                    f'{max_correction_step:.3f}m step (remaining measured '
-                    f'3-D error={correction_length:.4f}m).')
-            target += correction
-            if (float(np.linalg.norm(target))
-                    > self._dynamic_place_max_target_distance):
-                raise ManipulationError(
-                    self.ATTACH_FAILED,
-                    f'{object_id} held-slot correction exceeds safe arm reach '
-                    f'({float(np.linalg.norm(target)):.3f}m).')
-            # The arm can sit close to an elbow singularity over the second
-            # zone slot.  Solving only from the last command occasionally
-            # converges to a 5--8 cm local minimum even though the same bounded
-            # target is reachable from a neighbouring elbow/yaw branch.  Try a
-            # small deterministic set of vertical-gripper seeds and execute
-            # only the lowest-residual solution; the unchanged residual and
-            # Gazebo-truth release gates remain the safety authority.
-            seed_candidates = [('current', list(joints))]
-            for name, index, offset in (
-                ('yaw_left', 0, 0.35),
-                ('yaw_right', 0, -0.35),
-                ('elbow_left', 1, 0.25),
-                ('elbow_right', 1, -0.25),
-            ):
-                candidate = list(joints)
-                candidate[index] += offset
-                if index == 1:
-                    candidate[2] -= offset
-                seed_candidates.append((name, candidate))
-            solutions = []
-            for seed_name, seed in seed_candidates:
-                solution, solution_residual = self._solve_grasp_center_ik(
-                    target, seed)
-                solutions.append((solution_residual, seed_name, solution))
-            residual, selected_seed, corrected_joints = min(
-                solutions, key=lambda item: item[0])
-            self.get_logger().info(
-                f'{object_id} held-slot IK selected {selected_seed} seed: '
-                f'residual={residual:.4f}m; candidates=' + ', '.join(
-                    f'{name}:{candidate_residual:.4f}'
-                    for candidate_residual, name, _solution in solutions))
-            # This is an intermediate, measured closed-loop correction rather
-            # than the release gate.  A first solve can retain 3--4 cm error
-            # when descending from the transport pose; execute that bounded
-            # approximation, remeasure the real cube, and refine once more.
-            # The strict final planar/vertical truth window below still
-            # prevents opening the fingers unless the physical cube is seated.
-            if residual > 0.045:
-                raise ManipulationError(
-                    self.ATTACH_FAILED,
-                    f'{object_id} held-slot correction IK residual '
-                    f'{residual:.4f}m is unsafe.')
-            await self._send_trajectory(
-                self._arm_client, self._arm_joints, corrected_joints,
-                self._arm_duration, self.ARM_FAILED,
-                'align held cube to selected placement slot')
-            joints = corrected_joints
-
         cube_in_zone = await self._get_entity_pose(object_id, zone)
         if cube_in_zone is None:
-            raise ManipulationError(
-                self.ATTACH_FAILED,
-                f'Cannot verify final held {object_id} alignment in {zone}.')
-        final_planar_error = math.hypot(
+            raise ManipulationError(self.ATTACH_FAILED,
+                                    f'Cannot measure held {object_id} in {zone}.')
+        planar_error = math.hypot(
             slot_x - float(cube_in_zone.position.x),
             slot_y - float(cube_in_zone.position.y))
-        final_vertical_error = abs(
+        vertical_error = abs(
             self._placement_drop_height - float(cube_in_zone.position.z))
+        self.get_logger().info(
+            f'{object_id} single-pass held-slot verification: '
+            f'actual=({cube_in_zone.position.x:.3f},'
+            f'{cube_in_zone.position.y:.3f},'
+            f'{cube_in_zone.position.z:.3f}), '
+            f'target=({slot_x:.3f},{slot_y:.3f},'
+            f'{self._placement_drop_height:.3f}), '
+            f'planar_error={planar_error:.4f}m, '
+            f'vertical_error={vertical_error:.4f}m.')
         if (
-            final_planar_error > self._placement_slot_correction_limit
-            or final_vertical_error > 0.012
+            planar_error > self._placement_slot_correction_limit
+            or vertical_error > 0.012
         ):
             raise ManipulationError(
                 self.ATTACH_FAILED,
-                f'{object_id} remains outside the selected {zone} release '
-                f'window while held: planar_error={final_planar_error:.4f}m, '
-                f'vertical_error={final_vertical_error:.4f}m; refusing an '
-                'out-of-zone or suspended release.')
-        return joints
+                f'{object_id} is outside the selected {zone} release window '
+                f'after one settled place motion: planar_error={planar_error:.4f}m, '
+                f'vertical_error={vertical_error:.4f}m; refusing release and '
+                'requesting a fresh task-level place attempt.')
+        return seed_joints
 
     async def _validate_release_settle(self, object_id, zone_world):
         """Accept a place only after a released cube is grounded and quiet.
