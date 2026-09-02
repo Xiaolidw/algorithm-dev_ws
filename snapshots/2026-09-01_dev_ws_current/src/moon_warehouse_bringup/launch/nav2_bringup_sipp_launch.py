@@ -187,16 +187,12 @@ def generate_launch_description():
                               'container_name': 'nav2_container'}.items()),
 
         map_server_node,
-        # Direct lifecycle-service bootstrap.  It deliberately avoids the
-        # ros2 CLI daemon, whose stale XML-RPC state previously left the map
-        # server unconfigured and made every known wall disappear.
-        Node(
-            package='moon_warehouse_bringup',
-            executable='map_server_bootstrap.py',
-            name='map_server_bootstrap',
-            output='screen',
-            parameters=[{'use_sim_time': use_sim_time}],
-        ),
+        # This manager was previously constructed above but never added to
+        # the launch graph, leaving map activation to a best-effort bootstrap
+        # client.  Under Fast DDS load that client can remain unable to see
+        # the lifecycle response forever while navigation itself is active.
+        # Use Nav2's standard lifecycle manager as the authoritative owner.
+        localization_manager,
     ])
 
     # Create the launch description and populate
