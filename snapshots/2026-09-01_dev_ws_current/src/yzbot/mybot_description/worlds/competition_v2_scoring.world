@@ -4139,21 +4139,18 @@
         <speed>0.20</speed>
         <force>3.0</force>
         <pose_publish_rate>10.0</pose_publish_rate>
-        <!-- SIPP normally stops the robot before this radius.  If prediction
-             or timing is missed, the physical obstacle yields as a final
-             independent guard and resumes only after clear hysteresis. -->
-        <!-- Keep moving away in one latched direction while the robot crosses
-             the rail; reverse only after the robot reaches the opposite side. -->
-        <stop_distance>1.15</stop_distance>
+        <!-- This obstacle is part of the challenge, not a cooperative actor.
+             It must never stop, retreat or reverse in response to the robot;
+             SIPP/Nav2 and Collision Monitor are responsible for robot-side
+             avoidance.  A zero stop radius disables every robot-yield branch. -->
+        <stop_distance>0.0</stop_distance>
         <resume_distance>1.45</resume_distance>
         <emergency_stop_distance>0.78</emergency_stop_distance>
         <yield_retreat_speed>0.12</yield_retreat_speed>
         <yield_clear_hold_sec>0.5</yield_clear_hold_sec>
-        <yield_pass_lock_enabled>true</yield_pass_lock_enabled>
+        <yield_pass_lock_enabled>false</yield_pass_lock_enabled>
         <yield_pass_margin>0.35</yield_pass_margin>
-        <!-- Keep every motion on the specified y=3.0 patrol line.  The
-             direction latch still prevents premature reversal; it may not
-             step sideways at an endpoint. -->
+        <!-- Keep every motion on the specified y=3.0 patrol line. -->
         <yield_lateral_clearance>0.0</yield_lateral_clearance>
         <route_restore_gain>2.5</route_restore_gain>
         <route_restore_speed>0.22</route_restore_speed>
