@@ -158,13 +158,6 @@ flow_execution:
     # frozen x=[-3,2], y=3 rail and lines up with the red_cube_2/3 gap.
     red_cube_2:
       - {x: -5.08, y: 2.70, yaw: 1.5708}
-    # After blue_cube_1 is placed, the chassis starts in B's tight bay just
-    # east of the real x=-3.3 wall corner.  Sending the distant blue_cube_2
-    # goal directly pulls MPPI northwest into that corner.  First use the
-    # surveyed open floor to the east; the ordinary transit proximity handoff
-    # then continues to pickup_pre once physical cube clearance exceeds 0.70m.
-    blue_cube_2:
-      - {x: -1.80, y: -4.40, yaw: 0.0}
 
   # 红1西侧路线已实跑通过。红2～红5运输时先沿截图所示斜线驶向
   # 方块列西南侧的自由中间点，再去A区，避免全局规划把载物底盘

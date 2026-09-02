@@ -80,21 +80,6 @@ class MissionFlowExecutorNode(Node):
         self.navigation_motion_progress_m = float(
             self.config.get('navigation_motion_progress_m', 0.15)
         )
-        self.pickup_rail_gate_enabled = bool(
-            self.config.get('pickup_rail_gate_enabled', True)
-        )
-        self.pickup_rail_gate_release_x = float(
-            self.config.get('pickup_rail_gate_release_x', -1.80)
-        )
-        self.pickup_rail_gate_min_east_velocity = float(
-            self.config.get('pickup_rail_gate_min_east_velocity', 0.05)
-        )
-        self.pickup_rail_gate_observation_stale_sec = float(
-            self.config.get('pickup_rail_gate_observation_stale_sec', 2.0)
-        )
-        self.pickup_rail_gate_timeout_sec = float(
-            self.config.get('pickup_rail_gate_timeout_sec', 60.0)
-        )
         self.max_navigation_retries = int(
             self.config.get('max_navigation_retries', 1)
         )
@@ -343,15 +328,9 @@ class MissionFlowExecutorNode(Node):
         from gazebo_msgs.msg import ModelStates
         self.cube_world_z = {}
         self.cube_world_xy = {}
-        self.obstacle1_x = None
-        self.obstacle1_vx = None
-        self.obstacle1_observed_monotonic = None
         self.create_subscription(
             ModelStates, '/gazebo/model_states',
             self.model_states_callback, 10)
-        self.rail_gate_timer = self.create_timer(
-            0.20, self.rail_gate_tick,
-            callback_group=self.callback_group)
         self.manipulation_watch_timer = self.create_timer(
             1.0, self.manipulation_watch_tick,
             callback_group=self.callback_group)
@@ -516,48 +495,11 @@ class MissionFlowExecutorNode(Node):
         self.mission_start_last_request = time.monotonic()
 
     def model_states_callback(self, message):
-        for name, pose, twist in zip(
-                message.name, message.pose, message.twist):
+        for name, pose in zip(message.name, message.pose):
             if name.startswith(('red_cube_', 'blue_cube_')):
                 self.cube_world_z[name] = float(pose.position.z)
                 self.cube_world_xy[name] = (
                     float(pose.position.x), float(pose.position.y))
-            elif name == 'moving_obstacle_1':
-                self.obstacle1_x = float(pose.position.x)
-                self.obstacle1_vx = float(twist.linear.x)
-                self.obstacle1_observed_monotonic = time.monotonic()
-
-    def rail_gate_is_open(self):
-        """Return true only in the surveyed task-1 rail crossing window."""
-        if not self.pickup_rail_gate_enabled:
-            return True
-        if (self.obstacle1_x is None or self.obstacle1_vx is None
-                or self.obstacle1_observed_monotonic is None):
-            return False
-        if (time.monotonic() - self.obstacle1_observed_monotonic
-                > self.pickup_rail_gate_observation_stale_sec):
-            return False
-        return (
-            self.obstacle1_vx >= self.pickup_rail_gate_min_east_velocity
-            and self.obstacle1_x <= self.pickup_rail_gate_release_x)
-
-    def rail_gate_tick(self):
-        if (not self.active or self.state != 'WAITING_RAIL_WINDOW'
-                or not (0 <= self.current_task_index < len(self.tasks))):
-            return
-        task = self.tasks[self.current_task_index]
-        if task.get('object_id') != 'red_cube_1':
-            self.fail('Rail-window gate attached to an unexpected task')
-            return
-        if not self.rail_gate_is_open():
-            return
-        task['pickup_rail_gate_done'] = True
-        self.get_logger().info(
-            f'Rail crossing window opened: moving_obstacle_1 '
-            f'x={self.obstacle1_x:.2f}, vx={self.obstacle1_vx:.2f}; '
-            'starting task 1 pickup navigation without changing obstacle '
-            'behavior.')
-        self.start_current_pickup()
 
     def manipulation_watch_tick(self):
         """抓取/放置结果超时探测: 主动查真值恢复流程推进。"""
@@ -915,34 +857,10 @@ class MissionFlowExecutorNode(Node):
     def start_current_pickup(self):
         task = self.tasks[self.current_task_index]
         task['execution_status'] = 'NAVIGATING_TO_PICKUP'
-        if (task['object_id'] == 'red_cube_1'
-                and not task.get('pickup_rail_gate_done', False)
-                and not self.rail_gate_is_open()):
-            self.stop_base()
-            observed = (
-                'unavailable' if self.obstacle1_x is None
-                else f'x={self.obstacle1_x:.2f}, vx={self.obstacle1_vx:.2f}')
-            self.set_state(
-                'WAITING_RAIL_WINDOW',
-                'Waiting for moving_obstacle_1 to leave the west crossing '
-                f'window ({observed})',
-                timeout_sec=self.pickup_rail_gate_timeout_sec,
-            )
-            return
-        if task['object_id'] == 'red_cube_1':
-            task['pickup_rail_gate_done'] = True
         transit = self.pickup_transits.get(task['object_id'])
         if transit is not None and not task.get('pickup_transit_done', False):
-            if isinstance(transit, list):
-                stage_index = int(task.get('pickup_transit_stage_index', 0))
-                if stage_index < len(transit):
-                    self.send_leg('PICKUP_TRANSIT', transit[stage_index],
-                                  attempt=1)
-                    return
-                task['pickup_transit_done'] = True
-            else:
-                self.send_leg('PICKUP_TRANSIT', transit, attempt=1)
-                return
+            self.send_leg('PICKUP_TRANSIT', transit, attempt=1)
+            return
         pre_approach = self.object_preapproaches.get(task['object_id'])
         if pre_approach is not None:
             # 两段式取件：先到同航向的预接近点，最后一段直行对准驶入，
@@ -1029,8 +947,7 @@ class MissionFlowExecutorNode(Node):
 
         state = (
             'NAVIGATING_PICKUP'
-            if phase in ('PICKUP_TRANSIT', 'PICKUP', 'PICKUP_PRE',
-                         'PICKUP_DOCK_STAGE')
+            if phase in ('PICKUP', 'PICKUP_PRE', 'PICKUP_DOCK_STAGE')
             else 'NAVIGATING_DROPOFF'
         )
         task = self.tasks[self.current_task_index]
@@ -1060,7 +977,6 @@ class MissionFlowExecutorNode(Node):
         # seen_current_navigation and turning an intentional handoff into a
         # recovery retry.
         if self.current_phase in ('PICKUP_TRANSIT_HANDOFF',
-                                  'DROPOFF_TRANSIT_HANDOFF',
                                   'PICKUP_PRE_HANDOFF',
                                   'PICKUP_DOCK_STAGE_HANDOFF'):
             return
@@ -1091,8 +1007,7 @@ class MissionFlowExecutorNode(Node):
             if (active
                     and goal_active_age >= 1.5
                     and self.current_phase in (
-                        'PICKUP_TRANSIT', 'PICKUP_PRE', 'PICKUP',
-                        'DROPOFF_TRANSIT', 'DROPOFF')):
+                        'PICKUP_PRE', 'PICKUP', 'DROPOFF')):
                 feedback = status.get('feedback', {})
                 try:
                     remaining = float(
@@ -1107,11 +1022,6 @@ class MissionFlowExecutorNode(Node):
                         and position_error
                         <= self.pickup_transit_acceptance_m):
                     self.handoff_pickup_transit_proximity(position_error)
-                    return
-                if (self.current_phase == 'DROPOFF_TRANSIT'
-                        and position_error
-                        <= self.pickup_transit_acceptance_m):
-                    self.handoff_dropoff_transit_proximity(position_error)
                     return
                 if (self.current_phase == 'PICKUP_PRE'
                         and position_error <= self.preapproach_acceptance_m):
@@ -1259,33 +1169,6 @@ class MissionFlowExecutorNode(Node):
         elif result in self.FAILURE_RESULTS:
             self.finish_leg_failure(result)
 
-    def advance_pickup_transit(self, record):
-        """Record one staging waypoint and dispatch the next safe segment."""
-        task = self.tasks[self.current_task_index]
-        transit = self.pickup_transits.get(task['object_id'])
-        if isinstance(transit, list):
-            history = task.setdefault('pickup_transit_navigation', [])
-            history.append(record)
-            next_index = int(task.get('pickup_transit_stage_index', 0)) + 1
-            task['pickup_transit_stage_index'] = next_index
-            if next_index < len(transit):
-                self.set_state(
-                    'NAVIGATING_PICKUP',
-                    f'Pickup transit stage {next_index}/{len(transit)} '
-                    f'cleared for {task["object_id"]}; continuing bypass',
-                )
-                self.start_current_pickup()
-                return
-        else:
-            task['pickup_transit_navigation'] = record
-        task['pickup_transit_done'] = True
-        self.set_state(
-            'NAVIGATING_PICKUP',
-            f'Pickup transit cleared for {task["object_id"]}; '
-            'continuing to pre-approach',
-        )
-        self.start_current_pickup()
-
     def handoff_pickup_transit_proximity(self, position_error):
         """Accept a safely reached transit waypoint without terminal yaw.
 
@@ -1307,6 +1190,8 @@ class MissionFlowExecutorNode(Node):
         record = self.make_leg_record('SUCCEEDED_PROXIMITY')
         self.leg_history.append(record)
         task = self.tasks[self.current_task_index]
+        task['pickup_transit_navigation'] = record
+        task['pickup_transit_done'] = True
         self.seen_current_navigation = False
         self.current_phase = 'PICKUP_TRANSIT_HANDOFF'
         self.set_state(
@@ -1320,60 +1205,11 @@ class MissionFlowExecutorNode(Node):
         def start_preapproach():
             self.cancel_retry_timer()
             if self.active:
-                self.advance_pickup_transit(record)
+                self.start_current_pickup()
 
         self.retry_timer = self.create_timer(
             1.0,
             start_preapproach,
-            callback_group=self.callback_group,
-        )
-        return True
-
-    def handoff_dropoff_transit_proximity(self, position_error):
-        """Accept a cargo transit waypoint without terminal-yaw refinement.
-
-        Like a pickup transit, this waypoint exists only to clear a constrained
-        aisle.  Requiring its decorative terminal yaw left the loaded chassis
-        within 12--13 cm of the point until the progress watchdog fired, even
-        though the following zone leg was already safe to dispatch.
-        """
-        if (not self.active or self.current_phase != 'DROPOFF_TRANSIT'
-                or self.state not in self.NAVIGATION_STATES):
-            return False
-        self.get_logger().info(
-            f'Dropoff transit accepted at {position_error:.3f} m; '
-            'cancelling terminal-yaw refinement before the zone leg.')
-        if self.navigation_cancel_client.service_is_ready():
-            self.navigation_cancel_client.call_async(Trigger.Request())
-        record = self.make_leg_record('SUCCEEDED_PROXIMITY')
-        self.leg_history.append(record)
-        task = self.tasks[self.current_task_index]
-        self.seen_current_navigation = False
-        self.current_phase = 'DROPOFF_TRANSIT_HANDOFF'
-        self.set_state(
-            'NAVIGATING_DROPOFF',
-            f'Dropoff transit safely reached for {task["object_id"]}; '
-            'waiting for navigation cancel handoff',
-            timeout_sec=4.0,
-        )
-        self.cancel_retry_timer()
-
-        def start_zone_leg():
-            self.cancel_retry_timer()
-            if not self.active:
-                return
-            task['dropoff_transit_navigation'] = record
-            task['dropoff_transit_done'] = True
-            self.set_state(
-                'NAVIGATING_DROPOFF',
-                f'Diagonal transit cleared for {task["object_id"]}; '
-                f'continuing to zone {task["destination"]}',
-            )
-            self.start_current_dropoff()
-
-        self.retry_timer = self.create_timer(
-            1.0,
-            start_zone_leg,
             callback_group=self.callback_group,
         )
         return True
@@ -1494,7 +1330,14 @@ class MissionFlowExecutorNode(Node):
         self.leg_history.append(record)
         task = self.tasks[self.current_task_index]
         if self.current_phase == 'PICKUP_TRANSIT':
-            self.advance_pickup_transit(record)
+            task['pickup_transit_navigation'] = record
+            task['pickup_transit_done'] = True
+            self.set_state(
+                'NAVIGATING_PICKUP',
+                f'Pickup transit cleared for {task["object_id"]}; '
+                'continuing to pre-approach',
+            )
+            self.start_current_pickup()
             return
         if self.current_phase == 'DROPOFF_TRANSIT':
             task['dropoff_transit_navigation'] = record
@@ -2087,16 +1930,6 @@ class MissionFlowExecutorNode(Node):
         task[field] = dict(record)
         if not result.success:
             task['execution_status'] = f'{operation.upper()}_FAILED'
-            # Error 8 means the gripper has already opened and Gazebo owns
-            # the released cube.  A second place action would recapture an
-            # object that is no longer held and can launch it across the map.
-            # Preserve the physical truth and fail explicitly instead.
-            if operation == 'place' and int(result.error_code) == 8:
-                self.fail(
-                    f'physical release failed for {task["object_id"]}; '
-                    f'refusing unsafe place retry: {result.message}'
-                )
-                return
             attempts_field = f'{operation}_attempts'
             attempt = int(task.get(attempts_field, 0)) + 1
             task[attempts_field] = attempt
@@ -2202,33 +2035,46 @@ class MissionFlowExecutorNode(Node):
                 'post-place obstacle-map clearance')
             self.finish_post_place_departure(travelled)
             return
-        destination = str(task.get('destination', '')).upper()
-        if destination == 'B':
-            # B is a tight terminal bay: the west wall is immediately behind
-            # the east-facing placement pose, while the released cube is in
-            # front of the chassis.  A blind reverse or in-place turn is
-            # therefore correctly held by Collision Monitor.  Commit the
-            # physically verified placement and let the next Nav2 leg choose a
-            # map-aware exit.  CubeObstacleMapNode keeps this just-placed cube
-            # excluded until Gazebo truth proves 0.70 m base clearance, and the
-            # independent safety scan remains active throughout the handoff.
-            self.publish_zero_velocity()
-            self.get_logger().info(
-                'B-zone placement settled; deferring tight-bay egress to the '
-                'next map-aware Nav2 leg while the placed cube remains '
-                'temporarily excluded')
-            self.finish_post_place_departure(travelled)
-            return
         if travelled >= self.post_place_departure_m:
             self.publish_zero_velocity()
             self.finish_post_place_departure(travelled)
             return
-        departure_timeout = 7.0 + self.post_place_clearance_settle_sec
+        destination = str(task.get('destination', '')).upper()
+        b_zone_egress = (
+            destination == 'B'
+            and self.current_task_index != len(self.tasks) - 1
+        )
+        departure_timeout = (
+            8.0 + self.post_place_clearance_settle_sec
+            if b_zone_egress
+            else 7.0 + self.post_place_clearance_settle_sec
+        )
         if elapsed > departure_timeout:
             self.publish_zero_velocity()
             self.fail(
                 'Post-place departure was collision-held; refusing to '
                 'restore the nearby cube to the obstacle map')
+            return
+        if b_zone_egress:
+            # B's west wall is immediately behind the east-facing placement
+            # pose.  The generic reverse exit therefore drives into that
+            # real wall and Collision Monitor correctly holds the chassis.
+            # Turn south in place and leave through the open side instead;
+            # this stays within the existing velocity safety chain and keeps
+            # the placed cube excluded until physical clearance is proven.
+            if self.latest_base_yaw is None:
+                self.publish_zero_velocity()
+                return
+            south_heading = -math.pi / 2.0
+            yaw_error = self.signed_angle_error(
+                south_heading, self.latest_base_yaw)
+            command = Twist()
+            if abs(yaw_error) > 0.10:
+                command.angular.z = max(-0.60, min(0.60, yaw_error))
+                self.precision_velocity_publisher.publish(command)
+                return
+            command.linear.x = abs(self.post_place_reverse_speed_mps)
+            self.precision_velocity_publisher.publish(command)
             return
         command = Twist()
         command.linear.x = -abs(self.post_place_reverse_speed_mps)

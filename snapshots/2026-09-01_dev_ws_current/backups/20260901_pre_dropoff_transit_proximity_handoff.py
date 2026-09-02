@@ -1060,7 +1060,6 @@ class MissionFlowExecutorNode(Node):
         # seen_current_navigation and turning an intentional handoff into a
         # recovery retry.
         if self.current_phase in ('PICKUP_TRANSIT_HANDOFF',
-                                  'DROPOFF_TRANSIT_HANDOFF',
                                   'PICKUP_PRE_HANDOFF',
                                   'PICKUP_DOCK_STAGE_HANDOFF'):
             return
@@ -1091,8 +1090,7 @@ class MissionFlowExecutorNode(Node):
             if (active
                     and goal_active_age >= 1.5
                     and self.current_phase in (
-                        'PICKUP_TRANSIT', 'PICKUP_PRE', 'PICKUP',
-                        'DROPOFF_TRANSIT', 'DROPOFF')):
+                        'PICKUP_TRANSIT', 'PICKUP_PRE', 'PICKUP', 'DROPOFF')):
                 feedback = status.get('feedback', {})
                 try:
                     remaining = float(
@@ -1107,11 +1105,6 @@ class MissionFlowExecutorNode(Node):
                         and position_error
                         <= self.pickup_transit_acceptance_m):
                     self.handoff_pickup_transit_proximity(position_error)
-                    return
-                if (self.current_phase == 'DROPOFF_TRANSIT'
-                        and position_error
-                        <= self.pickup_transit_acceptance_m):
-                    self.handoff_dropoff_transit_proximity(position_error)
                     return
                 if (self.current_phase == 'PICKUP_PRE'
                         and position_error <= self.preapproach_acceptance_m):
@@ -1325,55 +1318,6 @@ class MissionFlowExecutorNode(Node):
         self.retry_timer = self.create_timer(
             1.0,
             start_preapproach,
-            callback_group=self.callback_group,
-        )
-        return True
-
-    def handoff_dropoff_transit_proximity(self, position_error):
-        """Accept a cargo transit waypoint without terminal-yaw refinement.
-
-        Like a pickup transit, this waypoint exists only to clear a constrained
-        aisle.  Requiring its decorative terminal yaw left the loaded chassis
-        within 12--13 cm of the point until the progress watchdog fired, even
-        though the following zone leg was already safe to dispatch.
-        """
-        if (not self.active or self.current_phase != 'DROPOFF_TRANSIT'
-                or self.state not in self.NAVIGATION_STATES):
-            return False
-        self.get_logger().info(
-            f'Dropoff transit accepted at {position_error:.3f} m; '
-            'cancelling terminal-yaw refinement before the zone leg.')
-        if self.navigation_cancel_client.service_is_ready():
-            self.navigation_cancel_client.call_async(Trigger.Request())
-        record = self.make_leg_record('SUCCEEDED_PROXIMITY')
-        self.leg_history.append(record)
-        task = self.tasks[self.current_task_index]
-        self.seen_current_navigation = False
-        self.current_phase = 'DROPOFF_TRANSIT_HANDOFF'
-        self.set_state(
-            'NAVIGATING_DROPOFF',
-            f'Dropoff transit safely reached for {task["object_id"]}; '
-            'waiting for navigation cancel handoff',
-            timeout_sec=4.0,
-        )
-        self.cancel_retry_timer()
-
-        def start_zone_leg():
-            self.cancel_retry_timer()
-            if not self.active:
-                return
-            task['dropoff_transit_navigation'] = record
-            task['dropoff_transit_done'] = True
-            self.set_state(
-                'NAVIGATING_DROPOFF',
-                f'Diagonal transit cleared for {task["object_id"]}; '
-                f'continuing to zone {task["destination"]}',
-            )
-            self.start_current_dropoff()
-
-        self.retry_timer = self.create_timer(
-            1.0,
-            start_zone_leg,
             callback_group=self.callback_group,
         )
         return True

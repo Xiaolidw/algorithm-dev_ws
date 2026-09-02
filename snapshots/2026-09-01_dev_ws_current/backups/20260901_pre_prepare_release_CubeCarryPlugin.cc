@@ -50,42 +50,21 @@ public:
       "/manipulation/carry_set", qos,
       [this](const std_msgs::msg::String::SharedPtr msg) {
         const std::string & data = msg->data;
-        if (data.rfind("prepare_release:", 0) == 0) {
-          const std::string cube_name = data.substr(16);
-          if (cube_name == carried_) {
-            auto cube = world_->ModelByName(cube_name);
-            if (cube) {
-              prepared_release_cube_ = cube_name;
-              prepared_release_pose_ = cube->WorldPose();
-              PublishStatus("prepared:" + cube_name);
-              gzmsg << "[cube_carry] prepared physical release for "
-                    << cube_name << " at ("
-                    << prepared_release_pose_.Pos().X() << ","
-                    << prepared_release_pose_.Pos().Y() << ","
-                    << prepared_release_pose_.Pos().Z() << ")\n";
-            }
-          }
-          return;
-        }
         if (data == "release") {
           if (!carried_.empty()) {
             auto cube = world_->ModelByName(carried_);
             if (cube) {
-              // The manipulation server latches the physically aligned pose
-              // before opening the fingers.  Use that verified pose rather
-              // than re-sampling after gripper contact may have shifted the
-              // light cube.  This remains a bounded physics-only settling
-              // guard: it is not a ROS service follower and never substitutes
-              // a nominal slot coordinate for Gazebo truth.
+              // The gripper is already open.  Keep the measured ground-contact
+              // pose for a short physics-only settling window so the first
+              // contact iteration cannot eject the 5 g cube from between the
+              // retreating fingers.  This is not a ROS service follower and
+              // never changes the selected XY landing point.
               release_guard_cube_ = carried_;
-              release_guard_pose_ = (
-                prepared_release_cube_ == carried_ ?
-                prepared_release_pose_ : cube->WorldPose());
+              release_guard_pose_ = cube->WorldPose();
               release_guard_until_ =
                 world_->SimTime() + gazebo::common::Time(0, 350000000);
             }
           }
-          prepared_release_cube_.clear();
           carried_.clear();
           mode_ = CarryMode::kNone;
           PublishStatus("none");
@@ -244,7 +223,6 @@ private:
     }
     carried_ = cube_name;
     release_guard_cube_.clear();
-    prepared_release_cube_.clear();
     mode_ = mode;
     // Keep normal Gazebo dynamics. The physical-loop SetWorldPose below is
     // the only carrier; altering the model's static/collision/gravity flags
@@ -305,8 +283,6 @@ private:
   std::string release_guard_cube_;
   ignition::math::Pose3d release_guard_pose_;
   gazebo::common::Time release_guard_until_;
-  std::string prepared_release_cube_;
-  ignition::math::Pose3d prepared_release_pose_;
 };
 
 GZ_REGISTER_WORLD_PLUGIN(CubeCarryPlugin)

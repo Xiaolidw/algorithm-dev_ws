@@ -1247,13 +1247,7 @@ class FixedManipulationServer(Node):
                     f'({float(np.linalg.norm(target)):.3f}m).')
             corrected_joints, residual = self._solve_grasp_center_ik(
                 target, joints)
-            # This is an intermediate, measured closed-loop correction rather
-            # than the release gate.  A first solve can retain 3--4 cm error
-            # when descending from the transport pose; execute that bounded
-            # approximation, remeasure the real cube, and refine once more.
-            # The strict final planar/vertical truth window below still
-            # prevents opening the fingers unless the physical cube is seated.
-            if residual > 0.045:
+            if residual > 0.012:
                 raise ManipulationError(
                     self.ATTACH_FAILED,
                     f'{object_id} held-slot correction IK residual '

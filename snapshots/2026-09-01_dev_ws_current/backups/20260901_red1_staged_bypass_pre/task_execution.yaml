@@ -14,15 +14,6 @@ flow_execution:
   # The 90s window still permits a deliberate dynamic-obstacle detour.
   navigation_stall_timeout_sec: 45.0
   navigation_motion_progress_m: 0.15
-  # Task 1 crosses obstacle 1's frozen y=3 rail.  Start only after the
-  # obstacle has turned at the west endpoint and is moving east, so its
-  # direction-latched yield cannot retreat into the robot's crossing path.
-  # This is observation-driven and does not alter the obstacle itself.
-  pickup_rail_gate_enabled: true
-  pickup_rail_gate_release_x: -1.80
-  pickup_rail_gate_min_east_velocity: 0.05
-  pickup_rail_gate_observation_stale_sec: 2.0
-  pickup_rail_gate_timeout_sec: 60.0
   manipulation_timeout_sec: 45.0
   # Five physical pick/place cycles exceed the old 295 s demo limit even
   # when every navigation leg succeeds. Keep per-leg timeouts strict while
@@ -147,24 +138,13 @@ flow_execution:
     blue_cube_4: {x: -0.93, y: 1.70, yaw: 3.1416}
     blue_cube_5: {x: 1.27, y: 1.70, yaw: 3.1416}
 
-  # Task 1 enters the upper circulation area directly.  Do not reintroduce a
-  # lower-aisle transit here: its former endpoint was constrained by the real
-  # y=0.90 wall and the blue-cube row, so it cannot serve as a safe bypass.
+  # Task 1 first uses the lower aisle, beneath the fixed y=3.0 obstacle rail.
+  # At y=2.70 the robot can enter the rail's 0.78m emergency-stop envelope;
+  # y=1.10 clears the blue-cube row by 0.60m while remaining above the real
+  # lower wall at y=0.90,
+  # then reaches x=-5.35 safely west of the rail before turning north.
   pickup_transits:
-    # Use the surveyed centre aisle between the blue (y=1.7) and red
-    # (y=3.9) rows.  The former x=-9.40/y=1.10 endpoint sat in the left-wall
-    # and blue_cube_1 inflation pinch, while y=4.70 was inside the real top
-    # wall's inflated cost field.  This point stays west of obstacle 1's
-    # frozen x=[-3,2], y=3 rail and lines up with the red_cube_2/3 gap.
-    red_cube_2:
-      - {x: -5.08, y: 2.70, yaw: 1.5708}
-    # After blue_cube_1 is placed, the chassis starts in B's tight bay just
-    # east of the real x=-3.3 wall corner.  Sending the distant blue_cube_2
-    # goal directly pulls MPPI northwest into that corner.  First use the
-    # surveyed open floor to the east; the ordinary transit proximity handoff
-    # then continues to pickup_pre once physical cube clearance exceeds 0.70m.
-    blue_cube_2:
-      - {x: -1.80, y: -4.40, yaw: 0.0}
+    red_cube_1: {x: -5.35, y: 1.10, yaw: 3.1416}
 
   # 红1西侧路线已实跑通过。红2～红5运输时先沿截图所示斜线驶向
   # 方块列西南侧的自由中间点，再去A区，避免全局规划把载物底盘
@@ -184,7 +164,7 @@ flow_execution:
     # A-zone centre is (-7.0,-3.0).  Approach from the north and face south:
     # this keeps the base 0.74 m clear of Wall_107 while retaining a reachable
     # 0.55 m forward / 0.06 m lateral placement target for the arm.
-    A: {x: -7.06, y: -2.50, yaw: -1.5708}
+    A: {x: -7.06, y: -2.45, yaw: -1.5708}
     # Wall_75 位于 B 区西侧 x=-3.26216。原始 x=-3.04 会让底盘后缘
     # 穿入墙体；x=-2.75 保留约 0.20m 实体净距，且是唯一已由动态 IK
     # 验证可将方块送入 B 区槽位的朝东终端位。B 被安排为末件时原地结算，

@@ -31,11 +31,11 @@ fixed_manipulation_server:
     # around the measured arm centreline.  Offline FK/IK residuals for every
     # listed slot are <= 7.2 mm (acceptance limit: 12 mm).
     placement_slot_specs:
-      - 'zone_a:-0.12:0.12'
-      - 'zone_a:-0.06:0.12'
-      - 'zone_a:0.00:0.12'
-      - 'zone_a:0.06:0.12'
-      - 'zone_a:0.12:0.12'
+      - 'zone_a:-0.12:0.10'
+      - 'zone_a:-0.06:0.10'
+      - 'zone_a:0.00:0.10'
+      - 'zone_a:0.06:0.10'
+      - 'zone_a:0.12:0.10'
       - 'zone_b:-0.12:-0.12'
       - 'zone_b:-0.12:-0.06'
       - 'zone_b:-0.12:0.00'
