@@ -26,6 +26,7 @@
 #include <string>
 #include <functional>
 #include <cmath>
+#include <unordered_map>
 
 namespace moon_warehouse
 {
@@ -50,6 +51,27 @@ public:
       "/manipulation/carry_set", qos,
       [this](const std_msgs::msg::String::SharedPtr msg) {
         const std::string & data = msg->data;
+        if (data.rfind("secure:", 0) == 0) {
+          const std::string cube_name = data.substr(7);
+          auto cube = world_->ModelByName(cube_name);
+          if (cube) {
+            secured_poses_[cube_name] = cube->WorldPose();
+            cube->SetLinearVel(ignition::math::Vector3d::Zero);
+            cube->SetAngularVel(ignition::math::Vector3d::Zero);
+            PublishStatus("secured:" + cube_name);
+            gzmsg << "[cube_carry] secured placed cube " << cube_name
+                  << " (total=" << secured_poses_.size() << ")\n";
+          }
+          return;
+        }
+        if (data.rfind("unsecure:", 0) == 0) {
+          const std::string cube_name = data.substr(9);
+          secured_poses_.erase(cube_name);
+          PublishStatus("unsecured:" + cube_name);
+          gzmsg << "[cube_carry] unsecured placed cube " << cube_name
+                << " (total=" << secured_poses_.size() << ")\n";
+          return;
+        }
         if (data.rfind("prepare_release:", 0) == 0) {
           const std::string cube_name = data.substr(16);
           if (cube_name == carried_) {
@@ -141,6 +163,21 @@ public:
       robot->SetWorldPose(locked_base_pose_);
       robot->SetLinearVel(ignition::math::Vector3d::Zero);
       robot->SetAngularVel(ignition::math::Vector3d::Zero);
+    }
+    // LinkAttacher in this simulator owns a single global attachment slot.
+    // Anchoring a newly placed cube therefore detached the preceding one and
+    // left it free to be kicked out of the scoring zone.  Keep every verified
+    // landing at its own Gazebo-truth pose instead.  This runs inside the
+    // physics callback (no high-rate ROS services) and preserves the actual
+    // release position rather than snapping to a nominal slot.
+    for (const auto & secured : secured_poses_) {
+      auto placed = world_->ModelByName(secured.first);
+      if (!placed || secured.first == carried_) {
+        continue;
+      }
+      placed->SetWorldPose(secured.second);
+      placed->SetLinearVel(ignition::math::Vector3d::Zero);
+      placed->SetAngularVel(ignition::math::Vector3d::Zero);
     }
     if (carried_.empty()) {
       if (!release_guard_cube_.empty()) {
@@ -243,6 +280,10 @@ private:
       return;
     }
     carried_ = cube_name;
+    // A mission normally never picks an already scored cube, but make the
+    // ownership transition explicit so recovery/manual tests cannot have the
+    // placement latch and carrier fight over the same model.
+    secured_poses_.erase(cube_name);
     release_guard_cube_.clear();
     prepared_release_cube_.clear();
     mode_ = mode;
@@ -307,6 +348,7 @@ private:
   gazebo::common::Time release_guard_until_;
   std::string prepared_release_cube_;
   ignition::math::Pose3d prepared_release_pose_;
+  std::unordered_map<std::string, ignition::math::Pose3d> secured_poses_;
 };
 
 GZ_REGISTER_WORLD_PLUGIN(CubeCarryPlugin)

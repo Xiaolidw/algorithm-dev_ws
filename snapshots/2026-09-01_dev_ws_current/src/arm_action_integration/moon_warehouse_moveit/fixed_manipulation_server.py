@@ -164,6 +164,17 @@ class FixedManipulationServer(Node):
             self.ATTACH_FAILED,
             f'Cube carry plugin did not latch the aligned pose for {object_id}.')
 
+    def _await_placement_secure(self, object_id, timeout_s=1.0):
+        expected = f'secured:{object_id}'
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            if self._carry_status == expected:
+                return
+            time.sleep(0.02)
+        raise ManipulationError(
+            self.ATTACH_FAILED,
+            f'Cube carry plugin did not secure placed {object_id}.')
+
 
     def _declare_parameters(self):
         defaults = {
@@ -178,9 +189,9 @@ class FixedManipulationServer(Node):
             'tool_link': 'link6',
             'default_object': 'red_cube_1',
             'object_link': 'link',
-            # The scoring zones are static Gazebo models.  After release, the
-            # cube is attached to the nearest one so it remains visibly and
-            # physically stationary inside the A/B/C placement area.
+            # The scoring zones are static Gazebo models. After release, the
+            # physics plugin latches each verified landing independently so
+            # all placed cubes remain stationary in A/B/C simultaneously.
             'placement_zone_models': ['zone_a', 'zone_b', 'zone_c'],
             'placement_zone_link': 'base',
             'placement_drop_height': 0.07,
@@ -1631,25 +1642,19 @@ class FixedManipulationServer(Node):
                 f'{slot_y:.3f}), offset={slot_error:.4f}m before securing.')
             time.sleep(self._settle_time)
 
-        request = AttachLink.Request()
-        request.model1_name = nearest_zone
-        request.link1_name = self._placement_zone_link
-        request.model2_name = object_id
-        request.link2_name = self._object_link
-        response = await self._attach_client.call_async(request)
-        if not response.success:
-            raise ManipulationError(
-                self.RELEASE_FAILED,
-                f'Failed to secure {object_id} in {nearest_zone}: {response.message}')
-        if response.success:
-            self._last_attach = (
-                nearest_zone, self._placement_zone_link,
-                object_id, self._object_link,
-            )
-            self._active_placement = None
-            self.get_logger().info(
-                f'{object_id} physically placed inside and secured to '
-                f'{nearest_zone}; robot-zone distance={nearest_distance:.2f}m.')
+        # LinkAttacher exposes one global attachment slot in this simulator.
+        # Reusing it for the next placement silently detached the previous
+        # scored cube, which could then be kicked out of B by the chassis.
+        # The world plugin can retain multiple Gazebo-truth landing poses in
+        # the physics loop without service polling or nominal-slot teleporting.
+        self._carry_status = ''
+        self._publish_carry(f'secure:{object_id}')
+        self._await_placement_secure(object_id)
+        self._last_attach = None
+        self._active_placement = None
+        self.get_logger().info(
+            f'{object_id} physically placed inside and secured to '
+            f'{nearest_zone}; robot-zone distance={nearest_distance:.2f}m.')
 
     @staticmethod
     def _duration(seconds):
