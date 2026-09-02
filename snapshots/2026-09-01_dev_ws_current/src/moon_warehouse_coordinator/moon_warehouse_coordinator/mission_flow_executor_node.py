@@ -1638,7 +1638,12 @@ class MissionFlowExecutorNode(Node):
         dx = self.expected_goal['x'] - self.latest_base_x
         dy = self.expected_goal['y'] - self.latest_base_y
         distance = math.hypot(dx, dy)
-        if distance > 1.10:
+        # The Nav2 pre-approach may hand off up to 0.45 m before its goal,
+        # while the surveyed pre-approach-to-dock spacing is 0.75 m.  Keep
+        # this entry guard consistent with that 1.20 m envelope; the final
+        # drive still uses Collision Monitor, the 0.25 m cube hard-stop and
+        # the unchanged strict grasp gate.
+        if distance > 1.20:
             self.precision_dock_failed(
                 f'precision dock started {distance:.2f}m from its corridor')
             return
