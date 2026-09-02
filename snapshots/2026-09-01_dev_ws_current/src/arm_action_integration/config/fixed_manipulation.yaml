@@ -31,11 +31,12 @@ fixed_manipulation_server:
     # around the measured arm centreline.  Offline FK/IK residuals for every
     # listed slot are <= 7.2 mm (acceptance limit: 12 mm).
     placement_slot_specs:
-      - 'zone_a:-0.12:0.12'
+      # A receives two red cubes.  The former 6 cm row could mark the second
+      # slot occupied after only 1 cm of physical landing error and force an
+      # unreachable third slot.  Keep the proven second centre and move the
+      # first 12 cm away.
+      - 'zone_a:-0.18:0.12'
       - 'zone_a:-0.06:0.12'
-      - 'zone_a:0.00:0.12'
-      - 'zone_a:0.06:0.12'
-      - 'zone_a:0.12:0.12'
       # B receives three blue cubes.  Keep 12 cm between nominal centres so
       # the measured release tolerance cannot collapse adjacent cubes below
       # the 5.5 cm physical-clearance gate.
