@@ -162,9 +162,14 @@ flow_execution:
     # east of the real x=-3.3 wall corner.  Sending the distant blue_cube_2
     # goal directly pulls MPPI northwest into that corner.  First use the
     # surveyed open floor to the east; the ordinary transit proximity handoff
-    # then continues to pickup_pre once physical cube clearance exceeds 0.70m.
+    # then climb to the proven centre aisle before heading west.  A direct
+    # diagonal from the lower aisle repeatedly entered blue_cube_3's real
+    # inflation field near (-4.18,1.26), leaving MPPI and every recovery with
+    # no collision-free motion.  From y=2.70 the final descent at x=-5.08
+    # stays midway between blue_cube_2 and blue_cube_3.
     blue_cube_2:
       - {x: -1.80, y: -4.40, yaw: 0.0}
+      - {x: -5.08, y: 2.70, yaw: 3.1416}
 
   # 红1西侧路线已实跑通过。红2～红5运输时先沿截图所示斜线驶向
   # 方块列西南侧的自由中间点，再去A区，避免全局规划把载物底盘
