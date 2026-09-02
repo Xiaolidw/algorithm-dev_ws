@@ -36,10 +36,11 @@ fixed_manipulation_server:
       - 'zone_a:0.00:0.12'
       - 'zone_a:0.06:0.12'
       - 'zone_a:0.12:0.12'
+      # B receives three blue cubes.  Keep 12 cm between nominal centres so
+      # the measured release tolerance cannot collapse adjacent cubes below
+      # the 5.5 cm physical-clearance gate.
       - 'zone_b:-0.12:-0.12'
-      - 'zone_b:-0.12:-0.06'
       - 'zone_b:-0.12:0.00'
-      - 'zone_b:-0.12:0.06'
       - 'zone_b:-0.12:0.12'
       - 'zone_c:0.10:-0.20'
       - 'zone_c:0.10:-0.14'
