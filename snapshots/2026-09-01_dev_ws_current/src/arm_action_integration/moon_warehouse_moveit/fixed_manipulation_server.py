@@ -1194,7 +1194,7 @@ class FixedManipulationServer(Node):
         Dynamic place IK positions the gripper centre, while CubeCarryPlugin
         preserves the measured cube-to-tool transform.  Before opening the
         fingers, verify the *actual held cube* in the zone frame and use up to
-        two bounded, smooth arm corrections.  XY-only calibration can leave a
+        four bounded, smooth arm corrections.  XY-only calibration can leave a
         cube 10--15 cm above the visual-only zone floor, so the actual cube
         centre must also reach the configured ground-contact height before the
         fingers open.  This is deliberately a low-rate pre-release calibration,
@@ -1209,7 +1209,9 @@ class FixedManipulationServer(Node):
         target = np.asarray(active['target'], dtype=float).copy()
         joints = list(seed_joints)
 
-        for correction_index in range(2):
+        correction_count = 4
+        max_correction_step = 0.055
+        for correction_index in range(correction_count):
             cube_in_zone = await self._get_entity_pose(object_id, zone)
             if cube_in_zone is None:
                 raise ManipulationError(
@@ -1223,7 +1225,8 @@ class FixedManipulationServer(Node):
             )
             planar_error = math.hypot(error_x, error_y)
             self.get_logger().info(
-                f'{object_id} held-slot alignment {correction_index}/2: '
+                f'{object_id} held-slot alignment '
+                f'{correction_index}/{correction_count}: '
                 f'actual=({cube_in_zone.position.x:.3f},'
                 f'{cube_in_zone.position.y:.3f},'
                 f'{cube_in_zone.position.z:.3f}), '
@@ -1249,7 +1252,16 @@ class FixedManipulationServer(Node):
                     (error_x, error_y, error_z),
                 )
             )
-            target += (correction_x, correction_y, correction_z)
+            correction = np.asarray(
+                (correction_x, correction_y, correction_z), dtype=float)
+            correction_length = float(np.linalg.norm(correction))
+            if correction_length > max_correction_step:
+                correction *= max_correction_step / correction_length
+                self.get_logger().info(
+                    f'{object_id} held-slot correction split into a bounded '
+                    f'{max_correction_step:.3f}m step (remaining measured '
+                    f'3-D error={correction_length:.4f}m).')
+            target += correction
             if (float(np.linalg.norm(target))
                     > self._dynamic_place_max_target_distance):
                 raise ManipulationError(
