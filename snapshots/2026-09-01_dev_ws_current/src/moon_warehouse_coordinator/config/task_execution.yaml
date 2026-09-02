@@ -196,3 +196,9 @@ flow_execution:
     # 不执行会驶向木墙的通用倒车。
     B: {x: -2.75, y: -5.00, yaw: 0.0}
     C: {x: 11.40, y: -2.44, yaw: 3.14159}
+
+  # The first two scored B cubes make the shared west parking pose lethal in
+  # the global costmap.  Keep those real obstacles and approach the final
+  # cube from the surveyed free cell north-east of them instead.
+  object_dropoffs:
+    blue_cube_3: {x: -2.60, y: -4.60, yaw: 0.0}

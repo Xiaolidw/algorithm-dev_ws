@@ -67,6 +67,7 @@ class MissionFlowExecutorNode(Node):
         )
         self.pickup_transits = self.config.get('pickup_transits', {})
         self.destinations = self.config['destinations']
+        self.object_dropoffs = self.config.get('object_dropoffs', {})
         self.dropoff_transits = self.config.get('dropoff_transits', {})
         self.plan_timeout_sec = float(
             self.config.get('plan_timeout_sec', 45.0)
@@ -963,7 +964,10 @@ class MissionFlowExecutorNode(Node):
         if transit is not None and not task.get('dropoff_transit_done', False):
             self.send_leg('DROPOFF_TRANSIT', transit, attempt=1)
             return
-        target = self.destinations[str(task['destination']).upper()]
+        target = self.object_dropoffs.get(
+            task['object_id'],
+            self.destinations[str(task['destination']).upper()],
+        )
         self.send_leg('DROPOFF', target, attempt=1)
 
     def send_leg(self, phase, target, attempt):
