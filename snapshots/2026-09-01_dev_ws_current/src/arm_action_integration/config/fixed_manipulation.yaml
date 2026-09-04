@@ -40,11 +40,11 @@ fixed_manipulation_server:
       # B receives three blue cubes.  Keep 12 cm between nominal centres so
       # the measured release tolerance cannot collapse adjacent cubes below
       # the 5.5 cm physical-clearance gate.
-      # B 底盘工作位在标线东侧约 x=-2.20；槽位向东 6 cm 后仍在
-      # 区域边界内，并保留竖直夹爪的可达余量，不需要向木墙挤车。
-      - 'zone_b:-0.06:-0.12'
-      - 'zone_b:-0.06:0.00'
-      - 'zone_b:-0.06:0.12'
+      # B 底盘实际在 x≈-2.12、面向西的工作位接管。把三槽放在牌面
+      # 中线 x=0，令竖直夹爪前向距离约 0.38m；无需再把底盘向木墙推进。
+      - 'zone_b:0.00:-0.12'
+      - 'zone_b:0.00:0.00'
+      - 'zone_b:0.00:0.12'
       - 'zone_c:0.10:-0.20'
       - 'zone_c:0.10:-0.14'
       - 'zone_c:0.10:-0.08'
