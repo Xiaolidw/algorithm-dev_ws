@@ -4071,7 +4071,12 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
-      <static>0</static>
+      <!-- These 13 one-metre blocks are fixed competition-map obstacles.
+           Leaving the jointless 1 kg links dynamic lets robot contact move
+           or topple walls while the occupancy map still assumes their saved
+           poses.  Keep their real collision geometry, but anchor the whole
+           composite model to the world. -->
+      <static>1</static>
       <allow_auto_disable>1</allow_auto_disable>
       <pose>0.968798 -5.71233 0.5 0 -0 0</pose>
     </model>
