@@ -13,6 +13,7 @@
   <exec_depend>trajectory_msgs</exec_depend>
   <exec_depend>builtin_interfaces</exec_depend>
   <exec_depend>gazebo_msgs</exec_depend>
+  <exec_depend>moveit_msgs</exec_depend>
   <exec_depend>linkattacher_msgs</exec_depend>
   <exec_depend>moon_warehouse_interfaces</exec_depend>
   <exec_depend>ament_index_python</exec_depend>

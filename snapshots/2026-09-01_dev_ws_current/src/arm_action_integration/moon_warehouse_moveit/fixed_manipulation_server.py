@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Execute configuration-driven fixed pick/place sequences."""
 
+from copy import deepcopy
 import math
 import re
 import time
@@ -14,6 +15,8 @@ from std_msgs.msg import Bool, String
 from std_srvs.srv import Trigger
 from geometry_msgs.msg import Twist
 from linkattacher_msgs.srv import AttachLink, DetachLink
+from moveit_msgs.msg import MoveItErrorCodes, RobotState
+from moveit_msgs.srv import GetCartesianPath, GetPositionFK
 from moon_warehouse_interfaces.action import ExecuteManipulation
 from rclpy.action import ActionClient, ActionServer, CancelResponse, GoalResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -81,6 +84,16 @@ class FixedManipulationServer(Node):
             callback_group=self._callback_group)
         self._set_state_client = self.create_client(
             SetEntityState, '/gazebo/set_entity_state',
+            callback_group=self._callback_group)
+        # MoveIt owns the calibrated kinematic model.  It is used only for
+        # the final B/A/C placement motion: one above-slot alignment followed
+        # by one vertical Cartesian descent.  Gazebo remains the source of
+        # truth for the held cube and for the release decision.
+        self._cartesian_client = self.create_client(
+            GetCartesianPath, self._moveit_cartesian_service,
+            callback_group=self._callback_group)
+        self._fk_client = self.create_client(
+            GetPositionFK, self._moveit_fk_service,
             callback_group=self._callback_group)
 
         # 孤儿跟随防护: 运动学载运跨越 pick/place 两个动作存活, 但若
@@ -235,6 +248,18 @@ class FixedManipulationServer(Node):
             # the single downward place trajectory, never a feedback loop.
             'dynamic_place_vertical_target_bias_m': 0.0,
             'dynamic_place_pre_drop_height_m': 0.12,
+            # Do not trust an action SUCCESS as proof that the simulated
+            # fingertips reached the requested floor pose.  The calibrated
+            # MoveIt model provides an exact, collision-checked Cartesian
+            # alignment above the slot and a single vertical descent.
+            'moveit_cartesian_service': '/compute_cartesian_path',
+            'moveit_fk_service': '/compute_fk',
+            'moveit_group_name': 'arm',
+            'moveit_base_frame': 'arm_base_link',
+            'moveit_tool_link': 'link6',
+            'moveit_cartesian_max_step_m': 0.005,
+            'moveit_cartesian_min_duration_s': 0.70,
+            'moveit_final_settle_s': 0.70,
             'arm_joints': ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6'],
             'gripper_joints': ['finger_joint1'],
             'arm_home': [0.0, 0.6102, 1.2593, 0.0, -1.4931, 0.0],
@@ -315,6 +340,17 @@ class FixedManipulationServer(Node):
             value('dynamic_place_vertical_target_bias_m'))
         self._dynamic_place_pre_drop_height = max(
             0.04, float(value('dynamic_place_pre_drop_height_m')))
+        self._moveit_cartesian_service = str(value('moveit_cartesian_service'))
+        self._moveit_fk_service = str(value('moveit_fk_service'))
+        self._moveit_group_name = str(value('moveit_group_name'))
+        self._moveit_base_frame = str(value('moveit_base_frame'))
+        self._moveit_tool_link = str(value('moveit_tool_link'))
+        self._moveit_cartesian_max_step = float(
+            value('moveit_cartesian_max_step_m'))
+        self._moveit_cartesian_min_duration = max(
+            0.50, float(value('moveit_cartesian_min_duration_s')))
+        self._moveit_final_settle = max(
+            0.20, float(value('moveit_final_settle_s')))
         self._placement_slots = {
             zone: [] for zone in self._placement_zone_models
         }
@@ -934,12 +970,41 @@ class FixedManipulationServer(Node):
         quaternion = (
             orientation.x, orientation.y, orientation.z, orientation.w)
 
+        # The physics-loop carrier preserves the real, verified finger
+        # contact transform captured after closing.  It is not always the
+        # nominal link6 +Z 45 mm centre: a valid physical grasp can settle a
+        # few centimetres deeper between the fingers.  Solve the place path
+        # for that measured offset instead of pretending the held cube is at
+        # a nominal point, which would leave the cube high or laterally away
+        # from the selected slot after an otherwise correct arm motion.
+        tool_reference = f'{self._robot_model}::{self._tool_link}'
+        held_in_tool = await self._get_entity_pose(object_id, tool_reference)
+        if held_in_tool is None:
+            raise ManipulationError(
+                self.ATTACH_FAILED,
+                f'Cannot measure held {object_id} relative to {tool_reference}.')
+        held_offset = np.array((
+            float(held_in_tool.position.x),
+            float(held_in_tool.position.y),
+            float(held_in_tool.position.z),
+        ), dtype=float)
+        if not np.all(np.isfinite(held_offset)):
+            raise ManipulationError(
+                self.ATTACH_FAILED,
+                f'Held {object_id} has a non-finite tool-relative offset.')
+
         best = None
+        rejected_slots = []
         for slot_index, (slot_x, slot_y) in enumerate(
                 self._placement_slots[nearest_zone]):
-            if any(math.hypot(slot_x - x, slot_y - y)
-                   < self._placement_slot_clearance
-                   for x, y, _name in occupied):
+            blockers = [
+                name for x, y, name in occupied
+                if math.hypot(slot_x - x, slot_y - y)
+                < self._placement_slot_clearance
+            ]
+            if blockers:
+                rejected_slots.append(
+                    f'slot {slot_index + 1} occupied by {",".join(blockers)}')
                 continue
             ox, oy, oz = self._rotate_by_quaternion(
                 quaternion,
@@ -954,13 +1019,17 @@ class FixedManipulationServer(Node):
             ), dtype=float)
             target_distance = float(np.linalg.norm(target))
             if target_distance > self._dynamic_place_max_target_distance:
+                rejected_slots.append(
+                    f'slot {slot_index + 1} target_distance='
+                    f'{target_distance:.4f}m exceeds '
+                    f'{self._dynamic_place_max_target_distance:.4f}m')
                 continue
             joints, residual = self._solve_grasp_center_ik(
-                target, self._arm_place)
+                target, self._arm_place, held_offset)
             pre_target = target + np.array((
                 0.0, 0.0, self._dynamic_place_pre_drop_height), dtype=float)
             pre_joints, pre_residual = self._solve_grasp_center_ik(
-                pre_target, self._arm_place)
+                pre_target, self._arm_place, held_offset)
             # Prefer the configured fill order.  Residual only breaks ties and
             # rejects a slot that the physical arm cannot actually reach.
             score = float(slot_index) + min(0.99, 20.0 * residual)
@@ -976,27 +1045,206 @@ class FixedManipulationServer(Node):
                     'residual': residual,
                     'score': score,
                 }
+            elif residual > 0.012 or pre_residual > 0.012:
+                rejected_slots.append(
+                    f'slot {slot_index + 1} target='
+                    f'({target[0]:.3f},{target[1]:.3f},{target[2]:.3f}), '
+                    f'distance={target_distance:.4f}m, '
+                    f'place_residual={residual:.4f}m, '
+                    f'preplace_residual={pre_residual:.4f}m')
 
         if best is None:
+            rejection_detail = '; '.join(rejected_slots) or (
+                'zone has no configured slot candidates')
             raise ManipulationError(
                 self.ARM_FAILED,
-                f'No free reachable placement slot remains in {nearest_zone}.')
+                f'No free reachable placement slot remains in {nearest_zone}: '
+                f'{rejection_detail}.')
         self._active_placement = best
         self.get_logger().info(
             f'Dynamic place {object_id}: {nearest_zone} slot '
             f'{best["slot_index"] + 1}, local=({best["slot"][0]:.3f},'
             f'{best["slot"][1]:.3f}), IK residual='
-            f'{best["residual"]:.4f}m, occupied={len(occupied)}.')
+            f'{best["residual"]:.4f}m, occupied={len(occupied)}, '
+            f'held_offset=({held_offset[0]:.3f},{held_offset[1]:.3f},'
+            f'{held_offset[2]:.3f}).')
         return best['joints']
 
+    async def _moveit_fk_tool_pose(self):
+        """Read the current end-effector pose from MoveIt's live robot state."""
+        if not self._fk_client.wait_for_service(timeout_sec=2.0):
+            raise ManipulationError(
+                self.DEPENDENCY_UNAVAILABLE,
+                f'MoveIt FK service {self._moveit_fk_service} is unavailable.')
+        request = GetPositionFK.Request()
+        request.header.frame_id = self._moveit_base_frame
+        request.fk_link_names = [self._moveit_tool_link]
+        request.robot_state = RobotState()
+        request.robot_state.is_diff = True
+        response = await self._fk_client.call_async(request)
+        if (
+                response is None
+                or response.error_code.val != MoveItErrorCodes.SUCCESS
+                or not response.pose_stamped):
+            code = -999 if response is None else response.error_code.val
+            raise ManipulationError(
+                self.ARM_FAILED,
+                f'MoveIt FK for {self._moveit_tool_link} failed (code={code}).')
+        return response.pose_stamped[0].pose
+
     @staticmethod
-    def _grasp_fk_center(joints):
-        """Return link6 + 45mm fingertip centre in arm_base_link.
+    def _trajectory_duration_seconds(trajectory):
+        if not trajectory.points:
+            return 0.0
+        duration = trajectory.points[-1].time_from_start
+        return float(duration.sec) + float(duration.nanosec) * 1e-9
+
+    def _retime_cartesian_trajectory(self, trajectory):
+        """Keep Cartesian place moves smooth while preserving their shape."""
+        result = deepcopy(trajectory)
+        original = self._trajectory_duration_seconds(result)
+        if original <= 1e-6:
+            raise ManipulationError(
+                self.ARM_FAILED, 'MoveIt returned an empty Cartesian trajectory.')
+        target = max(original, self._moveit_cartesian_min_duration)
+        scale = target / original
+        if abs(scale - 1.0) < 1e-6:
+            return result, original, target
+        for point in result.points:
+            source = (
+                float(point.time_from_start.sec)
+                + float(point.time_from_start.nanosec) * 1e-9)
+            value = max(1e-3, source * scale)
+            point.time_from_start.sec = int(value)
+            point.time_from_start.nanosec = int(
+                round((value - int(value)) * 1_000_000_000))
+            if point.time_from_start.nanosec >= 1_000_000_000:
+                point.time_from_start.sec += 1
+                point.time_from_start.nanosec -= 1_000_000_000
+        return result, original, target
+
+    async def _send_joint_trajectory(
+            self, trajectory, error_code, description):
+        """Execute a fully planned trajectory instead of collapsing it to one point."""
+        goal = FollowJointTrajectory.Goal()
+        goal.trajectory = trajectory
+        deadline = time.monotonic() + 30.0
+        goal_future = self._arm_client.send_goal_async(goal)
+        while not goal_future.done():
+            if time.monotonic() > deadline:
+                raise ManipulationError(
+                    error_code,
+                    f'Controller goal response timed out: {description}.')
+            time.sleep(0.05)
+        goal_handle = goal_future.result()
+        if not goal_handle.accepted:
+            raise ManipulationError(
+                error_code, f'Controller rejected: {description}.')
+        result_future = goal_handle.get_result_async()
+        while not result_future.done():
+            if time.monotonic() > deadline:
+                goal_handle.cancel_goal_async()
+                raise ManipulationError(
+                    error_code,
+                    f'Controller result timed out: {description}.')
+            time.sleep(0.05)
+        result = result_future.result().result
+        if result.error_code != FollowJointTrajectory.Result.SUCCESSFUL:
+            raise ManipulationError(
+                error_code,
+                f'Controller failed: {description}; error_code={result.error_code}.')
+
+    async def _cartesian_hold_cube_to_slot(self, object_id, above_slot):
+        """Move the measured held cube to the slot, then (only once) descend.
+
+        The former joint-only final pose was accepted on its analytical FK but
+        left the Gazebo cube 12 cm high.  Use the actual MoveIt FK state and
+        the measured cube-to-link6 transform to form a Cartesian target.  The
+        caller invokes this first at the safe pre-place height and then once
+        at floor height, preserving a strictly vertical final segment.
+        """
+        active = self._active_placement
+        if active is None:
+            raise ManipulationError(
+                self.ARM_FAILED, 'No selected slot is available for Cartesian place.')
+        if not self._cartesian_client.wait_for_service(timeout_sec=2.0):
+            raise ManipulationError(
+                self.DEPENDENCY_UNAVAILABLE,
+                f'MoveIt Cartesian service {self._moveit_cartesian_service} is unavailable.')
+
+        tool_pose = await self._moveit_fk_tool_pose()
+        held_pose = await self._get_entity_pose(
+            object_id, f'{self._robot_model}::{self._tool_link}')
+        if held_pose is None:
+            raise ManipulationError(
+                self.ATTACH_FAILED,
+                f'Cannot measure held {object_id} relative to {self._tool_link}.')
+        held_offset = (
+            float(held_pose.position.x), float(held_pose.position.y),
+            float(held_pose.position.z))
+        q = (
+            float(tool_pose.orientation.x), float(tool_pose.orientation.y),
+            float(tool_pose.orientation.z), float(tool_pose.orientation.w))
+        ox, oy, oz = self._rotate_by_quaternion(q, held_offset)
+        target_cube = np.asarray(active['target'], dtype=float).copy()
+        # ``active['target']`` contains the analytical-IK calibration bias so
+        # the legacy joint pre-place seed remains reachable.  MoveIt uses the
+        # real URDF/FK model and must instead aim at the physical zone plane;
+        # carrying that bias into a Cartesian descent asked link6 to travel
+        # 5 cm below its valid floor path (fraction 0.20--0.38 in evidence).
+        # Remove it once here.  This is a frame-calibration separation, not a
+        # feedback correction and not an extra lowering motion.
+        target_cube[2] -= self._dynamic_place_vertical_target_bias
+        if above_slot:
+            target_cube[2] += self._dynamic_place_pre_drop_height
+        target = deepcopy(tool_pose)
+        target.position.x = float(target_cube[0] - ox)
+        target.position.y = float(target_cube[1] - oy)
+        target.position.z = float(target_cube[2] - oz)
+
+        request = GetCartesianPath.Request()
+        request.header.frame_id = self._moveit_base_frame
+        request.start_state = RobotState()
+        request.start_state.is_diff = True
+        request.group_name = self._moveit_group_name
+        request.link_name = self._moveit_tool_link
+        request.waypoints = [target]
+        request.max_step = self._moveit_cartesian_max_step
+        request.jump_threshold = 0.0
+        request.avoid_collisions = True
+        response = await self._cartesian_client.call_async(request)
+        if response is None or response.error_code.val != MoveItErrorCodes.SUCCESS:
+            code = -999 if response is None else response.error_code.val
+            raise ManipulationError(
+                self.ARM_FAILED,
+                f'MoveIt Cartesian place planning failed (code={code}).')
+        if response.fraction < 0.999:
+            raise ManipulationError(
+                self.ARM_FAILED,
+                f'MoveIt Cartesian place path incomplete: {response.fraction:.3f}.')
+        trajectory, original, duration = self._retime_cartesian_trajectory(
+            response.solution.joint_trajectory)
+        segment = 'above-slot alignment' if above_slot else 'vertical descent'
+        self.get_logger().info(
+            f'MoveIt Cartesian {segment} for {object_id}: '
+            f'cube_target=({target_cube[0]:.3f},{target_cube[1]:.3f},'
+            f'{target_cube[2]:.3f}), tool_target=('
+            f'{target.position.x:.3f},{target.position.y:.3f},'
+            f'{target.position.z:.3f}), points={len(trajectory.points)}, '
+            f'retimed={original:.3f}s->{duration:.3f}s.')
+        await self._send_joint_trajectory(
+            trajectory, self.ARM_FAILED, f'MoveIt Cartesian {segment}')
+
+    @staticmethod
+    def _grasp_fk_point(joints, local_point=(0.0, 0.0, 0.045)):
+        """Return an arbitrary link6-local point in arm_base_link.
 
         The transform chain mirrors arm.xacro.  It is deliberately limited
         to position IK: joint4/joint6 retain their collision-safe seed values
         while the six available joints provide the small correction needed
-        after collision-monitored base docking.
+        after collision-monitored base docking.  ``local_point`` lets the
+        place solver preserve the actual physical cube-in-gripper transform
+        without a service-following correction loop.
         """
         origins = (
             (0.0, 0.0, 0.07), (0.0, 0.0, 0.05),
@@ -1022,14 +1270,23 @@ class FixedManipulationServer(Node):
                 + (1.0 - math.cos(angle)) * (skew @ skew)
             )
             matrix = matrix @ translate @ rotate
-        return (matrix @ np.array((0.0, 0.0, 0.045, 1.0)))[:3]
+        point = np.asarray(local_point, dtype=float)
+        return (matrix @ np.array((point[0], point[1], point[2], 1.0)))[:3]
 
-    def _solve_grasp_center_ik(self, target, seed):
+    @staticmethod
+    def _grasp_fk_center(joints):
+        """Return the nominal link6 + 45 mm fingertip centre."""
+        return FixedManipulationServer._grasp_fk_point(joints)
+
+    def _solve_grasp_center_ik(self, target, seed, local_point=None):
         """Position IK with a fixed, verified vertical gripper attitude."""
         joints = np.asarray(seed, dtype=float).copy()
         lower = np.array((-2.30, -2.30, -2.57, -2.30, -2.30, -2.30))
         upper = np.array((2.30, 2.30, 2.57, 2.30, 2.30, 2.30))
         target = np.asarray(target, dtype=float)
+        if local_point is None:
+            local_point = (0.0, 0.0, 0.045)
+        local_point = np.asarray(local_point, dtype=float)
         # For this arm chain, q2 + q3 - q5 is the pitch of the tool's
         # approach axis.  A pure position solve can rotate the fingers
         # sideways while still placing their centre on the cube.  Keep the
@@ -1037,7 +1294,7 @@ class FixedManipulationServer(Node):
         pitch_axis = np.array((0.0, 1.0, 1.0, 0.0, -1.0, 0.0))
         reference_pitch = float(pitch_axis @ np.asarray(seed, dtype=float))
         for _ in range(260):
-            centre = self._grasp_fk_center(joints)
+            centre = self._grasp_fk_point(joints, local_point)
             error = target - centre
             if float(np.linalg.norm(error)) <= 0.0015:
                 break
@@ -1047,7 +1304,8 @@ class FixedManipulationServer(Node):
                 perturbed = joints.copy()
                 perturbed[index] += epsilon
                 columns.append(
-                    (self._grasp_fk_center(perturbed) - centre) / epsilon)
+                    (self._grasp_fk_point(perturbed, local_point) - centre)
+                    / epsilon)
             jacobian = np.column_stack(columns)
             pitch_error = reference_pitch - float(pitch_axis @ joints)
             augmented_jacobian = np.vstack((
@@ -1068,7 +1326,7 @@ class FixedManipulationServer(Node):
                 delta *= 0.055 / length
             joints = np.clip(joints + delta, lower, upper)
         residual = float(np.linalg.norm(
-            self._grasp_fk_center(joints) - target))
+            self._grasp_fk_point(joints, local_point) - target))
         return [float(value) for value in joints], residual
 
     async def _solve_dynamic_grasp(self, object_id):
@@ -1344,15 +1602,22 @@ class FixedManipulationServer(Node):
         await self._send_trajectory(
             self._arm_client, self._arm_joints, preplace_joints,
             self._arm_duration, self.ARM_FAILED, 'move arm above place slot')
+        # The analytical pre-place posture gives MoveIt an already-safe,
+        # high-clearance start.  Align once using its live FK/Cartesian model;
+        # this is a bounded above-slot motion, not a corrective retry loop.
+        await self._stage(handle, 'align_preplace_cartesian', 0.28)
+        await self._cartesian_hold_cube_to_slot(object_id, above_slot=True)
         await self._stage(handle, 'descend_to_place_pose', 0.34)
-        await self._send_trajectory(
-            self._arm_client, self._arm_joints, place_joints,
-            self._arm_duration, self.ARM_FAILED, 'descend arm to place slot')
+        # This is the only downward place command: the held cube is already
+        # centred above the selected slot, so MoveIt produces a vertical,
+        # collision-checked endpoint trajectory rather than another diagonal
+        # joint-space sweep.
+        await self._cartesian_hold_cube_to_slot(object_id, above_slot=False)
         # The cube carrier updates in Gazebo's physics callback while the arm
         # action result is delivered by ROS control.  Admit one bounded
         # physics-step settle before the one-shot held-slot measurement; this
         # is neither a service-follow loop nor an extra corrective motion.
-        time.sleep(0.20)
+        time.sleep(self._moveit_final_settle)
         tool_pose = await self._get_tool_pose()
         cube_pose = await self._get_world_pose(object_id)
         if tool_pose is not None and cube_pose is not None:

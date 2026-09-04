@@ -2813,6 +2813,34 @@ class MissionFlowExecutorNode(Node):
                     'workstation; retrying manipulation without moving base.')
                 self.start_manipulation('pick')
             else:
+                task = self.tasks[self.current_task_index]
+                destination = str(task.get('destination', '')).upper()
+                dropoff_record = task.get('dropoff_navigation', {})
+                staged_b_parking = (
+                    destination == 'B'
+                    and dropoff_record.get('phase')
+                    == 'B_DROPOFF_STAGED_PARKING'
+                    and dropoff_record.get('result') == 'SUCCEEDED'
+                )
+                if staged_b_parking:
+                    position_error = self.expected_position_error()
+                    yaw_aligned = self.is_expected_yaw_aligned(
+                        self.dropoff_yaw_tolerance_rad)
+                    if (position_error <= self.b_dropoff_final_acceptance_m
+                            and yaw_aligned):
+                        self.publish_zero_velocity()
+                        self.get_logger().info(
+                            'B place retry keeps the latched, validated '
+                            f'parking pose (residual={position_error:.3f}m); '
+                            'retrying arm action without Nav2 or another turn.')
+                        self.start_manipulation('place')
+                        return
+                    task['b_dropoff_preapproach_done'] = False
+                    self.get_logger().warning(
+                        'B place retry lost the latched parking gate '
+                        f'(residual={position_error:.3f}m, '
+                        f'yaw_aligned={yaw_aligned}); restarting from the '
+                        'outside B pre-approach, never the terminal goal.')
                 self.start_current_dropoff()
 
         self.retry_timer = self.create_timer(

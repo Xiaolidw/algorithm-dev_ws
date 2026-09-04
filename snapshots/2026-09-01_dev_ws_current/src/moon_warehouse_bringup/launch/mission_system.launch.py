@@ -18,6 +18,7 @@ def generate_launch_description():
     start_foxglove = LaunchConfiguration('start_foxglove')
     start_rosbridge = LaunchConfiguration('start_rosbridge')
     start_manipulation = LaunchConfiguration('start_manipulation')
+    start_moveit = LaunchConfiguration('start_moveit')
 
     navigation = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(PathJoinSubstitution([
@@ -51,6 +52,19 @@ def generate_launch_description():
         ])),
         condition=IfCondition(start_manipulation),
         launch_arguments={'dry_run': 'false'}.items(),
+    )
+
+    # One-click mission startup must also provide the FK/Cartesian services
+    # used for the final arm placement and their RViz view.  The move_group
+    # process has no base command interface, so it cannot interfere with
+    # Nav2 while it supplies the checked arm trajectory.
+    moveit = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(PathJoinSubstitution([
+            FindPackageShare('mybot'),
+            'launch',
+            'my_moveit_rviz.launch.py',
+        ])),
+        condition=IfCondition(start_moveit),
     )
 
     perception = IncludeLaunchDescription(
@@ -137,8 +151,10 @@ def generate_launch_description():
         DeclareLaunchArgument('start_foxglove', default_value='false'),
         DeclareLaunchArgument('start_rosbridge', default_value='true'),
         DeclareLaunchArgument('start_manipulation', default_value='true'),
+        DeclareLaunchArgument('start_moveit', default_value='true'),
         navigation,
         manipulation,
+        moveit,
         semantic_and_coordinator,
         perception,
         foxglove,

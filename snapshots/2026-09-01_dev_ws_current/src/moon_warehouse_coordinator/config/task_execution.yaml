@@ -86,6 +86,9 @@ flow_execution:
   b_dropoff_progress_timeout_sec: 4.0
   # 仅用于 /mission/run_b_dropoff_regression 的单段回归入口；它不会
   # 生成 A 区任务，仍走正式抓取、载物、停车、放置和 secure 验收链路。
+  # 最近的 blue_cube_3（约 -2.88,1.70）抓取稳定，但其 B 预接近点在
+  # 真实地图中不可达，不能把六次 Nav2 失败当作“快速回归”。放置链路
+  # 暂以已验证可抵达 B 的 blue_cube_1 回归；blue_cube_3 路线另行修复。
   b_dropoff_regression_object: blue_cube_1
   # 最后一段不再交给会避开目标方块本身的全局规划器。先导航到沿夹取
   # 朝向后退 0.5m 的安全工位，再以低速直线闭环驶入最终停车点；这样

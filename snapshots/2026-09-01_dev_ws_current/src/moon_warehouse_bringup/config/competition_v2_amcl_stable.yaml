@@ -460,12 +460,14 @@ collision_monitor:
     source_timeout: 1.0
     base_shift_correction: True
     stop_pub_timeout: 2.0
-    # Polygons represent zone around the robot for "stop", "slowdown" and "limit" action types,
-    # and robot footprint for "approach" action type.
+    # A fixed-route upper obstacle must be handled on the robot side.  A
+    # predictive stop keeps the chassis out of physical contact, then Nav2
+    # continues once the obstacle has passed; slow "approach" alone allowed
+    # MPPI to keep pressing into the same occupied rail cell.
     polygons: ["FootprintApproach"]
     FootprintApproach:
       type: "polygon"
-      action_type: "approach"
+      action_type: "stop"
       footprint_topic: "/local_costmap/published_footprint"
       time_before_collision: 1.2
       simulation_time_step: 0.1

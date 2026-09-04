@@ -63,10 +63,24 @@ fixed_manipulation_server:
     dynamic_place_max_target_distance_m: 0.58
     # 真值验证表明 FK 放置末端比地面高约 0.10m；仅用于单次放下轨迹的
     # 模型标定，之后仍以 Gazebo 真值决定是否允许松爪。
-    dynamic_place_vertical_target_bias_m: -0.10
+    # -0.05 m is the largest shared downward calibration that keeps all three
+    # B-zone slots within the 12 mm final-IK residual gate at the real
+    # terminal parking pose.  A larger bias makes the outside slots
+    # unreachable, so no release can be attempted.
+    dynamic_place_vertical_target_bias_m: -0.05
     # 与抓取一样：先在槽位正上方到位，再单次竖直下降，避免斜向扫入
     # 地面或相邻物块。
     dynamic_place_pre_drop_height_m: 0.12
+    # 使用同一机器人模型的 MoveIt FK + 笛卡尔规划执行精确放置。
+    # 先在安全高度对正，再一次垂直下放；Gazebo 真值仍决定是否松爪。
+    moveit_cartesian_service: /compute_cartesian_path
+    moveit_fk_service: /compute_fk
+    moveit_group_name: arm
+    moveit_base_frame: arm_base_link
+    moveit_tool_link: link6
+    moveit_cartesian_max_step_m: 0.005
+    moveit_cartesian_min_duration_s: 0.70
+    moveit_final_settle_s: 0.70
 
     # Controller joint order
     arm_joints: [joint1, joint2, joint3, joint4, joint5, joint6]

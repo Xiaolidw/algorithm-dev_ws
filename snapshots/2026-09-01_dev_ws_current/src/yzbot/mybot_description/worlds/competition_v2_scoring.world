@@ -4138,6 +4138,9 @@
       <plugin name="moving_obstacle_1_simple_move" filename="libsimple_move_plugin.so">
         <speed>0.20</speed>
         <force>3.0</force>
+        <!-- This rail is part of the scoring challenge: retain the exact
+             y=3, x=[-3,2], 0.20m/s motion even if the robot makes contact. -->
+        <deterministic_route_lock>true</deterministic_route_lock>
         <pose_publish_rate>10.0</pose_publish_rate>
         <!-- This obstacle is part of the challenge, not a cooperative actor.
              It must never stop, retreat or reverse in response to the robot;

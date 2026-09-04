@@ -43,6 +43,7 @@ namespace gazebo
         double path_nx;
         double path_ny;
         bool moving_to_end;
+        bool deterministic_route_lock;
         bool yielding_to_robot;
         bool yield_pass_lock_enabled;
         bool yield_wait_for_robot_pass;
@@ -116,6 +117,12 @@ namespace gazebo
                 _sdf->Get<double>("yield_clear_hold_sec", 8.0).first);
             this->yield_pass_lock_enabled = _sdf->Get<bool>(
                 "yield_pass_lock_enabled", false).first;
+            // Challenge obstacles may be declared as non-cooperative rails:
+            // their published path is then an invariant, not a suggestion
+            // that can be changed by chassis contact.  This is intentionally
+            // opt-in so the lower obstacle retains ordinary physics.
+            this->deterministic_route_lock = _sdf->Get<bool>(
+                "deterministic_route_lock", false).first;
             this->yield_pass_margin = std::max(
                 0.05,
                 _sdf->Get<double>("yield_pass_margin", 0.35).first);
@@ -181,6 +188,9 @@ namespace gazebo
             std::cout << this->log_prefix << "  Rail guard: max lateral="
                       << this->max_cross_track_error << " m, restore="
                       << this->route_restore_speed << " m/s" << std::endl;
+            std::cout << this->log_prefix << "  Deterministic route lock: "
+                      << (this->deterministic_route_lock ? "enabled" : "disabled")
+                      << std::endl;
             
             // 设置阻尼
             // 速度伺服本身负责平移稳定性。Gazebo在高频物理步进下会
@@ -190,7 +200,7 @@ namespace gazebo
             // 使用有限质量动力学。碰撞冲量会由 Gazebo 根据 SDF 中的
             // mass / inertia 正常求解，不能再用 Kinematic + SetWorldPose
             // 强制穿过机器人。
-            this->link->SetKinematic(false);
+            this->link->SetKinematic(this->deterministic_route_lock);
             // 轻质量障碍物沿固定高度导轨运动，避免地面接触扰动训练速度。
             this->link->SetGravityMode(false);
             this->model->SetAutoDisable(false);
@@ -251,6 +261,55 @@ namespace gazebo
                 {
                     this->PublishPose(pose);
                     this->last_pose_publish_time = current_time;
+                }
+
+                // The upper competition obstacle is required to patrol the
+                // fixed [-3, 2] x y=3 rail at its declared speed even after a
+                // chassis touches it.  A finite-mass velocity servo can be
+                // pushed off the rail, leaving prediction at 0.20 m/s while
+                // the physical model is nearly stationary.  Drive this
+                // explicitly kinematic model by route arc-length instead;
+                // it keeps its collision geometry but cannot be displaced or
+                // "yield" to the robot.  Robot-side Collision Monitor must
+                // stop before contact, so this never acts as a teleporting
+                // avoidance mechanism.
+                if (this->deterministic_route_lock) {
+                    if (control_dt <= 0.0) {
+                        this->link->SetLinearVel(
+                            ignition::math::Vector3d::Zero);
+                        return;
+                    }
+                    double along = (current_x - this->start_x) * this->path_ux +
+                        (current_y - this->start_y) * this->path_uy;
+                    along = std::max(0.0, std::min(this->path_length, along));
+                    const double direction = this->moving_to_end ? 1.0 : -1.0;
+                    double next = along + direction * this->speed * control_dt;
+                    if (next >= this->path_length) {
+                        next = this->path_length;
+                        this->SwitchDirection();
+                    } else if (next <= 0.0) {
+                        next = 0.0;
+                        this->SwitchDirection();
+                    }
+                    pose.Pos().X(this->start_x + this->path_ux * next);
+                    pose.Pos().Y(this->start_y + this->path_uy * next);
+                    pose.Pos().Z(this->motion_z);
+                    this->model->SetWorldPose(pose);
+                    const double next_direction =
+                        this->moving_to_end ? 1.0 : -1.0;
+                    this->link->SetLinearVel(ignition::math::Vector3d(
+                        next_direction * this->path_ux * this->speed,
+                        next_direction * this->path_uy * this->speed, 0.0));
+                    this->link->SetAngularVel(ignition::math::Vector3d::Zero);
+                    static double locked_last_print_time = 0.0;
+                    if (current_time - locked_last_print_time >= 5.0) {
+                        this->PrintStatus(current_time, pose,
+                            this->link->WorldLinearVel(),
+                            std::abs((this->moving_to_end ? this->path_length : 0.0)
+                                     - next));
+                        locked_last_print_time = current_time;
+                    }
+                    return;
                 }
 
                 // 机器人接近并且双方仍在靠近时主动沿导轨退离。原来的
