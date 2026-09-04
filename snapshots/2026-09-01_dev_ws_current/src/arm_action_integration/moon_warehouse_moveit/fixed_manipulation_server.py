@@ -234,6 +234,7 @@ class FixedManipulationServer(Node):
             # tool/carry capture stack.  Apply one calibrated target bias for
             # the single downward place trajectory, never a feedback loop.
             'dynamic_place_vertical_target_bias_m': 0.0,
+            'dynamic_place_pre_drop_height_m': 0.12,
             'arm_joints': ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6'],
             'gripper_joints': ['finger_joint1'],
             'arm_home': [0.0, 0.6102, 1.2593, 0.0, -1.4931, 0.0],
@@ -312,6 +313,8 @@ class FixedManipulationServer(Node):
             value('dynamic_place_max_target_distance_m'))
         self._dynamic_place_vertical_target_bias = float(
             value('dynamic_place_vertical_target_bias_m'))
+        self._dynamic_place_pre_drop_height = max(
+            0.04, float(value('dynamic_place_pre_drop_height_m')))
         self._placement_slots = {
             zone: [] for zone in self._placement_zone_models
         }
@@ -954,16 +957,22 @@ class FixedManipulationServer(Node):
                 continue
             joints, residual = self._solve_grasp_center_ik(
                 target, self._arm_place)
+            pre_target = target + np.array((
+                0.0, 0.0, self._dynamic_place_pre_drop_height), dtype=float)
+            pre_joints, pre_residual = self._solve_grasp_center_ik(
+                pre_target, self._arm_place)
             # Prefer the configured fill order.  Residual only breaks ties and
             # rejects a slot that the physical arm cannot actually reach.
             score = float(slot_index) + min(0.99, 20.0 * residual)
-            if residual <= 0.012 and (best is None or score < best['score']):
+            if (residual <= 0.012 and pre_residual <= 0.012
+                    and (best is None or score < best['score'])):
                 best = {
                     'zone': nearest_zone,
                     'slot_index': slot_index,
                     'slot': (slot_x, slot_y),
                     'target': target,
                     'joints': joints,
+                    'pre_joints': pre_joints,
                     'residual': residual,
                     'score': score,
                 }
@@ -1324,10 +1333,21 @@ class FixedManipulationServer(Node):
         if self._dynamic_place_ik:
             await self._stage(handle, 'solve_free_zone_slot', 0.12)
             place_joints = await self._solve_dynamic_place(object_id)
-        await self._stage(handle, 'move_to_place_pose', 0.20)
+        preplace_joints = (
+            self._active_placement.get('pre_joints', place_joints)
+            if self._active_placement is not None else place_joints)
+        # Mirror grasp: enter above the selected slot first, then make one
+        # short vertical descent.  This avoids a diagonal home->floor sweep
+        # that can drag a held cube or make the gripper appear to "place in
+        # mid-air".
+        await self._stage(handle, 'move_to_preplace_pose', 0.20)
+        await self._send_trajectory(
+            self._arm_client, self._arm_joints, preplace_joints,
+            self._arm_duration, self.ARM_FAILED, 'move arm above place slot')
+        await self._stage(handle, 'descend_to_place_pose', 0.34)
         await self._send_trajectory(
             self._arm_client, self._arm_joints, place_joints,
-            self._arm_duration, self.ARM_FAILED, 'move arm to place pose')
+            self._arm_duration, self.ARM_FAILED, 'descend arm to place slot')
         # The cube carrier updates in Gazebo's physics callback while the arm
         # action result is delivered by ROS control.  Admit one bounded
         # physics-step settle before the one-shot held-slot measurement; this

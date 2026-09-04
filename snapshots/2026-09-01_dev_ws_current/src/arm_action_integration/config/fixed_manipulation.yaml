@@ -64,6 +64,9 @@ fixed_manipulation_server:
     # 真值验证表明 FK 放置末端比地面高约 0.10m；仅用于单次放下轨迹的
     # 模型标定，之后仍以 Gazebo 真值决定是否允许松爪。
     dynamic_place_vertical_target_bias_m: -0.10
+    # 与抓取一样：先在槽位正上方到位，再单次竖直下降，避免斜向扫入
+    # 地面或相邻物块。
+    dynamic_place_pre_drop_height_m: 0.12
 
     # Controller joint order
     arm_joints: [joint1, joint2, joint3, joint4, joint5, joint6]
