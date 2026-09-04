@@ -208,16 +208,19 @@ class FixedManipulationServer(Node):
             'placement_zone_models': ['zone_a', 'zone_b', 'zone_c'],
             'placement_zone_link': 'base',
             'placement_drop_height': 0.07,
-            # Each slot is expressed in the scoring-zone model frame. A/B are
-            # approached from the north and C from the east; the rows remain
-            # inside the 1.0 x 0.5 m signs with five non-overlapping slots.
+            # Each slot is expressed in the scoring-zone model frame.  B is
+            # approached from the east with the base facing west.  Its three
+            # slots therefore stay on lateral centreline Y=0 and fill along
+            # zone X from far to near, so the arm extends straight ahead just
+            # as it does while grasping.  Keep these defaults identical to
+            # fixed_manipulation.yaml so a missing parameter file cannot
+            # silently restore the retired diagonal/side-sweep placement.
             'placement_slot_specs': [
                 'zone_a:-0.16:0.10', 'zone_a:-0.10:0.10',
                 'zone_a:-0.04:0.10', 'zone_a:0.02:0.10',
                 'zone_a:0.08:0.10',
-                'zone_b:-0.08:0.10', 'zone_b:-0.02:0.10',
-                'zone_b:0.04:0.10', 'zone_b:0.10:0.10',
-                'zone_b:0.16:0.10',
+                'zone_b:-0.09:0.00', 'zone_b:0.00:0.00',
+                'zone_b:0.09:0.00',
                 'zone_c:0.10:-0.20', 'zone_c:0.10:-0.14',
                 'zone_c:0.10:-0.08', 'zone_c:0.10:-0.02',
                 'zone_c:0.10:0.04',
@@ -240,7 +243,7 @@ class FixedManipulationServer(Node):
             'placement_ground_tolerance_m': 0.030,
             'placement_position_jitter_tolerance_m': 0.004,
             'placement_speed_tolerance_mps': 0.025,
-            'placement_slot_correction_limit_m': 0.035,
+            'placement_slot_correction_limit_m': 0.040,
             'dynamic_place_ik': True,
             'dynamic_place_max_target_distance_m': 0.55,
             # Simulation FK is vertically offset from Gazebo link6 by the

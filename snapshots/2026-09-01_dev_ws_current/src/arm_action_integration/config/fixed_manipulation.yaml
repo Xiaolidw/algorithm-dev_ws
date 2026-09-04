@@ -27,9 +27,9 @@ fixed_manipulation_server:
     # unoccupied reachable slot from Gazebo truth and solves its joint pose at
     # runtime, preventing consecutive cubes from overlapping at one point.
     # A and B are now approached from the north while facing south.  Keep
-    # each row on the north half of its sign and bias the lateral fill order
-    # around the measured arm centreline.  Offline FK/IK residuals for every
-    # listed slot are <= 7.2 mm (acceptance limit: 12 mm).
+    # A/C retain their existing zone-frame rows.  B is handled separately:
+    # the base faces west and the arm reaches along the zone X axis while
+    # every B slot remains on the lateral centreline Y=0.
     placement_slot_specs:
       # A receives two red cubes.  The former 6 cm row could mark the second
       # slot occupied after only 1 cm of physical landing error and force an
@@ -37,14 +37,14 @@ fixed_manipulation_server:
       # first 12 cm away.
       - 'zone_a:-0.18:0.12'
       - 'zone_a:-0.06:0.12'
-      # B receives three blue cubes.  Keep 12 cm between nominal centres so
-      # the measured release tolerance cannot collapse adjacent cubes below
-      # the 5.5 cm physical-clearance gate.
-      # B 底盘实际在 x≈-2.12、面向西的工作位接管。把三槽放在牌面
-      # 中线 x=0，令竖直夹爪前向距离约 0.38m；无需再把底盘向木墙推进。
-      - 'zone_b:0.00:-0.12'
+      # B receives three blue cubes.  The robot faces west, so zone X is its
+      # fore-aft direction and zone Y is lateral.  Fill from far to near on
+      # Y=0: every placement extends the arm straight ahead like grasping,
+      # with no intentional joint-1/yaw sweep.  The 9 cm centres remain above
+      # the unchanged 5.5 cm post-release physical-clearance gate.
+      - 'zone_b:-0.09:0.00'
       - 'zone_b:0.00:0.00'
-      - 'zone_b:0.00:0.12'
+      - 'zone_b:0.09:0.00'
       - 'zone_c:0.10:-0.20'
       - 'zone_c:0.10:-0.14'
       - 'zone_c:0.10:-0.08'
@@ -59,6 +59,9 @@ fixed_manipulation_server:
     # complete cube body—not merely its centre—must remain inside the paint.
     placement_boundary_margin: 0.025
     placement_slot_clearance: 0.055
+    # Tolerate small base/FK residuals without a repeated place attempt.
+    # Zone containment, grounding, level and settle gates remain unchanged.
+    placement_slot_correction_limit_m: 0.040
     dynamic_place_ik: true
     dynamic_place_max_target_distance_m: 0.58
     # 真值验证表明 FK 放置末端比地面高约 0.10m；仅用于单次放下轨迹的

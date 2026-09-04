@@ -79,6 +79,9 @@ flow_execution:
   # 避免 Collision Monitor 已安全停车后反复回退重规划；随后仍执行
   # 最终零速保持和严格的末端槽位/物理释放校验。
   b_dropoff_final_acceptance_m: 0.10
+  # 与夹取采用相同的约 1.7° 航向门限，使中心线槽位对应真正的
+  # 正前方伸臂，而不是用肩关节侧摆补偿底盘偏航。
+  b_dropoff_final_yaw_tolerance_rad: 0.03
   b_dropoff_final_settle_sec: 0.70
   b_dropoff_timeout_sec: 35.0
   b_dropoff_far_speed_mps: 0.10
@@ -221,15 +224,15 @@ flow_execution:
     B: {x: -2.30, y: -5.00, yaw: 3.1416}
     C: {x: 11.40, y: -2.44, yaw: 3.14159}
 
-  # The first two scored B cubes make the shared west parking pose lethal in
-  # the global costmap.  Keep those real obstacles and approach the final
-  # cube from the surveyed free cell north-east of them instead.
-  object_dropoffs:
-    blue_cube_3: {x: -2.60, y: -4.60, yaw: 0.0}
+  # All B cubes use the same east-side parking pose above.  The retired
+  # blue_cube_3 override approached from the side and finished facing east,
+  # which reintroduced a 180-degree terminal turn and diagonal arm reach.
+  # Keep the generic override mechanism for other zones, but no B override.
+  object_dropoffs: {}
 
   # 这些点位于最终 B 停车位东侧；末段保持朝西低速驶入并以同一航向
   # 放置，避免不必要的 180° 原地转向，也避免底盘后缘靠近木墙。
   b_dropoff_preapproaches:
     blue_cube_1: {x: -1.55, y: -5.00, yaw: 3.1416}
     blue_cube_2: {x: -1.55, y: -5.00, yaw: 3.1416}
-    blue_cube_3: {x: -2.10, y: -4.60, yaw: 3.1416}
+    blue_cube_3: {x: -1.55, y: -5.00, yaw: 3.1416}

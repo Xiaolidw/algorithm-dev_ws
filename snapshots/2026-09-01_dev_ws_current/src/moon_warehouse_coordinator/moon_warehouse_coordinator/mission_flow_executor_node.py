@@ -175,6 +175,9 @@ class MissionFlowExecutorNode(Node):
         self.b_dropoff_final_acceptance_m = float(
             self.config.get('b_dropoff_final_acceptance_m', 0.12)
         )
+        self.b_dropoff_final_yaw_tolerance_rad = float(
+            self.config.get('b_dropoff_final_yaw_tolerance_rad', 0.03)
+        )
         self.b_dropoff_final_settle_sec = float(
             self.config.get('b_dropoff_final_settle_sec', 0.70)
         )
@@ -1651,7 +1654,7 @@ class MissionFlowExecutorNode(Node):
         if self.b_dropoff_control_stage == 'ALIGN_FINAL_YAW':
             yaw_error = self.signed_angle_error(
                 self.expected_goal['yaw'], self.latest_base_yaw)
-            if abs(yaw_error) <= self.dropoff_yaw_tolerance_rad:
+            if abs(yaw_error) <= self.b_dropoff_final_yaw_tolerance_rad:
                 self.publish_zero_velocity()
                 self.b_dropoff_control_stage = 'FINAL_SETTLE'
                 self.b_dropoff_settle_until = (
@@ -1733,7 +1736,7 @@ class MissionFlowExecutorNode(Node):
             return
         position_error = self.expected_position_error()
         yaw_aligned = self.is_expected_yaw_aligned(
-            self.dropoff_yaw_tolerance_rad)
+            self.b_dropoff_final_yaw_tolerance_rad)
         if (position_error > self.b_dropoff_final_acceptance_m
                 or not yaw_aligned):
             self.b_dropoff_dock_failed(
@@ -2825,7 +2828,7 @@ class MissionFlowExecutorNode(Node):
                 if staged_b_parking:
                     position_error = self.expected_position_error()
                     yaw_aligned = self.is_expected_yaw_aligned(
-                        self.dropoff_yaw_tolerance_rad)
+                        self.b_dropoff_final_yaw_tolerance_rad)
                     if (position_error <= self.b_dropoff_final_acceptance_m
                             and yaw_aligned):
                         self.publish_zero_velocity()
