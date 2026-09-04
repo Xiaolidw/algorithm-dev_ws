@@ -81,6 +81,9 @@ flow_execution:
   b_dropoff_far_speed_mps: 0.10
   b_dropoff_near_speed_mps: 0.045
   b_dropoff_progress_timeout_sec: 4.0
+  # 仅用于 /mission/run_b_dropoff_regression 的单段回归入口；它不会
+  # 生成 A 区任务，仍走正式抓取、载物、停车、放置和 secure 验收链路。
+  b_dropoff_regression_object: blue_cube_1
   # 最后一段不再交给会避开目标方块本身的全局规划器。先导航到沿夹取
   # 朝向后退 0.5m 的安全工位，再以低速直线闭环驶入最终停车点；这样
   # 既不会碾过待抓方块，也能确保到位精度。

@@ -71,6 +71,9 @@ class MissionFlowExecutorNode(Node):
         self.b_dropoff_preapproaches = self.config.get(
             'b_dropoff_preapproaches', {}
         )
+        self.b_dropoff_regression_object = str(self.config.get(
+            'b_dropoff_regression_object', 'blue_cube_1'
+        ))
         self.dropoff_transits = self.config.get('dropoff_transits', {})
         self.plan_timeout_sec = float(
             self.config.get('plan_timeout_sec', 45.0)
@@ -312,6 +315,12 @@ class MissionFlowExecutorNode(Node):
             Trigger,
             '/mission/run_flow',
             self.run_callback,
+            callback_group=self.callback_group,
+        )
+        self.b_dropoff_regression_service = self.create_service(
+            Trigger,
+            '/mission/run_b_dropoff_regression',
+            self.run_b_dropoff_regression_callback,
             callback_group=self.callback_group,
         )
         self.stop_service = self.create_service(
@@ -565,6 +574,60 @@ class MissionFlowExecutorNode(Node):
         self.request_mission_start()
         response.success = True
         response.message = 'Question-driven avoidance flow accepted'
+        return response
+
+    def run_b_dropoff_regression_callback(self, request, response):
+        """Run one blue-cube-to-B task without creating any A-zone work.
+
+        This is deliberately an execution entry point, not a mock: the
+        generated one-item queue reuses the ordinary pickup, cargo transport,
+        staged B parking, manipulation and Gazebo secure/settle checks.
+        """
+        del request
+        if self.active:
+            response.success = False
+            response.message = f'Flow is already active: {self.state}'
+            return response
+        object_id = self.b_dropoff_regression_object
+        if (object_id not in self.object_approaches
+                or object_id not in self.b_dropoff_preapproaches):
+            response.success = False
+            response.message = (
+                f'B regression object {object_id} lacks pickup or B '
+                'pre-approach configuration')
+            return response
+        if not self.manipulation_client.wait_for_server(timeout_sec=3.0):
+            response.success = False
+            response.message = 'Action /manipulation/execute is unavailable'
+            return response
+        for probe, label in (
+            (self.arm_probe_client, 'arm'),
+            (self.gripper_probe_client, 'gripper'),
+        ):
+            if not probe.wait_for_server(timeout_sec=5.0):
+                response.success = False
+                response.message = f'{label} controller is not active yet'
+                return response
+
+        self.reset_runtime()
+        self.active = True
+        self.flow_started_monotonic = time.monotonic()
+        self.tasks = [{
+            'object_id': object_id,
+            'destination': 'B',
+            'execution_status': 'QUEUED',
+            'regression_mode': 'B_DROPOFF_ONLY',
+        }]
+        self.set_state(
+            'B_REGRESSION_STARTING',
+            f'Running B-only pickup, parking and place regression for '
+            f'{object_id}; A-zone tasks are excluded.',
+            timeout_sec=self.max_flow_duration_sec,
+        )
+        self.start_current_pickup()
+        response.success = True
+        response.message = (
+            f'B-only regression accepted for {object_id}; no A task queued')
         return response
 
     def request_mission_start(self):
