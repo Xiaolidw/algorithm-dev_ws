@@ -274,8 +274,11 @@ local_costmap:
       # Nav2 StaticLayer reads this as a costmap-level parameter.  Both the
       # cargo overlay and scan layers must only add costs, never clear walls.
       use_maximum: true
-      # x 正方向为车头。前缘覆盖机械臂/载物，后缘覆盖底盘和脚轮。
-      footprint: "[[-0.24, -0.24], [-0.24, 0.24], [0.48, 0.24], [0.48, -0.24]]"
+      # x 正方向为车头。真实轮组外沿为 y=±0.210m；保留 10mm 实体
+      # 裕量，既不会削弱底盘/墙体碰撞边界，也不会因旧 ±0.24m 的
+      # 额外 30mm 虚拟半宽封死物块与墙之间的实际通道。前缘仍完整
+      # 覆盖机械臂/载物，后缘仍覆盖底盘和脚轮。
+      footprint: "[[-0.24, -0.22], [-0.24, 0.22], [0.48, 0.22], [0.48, -0.22]]"
       plugins: ["static_layer", "cube_layer", "voxel_layer", "inflation_layer"]
       # 已知墙体、固定石块等实体直接进入局部规划。即使激光丢帧或
       # 动态障碍过滤短时失准，静态实体也不会从局部代价地图消失。
@@ -336,7 +339,8 @@ global_costmap:
       publish_frequency: 1.0
       global_frame: map
       robot_base_frame: base_footprint
-      footprint: "[[-0.24, -0.24], [-0.24, 0.24], [0.48, 0.24], [0.48, -0.24]]"
+      # Must match the local costmap's verified physical footprint above.
+      footprint: "[[-0.24, -0.22], [-0.24, 0.22], [0.48, 0.22], [0.48, -0.22]]"
       resolution: 0.05
       # The full-size cargo map contains free cells everywhere except cubes;
       # maximum composition prevents it from erasing the truth static map.
@@ -356,7 +360,12 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.7
+        # Global planning may use real wall/cube corridors once their hard
+        # footprint test is feasible.  0.45m still leaves 0.23m of soft
+        # centre-to-obstacle buffer beyond the verified 0.22m side envelope;
+        # the local map and Collision Monitor retain their independent hard
+        # collision vetoes.
+        inflation_radius: 0.45
       always_send_full_costmap: True
 # The yaml_filename does not need to be specified since it going to be set by defaults in launch.
 # If you'd rather set it in the yaml, remove the default "map" value in the tb3_simulation_launch.py
@@ -468,6 +477,12 @@ collision_monitor:
     FootprintApproach:
       type: "polygon"
       action_type: "stop"
+      # Humble's Collision Monitor requires a concrete polygon at configure
+      # time even when a footprint topic is also supplied.  Keep this exact
+      # same verified chassis/arm envelope as both costmaps; without it the
+      # node aborts before Nav2 activates and the safety chain disappears.
+      # Nav2 encodes polygon points as a flat double array: x1,y1,x2,y2,...
+      points: [-0.24, -0.22, -0.24, 0.22, 0.48, 0.22, 0.48, -0.22]
       footprint_topic: "/local_costmap/published_footprint"
       time_before_collision: 1.2
       simulation_time_step: 0.1
