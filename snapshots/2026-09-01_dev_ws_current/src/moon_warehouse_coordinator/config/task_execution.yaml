@@ -68,6 +68,19 @@ flow_execution:
   # A/C、动态 IK、区域边界真值检查和释放确认保持原精度。
   dropoff_acceptance_by_destination: {B: 0.32}
   dropoff_yaw_tolerance_rad: 0.10
+  # B 区西侧是真实木墙，公共停车位不能再向西推。先让 Nav2/A* 到达
+  # 墙外侧 0.50m 的东侧工位，取消其末端姿态细调后由低速闭环停车器
+  # 沿已验证的直线走廊进入。该流程只供 B 区蓝块使用，A/C 不受影响。
+  b_dropoff_preapproach_acceptance_m: 0.16
+  b_dropoff_pre_settle_sec: 0.60
+  b_dropoff_near_stop_m: 0.20
+  b_dropoff_near_settle_sec: 0.50
+  b_dropoff_final_acceptance_m: 0.12
+  b_dropoff_final_settle_sec: 0.70
+  b_dropoff_timeout_sec: 35.0
+  b_dropoff_far_speed_mps: 0.10
+  b_dropoff_near_speed_mps: 0.045
+  b_dropoff_progress_timeout_sec: 4.0
   # 最后一段不再交给会避开目标方块本身的全局规划器。先导航到沿夹取
   # 朝向后退 0.5m 的安全工位，再以低速直线闭环驶入最终停车点；这样
   # 既不会碾过待抓方块，也能确保到位精度。
@@ -202,3 +215,10 @@ flow_execution:
   # cube from the surveyed free cell north-east of them instead.
   object_dropoffs:
     blue_cube_3: {x: -2.60, y: -4.60, yaw: 0.0}
+
+  # 这些点位于最终 B 停车位东侧；末段面向西低速驶入，抵达后才原地
+  # 转回机械臂所需的东向航向。避免底盘后缘越过 x=-3.262 的木墙。
+  b_dropoff_preapproaches:
+    blue_cube_1: {x: -2.25, y: -5.00, yaw: 3.1416}
+    blue_cube_2: {x: -2.25, y: -5.00, yaw: 3.1416}
+    blue_cube_3: {x: -2.10, y: -4.60, yaw: 3.1416}

@@ -68,6 +68,9 @@ class MissionFlowExecutorNode(Node):
         self.pickup_transits = self.config.get('pickup_transits', {})
         self.destinations = self.config['destinations']
         self.object_dropoffs = self.config.get('object_dropoffs', {})
+        self.b_dropoff_preapproaches = self.config.get(
+            'b_dropoff_preapproaches', {}
+        )
         self.dropoff_transits = self.config.get('dropoff_transits', {})
         self.plan_timeout_sec = float(
             self.config.get('plan_timeout_sec', 45.0)
@@ -151,6 +154,38 @@ class MissionFlowExecutorNode(Node):
         )
         self.dropoff_yaw_tolerance_rad = float(
             self.config.get('dropoff_yaw_tolerance_rad', 0.10)
+        )
+        # B 区停车由 Nav2 长路径和本地低速末段分层负责。下面的数值
+        # 只应用于 b_dropoff_preapproaches 中的蓝块，A/C 保持原链路。
+        self.b_dropoff_preapproach_acceptance_m = float(
+            self.config.get('b_dropoff_preapproach_acceptance_m', 0.16)
+        )
+        self.b_dropoff_pre_settle_sec = float(
+            self.config.get('b_dropoff_pre_settle_sec', 0.60)
+        )
+        self.b_dropoff_near_stop_m = float(
+            self.config.get('b_dropoff_near_stop_m', 0.20)
+        )
+        self.b_dropoff_near_settle_sec = float(
+            self.config.get('b_dropoff_near_settle_sec', 0.50)
+        )
+        self.b_dropoff_final_acceptance_m = float(
+            self.config.get('b_dropoff_final_acceptance_m', 0.12)
+        )
+        self.b_dropoff_final_settle_sec = float(
+            self.config.get('b_dropoff_final_settle_sec', 0.70)
+        )
+        self.b_dropoff_timeout_sec = float(
+            self.config.get('b_dropoff_timeout_sec', 35.0)
+        )
+        self.b_dropoff_far_speed_mps = float(
+            self.config.get('b_dropoff_far_speed_mps', 0.10)
+        )
+        self.b_dropoff_near_speed_mps = float(
+            self.config.get('b_dropoff_near_speed_mps', 0.045)
+        )
+        self.b_dropoff_progress_timeout_sec = float(
+            self.config.get('b_dropoff_progress_timeout_sec', 4.0)
         )
         self.precision_dock_timeout_sec = float(
             self.config.get('precision_dock_timeout_sec', 18.0)
@@ -328,6 +363,11 @@ class MissionFlowExecutorNode(Node):
         self.precision_settle_count = 0
         self.precision_best_distance = math.inf
         self.precision_last_progress_mono = None
+        self.b_dropoff_control_stage = None
+        self.b_dropoff_started_monotonic = None
+        self.b_dropoff_settle_until = None
+        self.b_dropoff_best_distance = math.inf
+        self.b_dropoff_last_progress_mono = None
         self.manipulation_generation = 0
         # /mission/start 重发节拍器: 常驻创建一次, 回调里绝不 create/
         # destroy 实体(与 executor wait set 竞态会让进程崩溃, 实测
@@ -368,6 +408,12 @@ class MissionFlowExecutorNode(Node):
         # 和碰撞监视器，墙体、方块和移动障碍都保留硬制动。
         self.precision_velocity_publisher = self.create_publisher(
             Twist, '/cmd_vel_nav_raw', 20)
+        # Keep the B-zone terminal-parking loop alive for the node lifetime.
+        # Its callback is a no-op outside B_DROPOFF_DOCKING, which avoids the
+        # executor wait-set race caused by creating/destroying timers per run.
+        self.b_dropoff_dock_timer = self.create_timer(
+            0.05, self.b_dropoff_control_tick,
+            callback_group=self.callback_group)
         # Non-blocking runtime cap for the MPPI transport segment.  The
         # request is deliberately best-effort: a controller that rejects a
         # live parameter update must never terminate the mission executor.
@@ -423,6 +469,11 @@ class MissionFlowExecutorNode(Node):
         self.precision_settle_count = 0
         self.precision_best_distance = math.inf
         self.precision_last_progress_mono = None
+        self.b_dropoff_control_stage = None
+        self.b_dropoff_started_monotonic = None
+        self.b_dropoff_settle_until = None
+        self.b_dropoff_best_distance = math.inf
+        self.b_dropoff_last_progress_mono = None
 
     def load_config(self):
         package_share = get_package_share_directory(
@@ -454,6 +505,12 @@ class MissionFlowExecutorNode(Node):
             if not isinstance(dock_stages, dict):
                 raise RuntimeError('object_dock_stages must be an object')
             for name, pose in dock_stages.items():
+                self.validate_pose(name, pose)
+        b_dropoff_preapproaches = flow.get('b_dropoff_preapproaches', {})
+        if b_dropoff_preapproaches:
+            if not isinstance(b_dropoff_preapproaches, dict):
+                raise RuntimeError('b_dropoff_preapproaches must be an object')
+            for name, pose in b_dropoff_preapproaches.items():
                 self.validate_pose(name, pose)
         return flow
 
@@ -964,6 +1021,13 @@ class MissionFlowExecutorNode(Node):
         if transit is not None and not task.get('dropoff_transit_done', False):
             self.send_leg('DROPOFF_TRANSIT', transit, attempt=1)
             return
+        b_preapproach = self.b_dropoff_preapproaches.get(
+            task['object_id'])
+        if (str(task.get('destination', '')).upper() == 'B'
+                and b_preapproach is not None
+                and not task.get('b_dropoff_preapproach_done', False)):
+            self.send_leg('B_DROPOFF_PRE', b_preapproach, attempt=1)
+            return
         target = self.object_dropoffs.get(
             task['object_id'],
             self.destinations[str(task['destination']).upper()],
@@ -1096,7 +1160,7 @@ class MissionFlowExecutorNode(Node):
                     and goal_active_age >= 1.5
                     and self.current_phase in (
                         'PICKUP_TRANSIT', 'PICKUP_PRE', 'PICKUP',
-                        'DROPOFF_TRANSIT', 'DROPOFF')):
+                        'DROPOFF_TRANSIT', 'B_DROPOFF_PRE', 'DROPOFF')):
                 feedback = status.get('feedback', {})
                 try:
                     remaining = float(
@@ -1116,6 +1180,11 @@ class MissionFlowExecutorNode(Node):
                         and position_error
                         <= self.pickup_transit_acceptance_m):
                     self.handoff_dropoff_transit_proximity(position_error)
+                    return
+                if (self.current_phase == 'B_DROPOFF_PRE'
+                        and position_error
+                        <= self.b_dropoff_preapproach_acceptance_m):
+                    self.handoff_b_dropoff_preapproach(position_error)
                     return
                 if (self.current_phase == 'PICKUP_PRE'
                         and position_error <= self.preapproach_acceptance_m):
@@ -1382,6 +1451,265 @@ class MissionFlowExecutorNode(Node):
         )
         return True
 
+    def handoff_b_dropoff_preapproach(
+            self, position_error, navigation_succeeded=False):
+        """Transfer a blue B-zone arrival to the guarded local parking flow.
+
+        The pre-approach is deliberately outside the wooden west wall's
+        terminal envelope.  It is a normal Nav2/A* goal; only the short,
+        surveyed final corridor is driven by this controller.
+        """
+        if (not self.active or self.current_phase != 'B_DROPOFF_PRE'
+                or self.state not in self.NAVIGATION_STATES):
+            return False
+        task = self.tasks[self.current_task_index]
+        if not navigation_succeeded:
+            self.get_logger().info(
+                f'B-zone pre-approach accepted at {position_error:.3f} m; '
+                'cancelling Nav2 terminal-yaw refinement before local park.')
+            if self.navigation_cancel_client.service_is_ready():
+                self.navigation_cancel_client.call_async(Trigger.Request())
+        else:
+            self.get_logger().info(
+                f'B-zone pre-approach Nav2 result accepted at '
+                f'{position_error:.3f} m; entering local parking flow.')
+        record = self.make_leg_record(
+            'SUCCEEDED' if navigation_succeeded else 'SUCCEEDED_PROXIMITY')
+        self.leg_history.append(record)
+        task['b_dropoff_preapproach_navigation'] = record
+        task['b_dropoff_preapproach_done'] = True
+        self.seen_current_navigation = False
+        self.current_phase = 'B_DROPOFF_PRE_HANDOFF'
+        self.set_state(
+            'B_DROPOFF_PRE_HANDOFF',
+            f'B-zone pre-approach reached for {task["object_id"]}; '
+            'waiting for Nav2 cancellation before zero-velocity settling',
+            timeout_sec=4.0,
+        )
+        self.cancel_retry_timer()
+
+        def begin_local_parking():
+            self.cancel_retry_timer()
+            if self.active:
+                self.start_b_dropoff_dock()
+
+        # Let the coordinator retire its action handle before raw velocity
+        # commands begin.  The subsequent PRE_SETTLE stage publishes zero for
+        # the configured physical settling interval.
+        self.retry_timer = self.create_timer(
+            1.0, begin_local_parking, callback_group=self.callback_group)
+        return True
+
+    def start_b_dropoff_dock(self):
+        """Start the B-only staged parking controller before manipulation."""
+        if not self.active:
+            return
+        task = self.tasks[self.current_task_index]
+        if str(task.get('destination', '')).upper() != 'B':
+            self.fail('B-zone parking requested for a non-B task')
+            return
+        target = self.object_dropoffs.get(
+            task['object_id'], self.destinations['B'])
+        self.current_phase = 'B_DROPOFF_DOCK'
+        self.expected_goal = {
+            'x': float(target['x']),
+            'y': float(target['y']),
+            'yaw': float(target['yaw']),
+        }
+        self.b_dropoff_started_monotonic = time.monotonic()
+        self.b_dropoff_settle_until = (
+            self.b_dropoff_started_monotonic + self.b_dropoff_pre_settle_sec)
+        self.b_dropoff_control_stage = 'PRE_SETTLE'
+        self.b_dropoff_best_distance = self.expected_position_error()
+        self.b_dropoff_last_progress_mono = self.b_dropoff_started_monotonic
+        task['execution_status'] = 'B_DROPOFF_PARKING'
+        self.set_state(
+            'B_DROPOFF_DOCKING',
+            f'B-zone staged parking for {task["object_id"]}: Nav2 pre-'
+            'approach reached, beginning zero-velocity settle',
+            timeout_sec=self.b_dropoff_timeout_sec,
+        )
+        self.publish_zero_velocity()
+
+    def b_dropoff_control_tick(self):
+        """Drive the B terminal corridor slowly through Collision Monitor."""
+        if (not self.active or self.state != 'B_DROPOFF_DOCKING'
+                or self.current_phase != 'B_DROPOFF_DOCK'):
+            return
+        if (self.latest_base_x is None or self.latest_base_y is None
+                or self.latest_base_yaw is None):
+            self.b_dropoff_dock_failed('odometry unavailable during B parking')
+            return
+        now = time.monotonic()
+        if (self.b_dropoff_started_monotonic is None
+                or now - self.b_dropoff_started_monotonic
+                > self.b_dropoff_timeout_sec):
+            self.b_dropoff_dock_failed('B-zone staged parking timed out')
+            return
+
+        distance = self.expected_position_error()
+        if distance + 0.015 < self.b_dropoff_best_distance:
+            self.b_dropoff_best_distance = distance
+            self.b_dropoff_last_progress_mono = now
+        elif (self.b_dropoff_control_stage in ('FAR_APPROACH', 'NEAR_APPROACH')
+              and self.b_dropoff_last_progress_mono is not None
+              and now - self.b_dropoff_last_progress_mono
+              > self.b_dropoff_progress_timeout_sec):
+            self.b_dropoff_dock_failed(
+                f'collision-held B parking at residual={distance:.3f}m')
+            return
+
+        if self.b_dropoff_control_stage == 'PRE_SETTLE':
+            self.publish_zero_velocity()
+            if now >= self.b_dropoff_settle_until:
+                self.b_dropoff_control_stage = 'ALIGN_CORRIDOR'
+                self.get_logger().info(
+                    'B-zone pre-settle complete; aligning with the final '
+                    'low-speed corridor.')
+            return
+
+        if self.b_dropoff_control_stage == 'NEAR_SETTLE':
+            self.publish_zero_velocity()
+            if now >= self.b_dropoff_settle_until:
+                self.b_dropoff_control_stage = 'NEAR_APPROACH'
+                self.b_dropoff_best_distance = distance
+                self.b_dropoff_last_progress_mono = now
+                self.get_logger().info(
+                    'B-zone 0.20m stability stop complete; continuing at '
+                    'reduced terminal speed.')
+            return
+
+        if self.b_dropoff_control_stage == 'FINAL_SETTLE':
+            self.publish_zero_velocity()
+            if now >= self.b_dropoff_settle_until:
+                self.complete_b_dropoff_dock()
+            return
+
+        if self.b_dropoff_control_stage == 'ALIGN_FINAL_YAW':
+            yaw_error = self.signed_angle_error(
+                self.expected_goal['yaw'], self.latest_base_yaw)
+            if abs(yaw_error) <= self.dropoff_yaw_tolerance_rad:
+                self.publish_zero_velocity()
+                self.b_dropoff_control_stage = 'FINAL_SETTLE'
+                self.b_dropoff_settle_until = (
+                    now + self.b_dropoff_final_settle_sec)
+                self.get_logger().info(
+                    'B-zone terminal pose aligned; beginning final '
+                    f'{self.b_dropoff_final_settle_sec:.2f}s zero-velocity '
+                    'validation hold.')
+                return
+            command = Twist()
+            command.angular.z = self._clamp(1.1 * yaw_error, -0.25, 0.25)
+            if abs(command.angular.z) < 0.12:
+                command.angular.z = math.copysign(0.12, yaw_error)
+            self.precision_velocity_publisher.publish(command)
+            return
+
+        path_yaw = math.atan2(
+            self.expected_goal['y'] - self.latest_base_y,
+            self.expected_goal['x'] - self.latest_base_x,
+        )
+        heading_error = self.signed_angle_error(path_yaw, self.latest_base_yaw)
+        if self.b_dropoff_control_stage == 'ALIGN_CORRIDOR':
+            if abs(heading_error) <= 0.05:
+                self.publish_zero_velocity()
+                self.b_dropoff_control_stage = 'FAR_APPROACH'
+                self.b_dropoff_best_distance = distance
+                self.b_dropoff_last_progress_mono = now
+                return
+            command = Twist()
+            command.angular.z = self._clamp(1.1 * heading_error, -0.28, 0.28)
+            if abs(command.angular.z) < 0.12:
+                command.angular.z = math.copysign(0.12, heading_error)
+            self.precision_velocity_publisher.publish(command)
+            return
+
+        if self.b_dropoff_control_stage == 'FAR_APPROACH':
+            if distance <= self.b_dropoff_near_stop_m:
+                self.publish_zero_velocity()
+                self.b_dropoff_control_stage = 'NEAR_SETTLE'
+                self.b_dropoff_settle_until = (
+                    now + self.b_dropoff_near_settle_sec)
+                self.get_logger().info(
+                    f'B-zone residual {distance:.3f}m reached; beginning '
+                    f'{self.b_dropoff_near_settle_sec:.2f}s mid-corridor '
+                    'zero-velocity stop.')
+                return
+            self.publish_b_dropoff_drive(
+                distance, heading_error, self.b_dropoff_far_speed_mps)
+            return
+
+        if self.b_dropoff_control_stage == 'NEAR_APPROACH':
+            if distance <= self.b_dropoff_final_acceptance_m:
+                self.publish_zero_velocity()
+                self.b_dropoff_control_stage = 'ALIGN_FINAL_YAW'
+                return
+            self.publish_b_dropoff_drive(
+                distance, heading_error, self.b_dropoff_near_speed_mps)
+            return
+
+        self.b_dropoff_dock_failed(
+            f'unknown B parking stage {self.b_dropoff_control_stage}')
+
+    def publish_b_dropoff_drive(self, distance, heading_error, speed_limit):
+        """Publish a bounded terminal command on the safety-filtered path."""
+        command = Twist()
+        if abs(heading_error) > 0.16:
+            command.angular.z = self._clamp(1.0 * heading_error, -0.24, 0.24)
+        else:
+            command.linear.x = self._clamp(
+                0.60 * distance, 0.025, abs(speed_limit))
+            command.angular.z = self._clamp(
+                0.85 * heading_error, -0.14, 0.14)
+        self.precision_velocity_publisher.publish(command)
+
+    def complete_b_dropoff_dock(self):
+        """Require the final settled base pose before the existing place gate."""
+        if (not self.active or self.state != 'B_DROPOFF_DOCKING'
+                or self.current_phase != 'B_DROPOFF_DOCK'):
+            return
+        position_error = self.expected_position_error()
+        yaw_aligned = self.is_expected_yaw_aligned(
+            self.dropoff_yaw_tolerance_rad)
+        if (position_error > self.b_dropoff_final_acceptance_m
+                or not yaw_aligned):
+            self.b_dropoff_dock_failed(
+                f'final B parking gate rejected residual={position_error:.3f}m, '
+                f'yaw_aligned={yaw_aligned}')
+            return
+        task = self.tasks[self.current_task_index]
+        record = {
+            'task_index': self.current_task_index,
+            'phase': 'B_DROPOFF_STAGED_PARKING',
+            'attempt': self.current_attempt,
+            'target': dict(self.expected_goal),
+            'result': 'SUCCEEDED',
+            'navigation_time_s': round(
+                time.monotonic() - self.b_dropoff_started_monotonic, 2),
+            'number_of_recoveries': 0,
+            'final_residual_m': round(position_error, 4),
+        }
+        self.leg_history.append(record)
+        task['dropoff_navigation'] = record
+        task['execution_status'] = 'DROPOFF_REACHED'
+        self.set_state(
+            'DROPOFF_REACHED',
+            f'B-zone staged parking passed at {position_error:.3f}m after '
+            'the final zero-velocity hold; starting strict place action.',
+        )
+        self.start_manipulation('place')
+
+    def b_dropoff_dock_failed(self, reason):
+        self.publish_zero_velocity()
+        if not self.active:
+            return
+        task = self.tasks[self.current_task_index]
+        # A fresh Nav2 pre-approach is required on retry; never send a direct
+        # retry through the wooden-wall terminal corridor.
+        task['b_dropoff_preapproach_done'] = False
+        self.get_logger().warning(f'B-zone staged parking failed: {reason}')
+        self.finish_leg_failure('B_DROPOFF_DOCK_FAILED')
+
     def handoff_dock_stage_proximity(self, position_error):
         """Promote a safe staging arrival without waiting for Nav2's result.
 
@@ -1509,6 +1837,10 @@ class MissionFlowExecutorNode(Node):
                 f'continuing to zone {task["destination"]}',
             )
             self.start_current_dropoff()
+            return
+        if self.current_phase == 'B_DROPOFF_PRE':
+            self.handoff_b_dropoff_preapproach(
+                self.expected_position_error(), navigation_succeeded=True)
             return
         if self.current_phase == 'PICKUP_PRE':
             task['prepickup_navigation'] = record
@@ -2462,12 +2794,15 @@ class MissionFlowExecutorNode(Node):
         if self.state == 'PRECISION_DOCKING':
             self.precision_dock_failed('precision docking timed out')
             return
+        if self.state == 'B_DROPOFF_DOCKING':
+            self.b_dropoff_dock_failed('B-zone staged parking timed out')
+            return
         if self.state in self.NAVIGATION_STATES:
             if self.navigation_cancel_client.service_is_ready():
                 self.navigation_cancel_client.call_async(Trigger.Request())
             if self.current_phase in (
                     'PICKUP_PRE', 'PICKUP_DOCK_STAGE',
-                    'PICKUP', 'DROPOFF'):
+                    'PICKUP', 'B_DROPOFF_PRE', 'DROPOFF'):
                 self.finish_leg_failure('NAVIGATION_TIMEOUT')
                 return
         elif self.state in self.MANIPULATION_STATES:
