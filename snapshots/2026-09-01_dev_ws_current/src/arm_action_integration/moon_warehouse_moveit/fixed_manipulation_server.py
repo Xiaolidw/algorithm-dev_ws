@@ -230,6 +230,10 @@ class FixedManipulationServer(Node):
             'placement_slot_correction_limit_m': 0.035,
             'dynamic_place_ik': True,
             'dynamic_place_max_target_distance_m': 0.55,
+            # Simulation FK is vertically offset from Gazebo link6 by the
+            # tool/carry capture stack.  Apply one calibrated target bias for
+            # the single downward place trajectory, never a feedback loop.
+            'dynamic_place_vertical_target_bias_m': 0.0,
             'arm_joints': ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6'],
             'gripper_joints': ['finger_joint1'],
             'arm_home': [0.0, 0.6102, 1.2593, 0.0, -1.4931, 0.0],
@@ -306,6 +310,8 @@ class FixedManipulationServer(Node):
         self._dynamic_place_ik = bool(value('dynamic_place_ik'))
         self._dynamic_place_max_target_distance = float(
             value('dynamic_place_max_target_distance_m'))
+        self._dynamic_place_vertical_target_bias = float(
+            value('dynamic_place_vertical_target_bias_m'))
         self._placement_slots = {
             zone: [] for zone in self._placement_zone_models
         }
@@ -940,7 +946,8 @@ class FixedManipulationServer(Node):
                 zone_in_base.position.x + ox,
                 zone_in_base.position.y + oy,
                 zone_in_base.position.z + oz
-                - self._arm_ik_reference_to_base_z,
+                - self._arm_ik_reference_to_base_z
+                + self._dynamic_place_vertical_target_bias,
             ), dtype=float)
             target_distance = float(np.linalg.norm(target))
             if target_distance > self._dynamic_place_max_target_distance:

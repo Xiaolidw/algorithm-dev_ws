@@ -61,6 +61,9 @@ fixed_manipulation_server:
     placement_slot_clearance: 0.055
     dynamic_place_ik: true
     dynamic_place_max_target_distance_m: 0.58
+    # 真值验证表明 FK 放置末端比地面高约 0.10m；仅用于单次放下轨迹的
+    # 模型标定，之后仍以 Gazebo 真值决定是否允许松爪。
+    dynamic_place_vertical_target_bias_m: -0.10
 
     # Controller joint order
     arm_joints: [joint1, joint2, joint3, joint4, joint5, joint6]
