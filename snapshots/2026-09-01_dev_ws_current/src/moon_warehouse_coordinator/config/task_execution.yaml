@@ -75,7 +75,9 @@ flow_execution:
   b_dropoff_pre_settle_sec: 0.60
   b_dropoff_near_stop_m: 0.20
   b_dropoff_near_settle_sec: 0.50
-  b_dropoff_final_acceptance_m: 0.12
+  # B 区放置的 IK 余量小于通用 Nav2 终点门限；末段必须停在 4cm 内，
+  # 才能保证竖直、单次放下动作的槽位可达性。
+  b_dropoff_final_acceptance_m: 0.04
   b_dropoff_final_settle_sec: 0.70
   b_dropoff_timeout_sec: 35.0
   b_dropoff_far_speed_mps: 0.10
@@ -208,9 +210,9 @@ flow_execution:
     A: {x: -7.06, y: -2.50, yaw: -1.5708}
     # B 区的末端停车基准在标线东侧约 (-2.0, -5.0)。底盘朝西时，
     # 机械臂自然伸入 zone_b 的西侧槽位；既不需要把底盘挤向 Wall_75
-    # (x=-3.26216)，也不会让车体碾压实体障碍。-2.20 为动态 IK 的
-    # 三维距离（含工具高度）保留裕度，即使停车仍有少量东侧残差也可达。
-    B: {x: -2.20, y: -5.00, yaw: 3.1416}
+    # (x=-3.26216)，也不会让车体碾压实体障碍。-2.24 加上 4cm 终点
+    # 门限可使竖直放置的动态 IK 保持在已验证的可达工作空间内。
+    B: {x: -2.24, y: -5.00, yaw: 3.1416}
     C: {x: 11.40, y: -2.44, yaw: 3.14159}
 
   # The first two scored B cubes make the shared west parking pose lethal in
