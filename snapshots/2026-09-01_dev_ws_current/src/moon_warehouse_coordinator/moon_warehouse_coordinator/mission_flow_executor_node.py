@@ -1767,11 +1767,48 @@ class MissionFlowExecutorNode(Node):
         if not self.active:
             return
         task = self.tasks[self.current_task_index]
-        # A fresh Nav2 pre-approach is required on retry; never send a direct
-        # retry through the wooden-wall terminal corridor.
+        # A fresh Nav2 pre-approach is required on retry; never hand this
+        # local controller failure to the generic leg retry, which would
+        # resend the terminal DROPOFF goal directly through the B corridor.
         task['b_dropoff_preapproach_done'] = False
+        retry_count = int(task.get('b_dropoff_dock_retries', 0)) + 1
+        task['b_dropoff_dock_retries'] = retry_count
+        task['execution_status'] = 'B_DROPOFF_PARKING_FAILED'
         self.get_logger().warning(f'B-zone staged parking failed: {reason}')
-        self.finish_leg_failure('B_DROPOFF_DOCK_FAILED')
+        self.stop_base()
+        if self.navigation_cancel_client.service_is_ready():
+            self.navigation_cancel_client.call_async(Trigger.Request())
+        for client in (
+            self.local_costmap_clear_client,
+            self.global_costmap_clear_client,
+        ):
+            if client.service_is_ready():
+                client.call_async(ClearEntireCostmap.Request())
+        if retry_count > self.max_navigation_retries:
+            self.fail(
+                f'B-zone staged parking failed after {retry_count} '
+                f'pre-approach retry/retries: {reason}')
+            return
+        wait_delay = min(12.0, self.retry_delay_sec * retry_count)
+        self.set_state(
+            'RETRY_WAIT',
+            f'B-zone staged parking failed ({reason}); restarting '
+            f'B_DROPOFF_PRE attempt {retry_count + 1} after '
+            f'{wait_delay:.1f}s',
+            timeout_sec=wait_delay + 3.0,
+        )
+        self.cancel_retry_timer()
+
+        def restart_from_preapproach():
+            self.cancel_retry_timer()
+            if self.active:
+                self.start_current_dropoff()
+
+        self.retry_timer = self.create_timer(
+            wait_delay,
+            restart_from_preapproach,
+            callback_group=self.callback_group,
+        )
 
     def handoff_dock_stage_proximity(self, position_error):
         """Promote a safe staging arrival without waiting for Nav2's result.
