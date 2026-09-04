@@ -1320,6 +1320,19 @@ class FixedManipulationServer(Node):
         await self._send_trajectory(
             self._arm_client, self._arm_joints, place_joints,
             self._arm_duration, self.ARM_FAILED, 'move arm to place pose')
+        # The cube carrier updates in Gazebo's physics callback while the arm
+        # action result is delivered by ROS control.  Admit one bounded
+        # physics-step settle before the one-shot held-slot measurement; this
+        # is neither a service-follow loop nor an extra corrective motion.
+        time.sleep(0.20)
+        tool_pose = await self._get_tool_pose()
+        cube_pose = await self._get_world_pose(object_id)
+        if tool_pose is not None and cube_pose is not None:
+            self.get_logger().info(
+                f'{object_id} post-place-motion truth: '
+                f'tool_z={tool_pose.position.z:.4f}m, '
+                f'cube_z={cube_pose.position.z:.4f}m, '
+                f'carry_status={self._carry_status or "none"}.')
         if self._dynamic_place_ik:
             await self._stage(handle, 'align_held_cube_to_slot', 0.42)
             place_joints = await self._align_held_cube_to_selected_slot(
