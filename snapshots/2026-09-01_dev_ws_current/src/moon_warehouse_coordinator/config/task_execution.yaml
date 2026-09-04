@@ -93,6 +93,9 @@ flow_execution:
   # 真实地图中不可达，不能把六次 Nav2 失败当作“快速回归”。放置链路
   # 暂以已验证可抵达 B 的 blue_cube_1 回归；blue_cube_3 路线另行修复。
   b_dropoff_regression_object: blue_cube_1
+  # 连续 B 区回归固定使用前两个蓝块；只排入 B 任务，用于同时验收
+  # 第一块放置后的离场、第二块抓取/载物避障和第二槽位净距。
+  b_double_dropoff_regression_objects: [blue_cube_1, blue_cube_2]
   # 最后一段不再交给会避开目标方块本身的全局规划器。先导航到沿夹取
   # 朝向后退 0.5m 的安全工位，再以低速直线闭环驶入最终停车点；这样
   # 既不会碾过待抓方块，也能确保到位精度。

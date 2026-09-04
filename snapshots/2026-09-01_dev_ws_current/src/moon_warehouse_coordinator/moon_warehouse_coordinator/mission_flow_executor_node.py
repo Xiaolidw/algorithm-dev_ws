@@ -74,6 +74,12 @@ class MissionFlowExecutorNode(Node):
         self.b_dropoff_regression_object = str(self.config.get(
             'b_dropoff_regression_object', 'blue_cube_1'
         ))
+        self.b_double_dropoff_regression_objects = [
+            str(value) for value in self.config.get(
+                'b_double_dropoff_regression_objects',
+                ['blue_cube_1', 'blue_cube_2'],
+            )
+        ]
         self.dropoff_transits = self.config.get('dropoff_transits', {})
         self.plan_timeout_sec = float(
             self.config.get('plan_timeout_sec', 45.0)
@@ -324,6 +330,12 @@ class MissionFlowExecutorNode(Node):
             Trigger,
             '/mission/run_b_dropoff_regression',
             self.run_b_dropoff_regression_callback,
+            callback_group=self.callback_group,
+        )
+        self.b_double_dropoff_regression_service = self.create_service(
+            Trigger,
+            '/mission/run_two_b_dropoff_regression',
+            self.run_two_b_dropoff_regression_callback,
             callback_group=self.callback_group,
         )
         self.stop_service = self.create_service(
@@ -587,18 +599,34 @@ class MissionFlowExecutorNode(Node):
         staged B parking, manipulation and Gazebo secure/settle checks.
         """
         del request
+        return self.start_b_dropoff_regression(
+            [self.b_dropoff_regression_object], response)
+
+    def run_two_b_dropoff_regression_callback(self, request, response):
+        """Run two consecutive real blue-cube-to-B tasks, excluding A."""
+        del request
+        return self.start_b_dropoff_regression(
+            self.b_double_dropoff_regression_objects, response)
+
+    def start_b_dropoff_regression(self, object_ids, response):
+        """Start a bounded B-only queue through the production task path."""
         if self.active:
             response.success = False
             response.message = f'Flow is already active: {self.state}'
             return response
-        object_id = self.b_dropoff_regression_object
-        if (object_id not in self.object_approaches
-                or object_id not in self.b_dropoff_preapproaches):
+        object_ids = list(object_ids)
+        if not object_ids or len(set(object_ids)) != len(object_ids):
             response.success = False
-            response.message = (
-                f'B regression object {object_id} lacks pickup or B '
-                'pre-approach configuration')
+            response.message = 'B regression queue must be non-empty and unique'
             return response
+        for object_id in object_ids:
+            if (object_id not in self.object_approaches
+                    or object_id not in self.b_dropoff_preapproaches):
+                response.success = False
+                response.message = (
+                    f'B regression object {object_id} lacks pickup or B '
+                    'pre-approach configuration')
+                return response
         if not self.manipulation_client.wait_for_server(timeout_sec=3.0):
             response.success = False
             response.message = 'Action /manipulation/execute is unavailable'
@@ -615,22 +643,27 @@ class MissionFlowExecutorNode(Node):
         self.reset_runtime()
         self.active = True
         self.flow_started_monotonic = time.monotonic()
-        self.tasks = [{
-            'object_id': object_id,
-            'destination': 'B',
-            'execution_status': 'QUEUED',
-            'regression_mode': 'B_DROPOFF_ONLY',
-        }]
+        self.tasks = [
+            {
+                'object_id': object_id,
+                'destination': 'B',
+                'execution_status': 'QUEUED',
+                'regression_mode': 'B_DROPOFF_ONLY',
+            }
+            for object_id in object_ids
+        ]
+        object_summary = ', '.join(object_ids)
         self.set_state(
             'B_REGRESSION_STARTING',
             f'Running B-only pickup, parking and place regression for '
-            f'{object_id}; A-zone tasks are excluded.',
+            f'{object_summary}; A-zone tasks are excluded.',
             timeout_sec=self.max_flow_duration_sec,
         )
         self.start_current_pickup()
         response.success = True
         response.message = (
-            f'B-only regression accepted for {object_id}; no A task queued')
+            f'B-only regression accepted for {object_summary}; '
+            f'{len(object_ids)} task(s), no A task queued')
         return response
 
     def request_mission_start(self):
@@ -2648,14 +2681,15 @@ class MissionFlowExecutorNode(Node):
             return
         destination = str(task.get('destination', '')).upper()
         if destination == 'B':
-            # B is a tight terminal bay: the west wall is immediately behind
-            # the east-facing placement pose, while the released cube is in
-            # front of the chassis.  A blind reverse or in-place turn is
-            # therefore correctly held by Collision Monitor.  Commit the
-            # physically verified placement and let the next Nav2 leg choose a
-            # map-aware exit.  CubeObstacleMapNode keeps this just-placed cube
-            # excluded until Gazebo truth proves 0.70 m base clearance, and the
-            # independent safety scan remains active throughout the handoff.
+            # B is a tight terminal bay.  The verified placement pose faces
+            # west with the cube in front of the chassis; a fixed-distance
+            # reverse would move east, but cannot account for the diagonal
+            # clearance needed around the sign and nearby walls.  Commit the
+            # physically verified placement and let the next Nav2 leg choose
+            # the map-aware north-east exit.  CubeObstacleMapNode keeps this
+            # just-placed cube excluded until Gazebo truth proves 0.70 m base
+            # clearance, while the independent raw scan and Collision Monitor
+            # remain active throughout the handoff.
             self.publish_zero_velocity()
             self.get_logger().info(
                 'B-zone placement settled; deferring tight-bay egress to the '
