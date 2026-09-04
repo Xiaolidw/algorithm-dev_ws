@@ -627,11 +627,12 @@ class FixedManipulationServer(Node):
         if self._validate_window:
             await self._stage(handle, 'validate_attached_drift', 0.92)
             await self._validate_attachment_drift(object_id)
-        # Navigation carries the cube relative to the chassis, so arm-servo
-        # motion cannot produce vertical jitter while the robot is moving.
-        self._carry_status = ''
-        self._publish_carry(f'base:{object_id}')
-        self._await_carry_capture(object_id, mode='base')
+        # Keep the verified tool-relative capture for transport as well as
+        # for place.  The arm has already reached its stationary lift pose,
+        # so this physics-loop constraint keeps the cube visibly between the
+        # fingers without introducing any ROS/service-rate following or arm
+        # servo jitter.  Switching to a base-relative carrier here caused the
+        # cube to appear detached and prevented its later descent to a slot.
         # 成功后不再回滚
         self._pending_pick = None
         await self._stage(handle, 'pick_complete', 1.0)

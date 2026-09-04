@@ -25,6 +25,7 @@ from rclpy.qos import (
 )
 from rclpy.time import Time
 from sensor_msgs.msg import LaserScan
+from gazebo_msgs.msg import ModelStates
 from tf2_ros import Buffer, TransformException, TransformListener
 
 
@@ -45,6 +46,13 @@ class DynamicObstacleScanFilter(Node):
         self.declare_parameter('self_footprint_x_max', 0.48)
         self.declare_parameter('self_footprint_y_half', 0.24)
         self.declare_parameter('self_footprint_margin', 0.01)
+        # A carried cube is part of this robot, not an external collision
+        # threat.  Its centre is above the floor but still intersects the
+        # 2D lidar plane, so exclude only its measured silhouette from the
+        # two scan streams.  Do not enlarge the generic self footprint.
+        self.declare_parameter('carried_cube_z_threshold', 0.12)
+        self.declare_parameter('carried_cube_filter_radius', 0.085)
+        self.declare_parameter('robot_model_name', 'six_arm')
 
         self.input_scan_topic = str(
             self.get_parameter('input_scan_topic').value)
@@ -74,6 +82,14 @@ class DynamicObstacleScanFilter(Node):
             0.0,
             float(self.get_parameter('self_footprint_y_half').value) - margin,
         )
+        self.carried_cube_z_threshold = float(
+            self.get_parameter('carried_cube_z_threshold').value)
+        self.carried_cube_filter_radius = max(
+            0.045,
+            float(self.get_parameter('carried_cube_filter_radius').value),
+        )
+        self.robot_model_name = str(
+            self.get_parameter('robot_model_name').value)
 
         sensor_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
@@ -97,6 +113,8 @@ class DynamicObstacleScanFilter(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.predictions = None
         self.predictions_received = 0.0
+        self.robot_world_pose = None
+        self.carried_cube_world_poses = []
         self.publisher = self.create_publisher(
             LaserScan, self.output_scan_topic, sensor_qos)
         self.safety_publisher = self.create_publisher(
@@ -108,6 +126,10 @@ class DynamicObstacleScanFilter(Node):
             self.prediction_topic,
             self.prediction_callback,
             10,
+        )
+        self.create_subscription(
+            ModelStates, '/gazebo/model_states',
+            self.model_states_callback, 10,
         )
         self.filtered_beams = 0
         self.last_scan_stamp_ns = -1
@@ -122,6 +144,18 @@ class DynamicObstacleScanFilter(Node):
     def prediction_callback(self, message):
         self.predictions = message
         self.predictions_received = time.monotonic()
+
+    def model_states_callback(self, message):
+        robot_pose = None
+        carried = []
+        for name, pose in zip(message.name, message.pose):
+            if name == self.robot_model_name:
+                robot_pose = pose
+            elif (name.startswith(('red_cube_', 'blue_cube_'))
+                  and float(pose.position.z) > self.carried_cube_z_threshold):
+                carried.append(pose)
+        self.robot_world_pose = robot_pose
+        self.carried_cube_world_poses = carried
 
     @staticmethod
     def transform_xy(x, y, transform):
@@ -166,6 +200,43 @@ class DynamicObstacleScanFilter(Node):
                 float(position.x), float(position.y), transform))
         return centres
 
+    def carried_cube_centres_in_scan(self, scan_frame):
+        """Return truth-backed, robot-relative carried-cube centres.
+
+        This avoids masking any arbitrary near-field return.  We transform
+        only cubes whose current Gazebo height proves that this robot is
+        carrying them, then mask a radius comparable with their 9 cm body.
+        """
+        robot = self.robot_world_pose
+        if robot is None or not self.carried_cube_world_poses:
+            return []
+        source_frame = 'base_footprint'
+        target_frame = str(scan_frame).strip().lstrip('/')
+        if not target_frame:
+            return []
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                target_frame,
+                source_frame,
+                Time(),
+                timeout=Duration(seconds=self.tf_timeout),
+            )
+        except TransformException:
+            return []
+        q = robot.orientation
+        robot_yaw = math.atan2(
+            2.0 * (q.w * q.z + q.x * q.y),
+            1.0 - 2.0 * (q.y * q.y + q.z * q.z),
+        )
+        centres = []
+        for cube in self.carried_cube_world_poses:
+            dx = float(cube.position.x) - float(robot.position.x)
+            dy = float(cube.position.y) - float(robot.position.y)
+            base_x = math.cos(robot_yaw) * dx + math.sin(robot_yaw) * dy
+            base_y = -math.sin(robot_yaw) * dx + math.cos(robot_yaw) * dy
+            centres.append(self.transform_xy(base_x, base_y, transform))
+        return centres
+
     def scan_callback(self, message):
         stamp_ns = (
             int(message.header.stamp.sec) * 1_000_000_000
@@ -176,6 +247,10 @@ class DynamicObstacleScanFilter(Node):
         self.last_scan_stamp_ns = stamp_ns
         output = copy.deepcopy(message)
         safety = copy.deepcopy(message)
+        carried_centres = self.carried_cube_centres_in_scan(
+            message.header.frame_id)
+        carried_radius_squared = (
+            self.carried_cube_filter_radius * self.carried_cube_filter_radius)
         # Do not use a radial cutoff here.  A radial cutoff also erases a real
         # wall exactly when the robot is closest to it.  The lidar is centred
         # on base_link, so self echoes can be identified by the asymmetric
@@ -190,9 +265,15 @@ class DynamicObstacleScanFilter(Node):
                     self.self_x_min <= x <= self.self_x_max
                     and abs(y) <= self.self_y_half
                 )
+                is_carried_cube_echo = any(
+                    (x - centre_x) ** 2 + (y - centre_y) ** 2
+                    <= carried_radius_squared
+                    for centre_x, centre_y in carried_centres
+                )
             else:
                 is_self_echo = False
-            if is_self_echo:
+                is_carried_cube_echo = False
+            if is_self_echo or is_carried_cube_echo:
                 output.ranges[index] = math.inf
                 safety.ranges[index] = math.inf
                 masked += 1
