@@ -68,7 +68,7 @@
       </spot>
     </light>
     <model name="officeroom">
-      <pose>-0.693163 -4.92976 0 0 -0 0</pose>
+      <pose>0.9981 -4.92976 0 0 -0 0</pose>
       <link name="Wall_10">
         <collision name="Wall_10_Collision">
           <geometry>
@@ -80,12 +80,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -130,12 +125,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -180,12 +170,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -230,12 +215,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -280,12 +260,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -330,12 +305,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -380,12 +350,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -430,12 +395,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -480,12 +440,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -530,12 +485,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -580,12 +530,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -630,12 +575,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -680,12 +620,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -730,12 +665,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -780,12 +710,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -830,12 +755,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -880,12 +800,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -930,12 +845,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -980,12 +890,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -1030,12 +935,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -1080,12 +980,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -1130,12 +1025,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -1180,12 +1070,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -1230,12 +1115,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -1280,12 +1160,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -1330,12 +1205,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -1380,12 +1250,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -1430,12 +1295,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -1480,12 +1340,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -1530,12 +1385,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
@@ -1580,12 +1430,7 @@
           <max_contacts>10</max_contacts>
           <surface>
             <contact>
-            <ode>
-              <!-- 载物方块剐蹭墙体时接触求解会产生爆炸性冲量把整机弹飞,
-                   限制校正速度使墙面只产生温和推离 -->
-              <max_vel>0.2</max_vel>
-              <min_depth>0.005</min_depth>
-            </ode>
+            <ode />
           </contact>
             <bounce />
             <friction>
