@@ -138,7 +138,11 @@ controller_server:
       wz_std: 0.25
       # 直线空旷段允许 0.60 m/s；SIPP 会在弯道、障碍物附近和冲突区
       # 自动下调速度，载物阶段还会由流程执行器额外封顶为 0.45 m/s。
-      vx_max: 0.60
+      # SIPP/Collision Monitor remain the authoritative speed gates near
+      # obstacles.  Permit 1.20 m/s only when their open-corridor decision
+      # permits it; precision pickup and B-zone parking use separate low-speed
+      # controllers.
+      vx_max: 1.20
       vx_min: -0.35
       vy_max: 0.5
       wz_max: 1.0

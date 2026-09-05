@@ -119,9 +119,12 @@ sipp_decision_node:
     prepare_settle_time: 0.20
     # Require a brief stable safe window before releasing a prepared pass.
     release_confirm_time: 0.45
-    fast_cruise_speed: 0.55
-    normal_cruise_speed: 0.45
-    cautious_speed: 0.30
+    # These are upper gates, not unconditional commands.  SIPP selects the
+    # cautious mode for an imminent conflict and Collision Monitor still owns
+    # the final stop.  Open, aligned corridors may use the requested 1.2 m/s.
+    fast_cruise_speed: 1.20
+    normal_cruise_speed: 0.95
+    cautious_speed: 0.45
     fast_cruise_horizon: 3.0
     fast_cruise_min_goal_distance: 0.60
     fast_cruise_max_heading_error: 0.25

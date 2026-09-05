@@ -1,6 +1,12 @@
 # Closed-loop acceptance flow. Object entries are safe approach poses,
 # not the physical cube centers. Manipulation runs after each navigation leg.
 flow_execution:
+  # Each time the executor starts a new pickup it chooses the nearest pending
+  # cube from the live base/cube poses.  This only reorders eligible work; its
+  # configured transit, collision checks and final docking gate still apply.
+  nearest_pickup_enabled: true
+  open_cruise_speed_mps: 1.20
+  loaded_cruise_speed_mps: 1.20
   plan_timeout_sec: 150.0
   # bt_navigator 在高负载虚拟机上从 Configuring 到 ACTIVE 可超过 50s,
   # 期间目标会被整体拒绝; 运行前显式等待 ACTIVE, 并保留宽松重试兜底。
@@ -210,6 +216,14 @@ flow_execution:
     red_cube_3: {x: -5.35, y: 2.70, yaw: -1.5708}
     red_cube_4: {x: -5.35, y: 2.70, yaw: -1.5708}
     red_cube_5: {x: -5.35, y: 2.70, yaw: -1.5708}
+    # The fixed one-metre block link_4 occupies x=[-3.20,-2.20],
+    # y=[-4.04,-3.04].  Before the B pre-approach, keep the loaded chassis on
+    # its surveyed open eastern side.  The former direct leg descended near
+    # x=-2.28 and was only able to pass because the wrongly-dynamic block was
+    # being pushed away; once anchored, Collision Monitor correctly stopped it.
+    blue_cube_1: {x: -1.45, y: -2.40, yaw: -1.5708}
+    blue_cube_2: {x: -1.45, y: -2.40, yaw: -1.5708}
+    blue_cube_3: {x: -1.45, y: -2.40, yaw: -1.5708}
 
   destinations:
     # 由 Gazebo /model_states 真值和夹爪相对底盘实测偏移反算停车位。

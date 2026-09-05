@@ -466,6 +466,7 @@ class FixedManipulationServer(Node):
 
     async def _execute(self, goal_handle):
         self._busy = True
+        self._active_execute_handle = goal_handle
         operation = goal_handle.request.operation.strip().lower()
         object_id = goal_handle.request.object_id.strip() or self._default_object
         # pick 失败回滚记录: 焊接已建立时必须解除并把方块放回抓取前位姿,
@@ -504,6 +505,7 @@ class FixedManipulationServer(Node):
         finally:
             if lock_base:
                 self._publish_base_lock(False)
+            self._active_execute_handle = None
             self._busy = False
 
     async def _best_effort_recover(self):
@@ -805,6 +807,10 @@ class FixedManipulationServer(Node):
 
     def _release_callback(self, request, response):
         self._publish_carry('release')
+        # A coordinator can call this endpoint after Gazebo truth confirms a
+        # release but the action result was lost.  Do not leave the chassis
+        # frozen while the cancelled action coroutine is unwinding.
+        self._publish_base_lock(False)
         response.success = True
         response.message = 'carry release requested'
         return response
@@ -882,16 +888,46 @@ class FixedManipulationServer(Node):
         request = GetEntityState.Request()
         request.name = object_id
         request.reference_frame = 'world'
-        response = await self._state_client.call_async(request)
+        response = await self._wait_for_future(
+            self._state_client.call_async(request), 3.0,
+            self.DEPENDENCY_UNAVAILABLE,
+            f'Gazebo state for {object_id}')
         if not response.success:
             return None
         return response.state.pose
+
+    def _execution_cancel_requested(self):
+        handle = getattr(self, '_active_execute_handle', None)
+        return handle is not None and handle.is_cancel_requested
+
+    def _raise_if_execution_cancelled(self):
+        if self._execution_cancel_requested():
+            raise ManipulationError(
+                self.CANCELLED, 'Cancelled while waiting for manipulation I/O.')
+
+    async def _wait_for_future(self, future, timeout_s, error_code, description):
+        """Bound service waits so action cancellation always reaches finally.
+
+        A bare await on a lost Gazebo/MoveIt response used to keep the action
+        alive indefinitely, which in turn retained the Gazebo base lock.
+        """
+        deadline = time.monotonic() + float(timeout_s)
+        while not future.done():
+            self._raise_if_execution_cancelled()
+            if time.monotonic() > deadline:
+                raise ManipulationError(
+                    error_code, f'Service response timed out: {description}.')
+            time.sleep(0.05)
+        return future.result()
 
     async def _get_entity_pose(self, entity, reference_frame='world'):
         request = GetEntityState.Request()
         request.name = entity
         request.reference_frame = reference_frame
-        response = await self._state_client.call_async(request)
+        response = await self._wait_for_future(
+            self._state_client.call_async(request), 3.0,
+            self.DEPENDENCY_UNAVAILABLE,
+            f'Gazebo state for {entity}')
         if not response.success:
             return None
         return response.state.pose
@@ -901,7 +937,10 @@ class FixedManipulationServer(Node):
         request = GetEntityState.Request()
         request.name = entity
         request.reference_frame = reference_frame
-        response = await self._state_client.call_async(request)
+        response = await self._wait_for_future(
+            self._state_client.call_async(request), 3.0,
+            self.DEPENDENCY_UNAVAILABLE,
+            f'Gazebo state for {entity}')
         if not response.success:
             return None
         return response.state
@@ -1084,7 +1123,9 @@ class FixedManipulationServer(Node):
         request.fk_link_names = [self._moveit_tool_link]
         request.robot_state = RobotState()
         request.robot_state.is_diff = True
-        response = await self._fk_client.call_async(request)
+        response = await self._wait_for_future(
+            self._fk_client.call_async(request), 4.0, self.ARM_FAILED,
+            f'MoveIt FK for {self._moveit_tool_link}')
         if (
                 response is None
                 or response.error_code.val != MoveItErrorCodes.SUCCESS
@@ -1134,6 +1175,7 @@ class FixedManipulationServer(Node):
         deadline = time.monotonic() + 30.0
         goal_future = self._arm_client.send_goal_async(goal)
         while not goal_future.done():
+            self._raise_if_execution_cancelled()
             if time.monotonic() > deadline:
                 raise ManipulationError(
                     error_code,
@@ -1145,6 +1187,9 @@ class FixedManipulationServer(Node):
                 error_code, f'Controller rejected: {description}.')
         result_future = goal_handle.get_result_async()
         while not result_future.done():
+            if self._execution_cancel_requested():
+                goal_handle.cancel_goal_async()
+                self._raise_if_execution_cancelled()
             if time.monotonic() > deadline:
                 goal_handle.cancel_goal_async()
                 raise ManipulationError(
@@ -1215,7 +1260,10 @@ class FixedManipulationServer(Node):
         request.max_step = self._moveit_cartesian_max_step
         request.jump_threshold = 0.0
         request.avoid_collisions = True
-        response = await self._cartesian_client.call_async(request)
+        response = await self._wait_for_future(
+            self._cartesian_client.call_async(request), 8.0, self.ARM_FAILED,
+            'MoveIt Cartesian above-slot alignment'
+            if above_slot else 'MoveIt Cartesian vertical descent')
         if response is None or response.error_code.val != MoveItErrorCodes.SUCCESS:
             code = -999 if response is None else response.error_code.val
             raise ManipulationError(
@@ -1697,6 +1745,7 @@ class FixedManipulationServer(Node):
         deadline = time.monotonic() + 30.0
         goal_future = client.send_goal_async(goal)
         while not goal_future.done():
+            self._raise_if_execution_cancelled()
             if time.monotonic() > deadline:
                 raise ManipulationError(
                     error_code,
@@ -1707,6 +1756,9 @@ class FixedManipulationServer(Node):
             raise ManipulationError(error_code, f'Controller rejected: {description}.')
         result_future = goal_handle.get_result_async()
         while not result_future.done():
+            if self._execution_cancel_requested():
+                goal_handle.cancel_goal_async()
+                self._raise_if_execution_cancelled()
             if time.monotonic() > deadline:
                 goal_handle.cancel_goal_async()
                 raise ManipulationError(

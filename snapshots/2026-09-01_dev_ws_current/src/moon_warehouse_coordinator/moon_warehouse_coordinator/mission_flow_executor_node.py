@@ -28,7 +28,7 @@ from rclpy.qos import (
     QoSProfile,
     ReliabilityPolicy,
 )
-from std_msgs.msg import String
+from std_msgs.msg import Bool, String
 from std_srvs.srv import Trigger
 import yaml
 
@@ -81,6 +81,15 @@ class MissionFlowExecutorNode(Node):
             )
         ]
         self.dropoff_transits = self.config.get('dropoff_transits', {})
+        self.nearest_pickup_enabled = bool(self.config.get(
+            'nearest_pickup_enabled', True
+        ))
+        self.open_cruise_speed_mps = float(self.config.get(
+            'open_cruise_speed_mps', 1.20
+        ))
+        self.loaded_cruise_speed_mps = float(self.config.get(
+            'loaded_cruise_speed_mps', self.open_cruise_speed_mps
+        ))
         self.plan_timeout_sec = float(
             self.config.get('plan_timeout_sec', 45.0)
         )
@@ -297,6 +306,11 @@ class MissionFlowExecutorNode(Node):
         self.manipulation_release_client = self.create_client(
             Trigger, '/manipulation/release',
             callback_group=self.callback_group)
+        # The manipulation server owns this topic during normal execution.
+        # Keep a one-shot coordinator publisher only for truth-confirmed
+        # timed-out place cleanup, so a lost result cannot freeze navigation.
+        self.manipulation_base_lock_publisher = self.create_publisher(
+            Bool, '/manipulation/base_lock', 10)
         # 控制器就绪探测客户端: 常驻创建, 绝不在回调里销毁(在回调中
         # destroy ActionClient 会与 executor wait set 竞态, 触发
         # "rcl_action_client_t invalid" 使进程崩溃, 实测每次必现)。
@@ -813,8 +827,22 @@ class MissionFlowExecutorNode(Node):
         if cube_z < 0.12:
             self.get_logger().warning(
                 f'{task["object_id"]} grounded (z={cube_z:.2f}); '
-                'treating place as succeeded')
-            self._apply_place_success(task, record)
+                'canceling lost place action before continuing')
+            if self.manipulation_goal_handle is not None:
+                self.manipulation_goal_handle.cancel_goal_async()
+                self.manipulation_goal_handle = None
+            # Ignore the old action's late result after the physical truth has
+            # been committed, then explicitly release both carry and base lock.
+            self.manipulation_generation += 1
+            self.release_carried_cube()
+            self.release_manipulation_base_lock()
+            self.set_state(
+                'PLACE_TIMEOUT_CLEANUP',
+                f'{task["object_id"]} grounded; waiting for place-action '
+                'cancellation and base-unlock cleanup',
+                timeout_sec=3.0,
+            )
+            self.schedule_grounded_place_success(task, record)
         else:
             self.fail(
                 f'place probe: {task["object_id"]} still carried '
@@ -852,7 +880,11 @@ class MissionFlowExecutorNode(Node):
         task['pickup_manipulation'] = dict(record)
         task['execution_status'] = 'OBJECT_GRASPED'
         # 载物降速, 放置后恢复
-        self.set_mppi_speed(0.45)
+        # The global MPPI ceiling is only a ceiling.  SIPP lowers every
+        # obstacle-conflict segment and Collision Monitor remains downstream
+        # of it; allowing this ceiling on a clear loaded corridor avoids
+        # carrying the old 0.45 m/s cap across the whole transport leg.
+        self.set_mppi_speed(self.loaded_cruise_speed_mps)
         self.set_state(
             'OBJECT_GRASPED',
             f'Grasped {task["object_id"]}; navigating to '
@@ -864,7 +896,7 @@ class MissionFlowExecutorNode(Node):
         self.manipulation_started_mono = None
         task['dropoff_manipulation'] = dict(record)
         task['execution_status'] = 'COMPLETED'
-        self.set_mppi_speed(0.60)
+        self.set_mppi_speed(self.open_cruise_speed_mps)
         self.completed_task_count += 1
         self.set_state(
             'TASK_COMPLETED',
@@ -1070,6 +1102,7 @@ class MissionFlowExecutorNode(Node):
         self.start_current_pickup()
 
     def start_current_pickup(self):
+        self.select_nearest_pending_pickup()
         task = self.tasks[self.current_task_index]
         task['execution_status'] = 'NAVIGATING_TO_PICKUP'
         if (task['object_id'] == 'red_cube_1'
@@ -1112,6 +1145,76 @@ class MissionFlowExecutorNode(Node):
             return
         target = self.object_approaches[task['object_id']]
         self.send_leg('PICKUP', target, attempt=1)
+
+    def schedule_grounded_place_success(self, task, record):
+        """Commit a confirmed release after cancellation has had time to unwind."""
+        self.cancel_retry_timer()
+        object_id = str(task['object_id'])
+
+        def complete_after_cleanup():
+            self.cancel_retry_timer()
+            if (not self.active or self.state != 'PLACE_TIMEOUT_CLEANUP'
+                    or self.current_task_index >= len(self.tasks)
+                    or self.tasks[self.current_task_index].get('object_id')
+                    != object_id):
+                return
+            self._apply_place_success(self.tasks[self.current_task_index], record)
+
+        self.retry_timer = self.create_timer(
+            1.5, complete_after_cleanup, callback_group=self.callback_group)
+
+    def select_nearest_pending_pickup(self):
+        """Move the nearest eligible pending task into the active slot.
+
+        This is intentionally a task-order optimisation, not a shortcut
+        through the map: each selected cube still uses its own transit,
+        pre-approach and collision-monitored precision dock.  The red-1 rail
+        gate remains a reachability constraint, so a closed rail never blocks
+        nearer work that can safely proceed elsewhere.
+        """
+        if (not self.nearest_pickup_enabled
+                or self.latest_base_x is None
+                or self.latest_base_y is None
+                or not (0 <= self.current_task_index < len(self.tasks))):
+            return
+
+        base_x = float(self.latest_base_x)
+        base_y = float(self.latest_base_y)
+        candidates = []
+        for index in range(self.current_task_index, len(self.tasks)):
+            task = self.tasks[index]
+            if task.get('execution_status') not in {'PENDING', 'QUEUED'}:
+                continue
+            object_id = str(task.get('object_id', ''))
+            if (object_id == 'red_cube_1'
+                    and not task.get('pickup_rail_gate_done', False)
+                    and not self.rail_gate_is_open()):
+                continue
+            # Prefer the physical cube pose, which is the quantity the user
+            # means by "nearest".  A configured approach is a deterministic
+            # fallback until Gazebo has supplied that one model state.
+            anchor = self.cube_world_xy.get(object_id)
+            if anchor is None:
+                anchor_pose = self.object_approaches.get(object_id)
+                if anchor_pose is None:
+                    continue
+                anchor = (float(anchor_pose['x']), float(anchor_pose['y']))
+            distance = math.hypot(base_x - anchor[0], base_y - anchor[1])
+            candidates.append((distance, index, object_id))
+
+        if not candidates:
+            return
+        distance, selected_index, object_id = min(candidates)
+        if selected_index != self.current_task_index:
+            current = self.tasks[self.current_task_index]
+            self.tasks[self.current_task_index] = self.tasks[selected_index]
+            self.tasks[selected_index] = current
+            self.get_logger().info(
+                f'Nearest-pickup ordering selected {object_id} at '
+                f'{distance:.2f} m (swapped queue positions '
+                f'{self.current_task_index + 1} and {selected_index + 1}).')
+        self.tasks[self.current_task_index]['nearest_pickup_distance_m'] = round(
+            float(distance), 3)
 
     def start_current_dropoff(self):
         task = self.tasks[self.current_task_index]
@@ -2598,7 +2701,7 @@ class MissionFlowExecutorNode(Node):
             task['execution_status'] = 'OBJECT_GRASPED'
             # 载物状态下重心升高, 高速碰撞会把轻量底盘连同臂尖物块一起
             # 掀飞(实测被弹出场外)。运送段动态降速, 放置后恢复。
-            self.set_mppi_speed(0.45)
+            self.set_mppi_speed(self.loaded_cruise_speed_mps)
             self.set_state(
                 'OBJECT_GRASPED',
                 f'Grasped {task["object_id"]}; navigating to '
@@ -2732,7 +2835,7 @@ class MissionFlowExecutorNode(Node):
             task['post_place_cube_clearance_m'] = round(math.hypot(
                 self.latest_base_x - cube_xy[0],
                 self.latest_base_y - cube_xy[1]), 3)
-        self.set_mppi_speed(0.60)
+        self.set_mppi_speed(self.open_cruise_speed_mps)
         self.completed_task_count += 1
         clearance = task.get('post_place_cube_clearance_m')
         if travelled < 0.02 and clearance is not None:
@@ -2986,6 +3089,12 @@ class MissionFlowExecutorNode(Node):
             self._release_pending = False
         self.manipulation_release_client.call_async(
             Trigger.Request()).add_done_callback(on_done)
+
+    def release_manipulation_base_lock(self):
+        """One-shot safety unlock following a truth-confirmed timed-out place."""
+        message = Bool()
+        message.data = False
+        self.manipulation_base_lock_publisher.publish(message)
 
     def complete_flow(self, detail):
         self.active = False
