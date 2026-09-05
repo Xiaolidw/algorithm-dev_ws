@@ -6,11 +6,13 @@ from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
 )
+from launch.conditions import IfCondition
 from moveit_configs_utils.launch_utils import (
     add_debuggable_node,
     DeclareBooleanLaunchArg,
 )
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
  
  
@@ -86,8 +88,9 @@ def my_generate_move_group_launch(ld, moveit_config):
  
 def my_generate_moveit_rviz_launch(ld, moveit_config):
     """Launch file for rviz"""
- 
+
     ld.add_action(DeclareBooleanLaunchArg("debug", default_value=False))
+    ld.add_action(DeclareBooleanLaunchArg("start_moveit_rviz", default_value=True))
     ld.add_action(
         DeclareLaunchArgument(
             "rviz_config",
@@ -101,14 +104,13 @@ def my_generate_moveit_rviz_launch(ld, moveit_config):
     ]
     rviz_parameters.append({"use_sim_time": True})
  
-    add_debuggable_node(
-        ld,
+    ld.add_action(Node(
         package="rviz2",
         executable="rviz2",
         output="log",
-        respawn=False,
         arguments=["-d", LaunchConfiguration("rviz_config")],
         parameters=rviz_parameters,
-    )
+        condition=IfCondition(LaunchConfiguration("start_moveit_rviz")),
+    ))
  
     return ld

@@ -55,9 +55,8 @@ def generate_launch_description():
     )
 
     # One-click mission startup must also provide the FK/Cartesian services
-    # used for the final arm placement and their RViz view.  The move_group
-    # process has no base command interface, so it cannot interfere with
-    # Nav2 while it supplies the checked arm trajectory.
+    # used for final arm placement.  Navigation already owns the single
+    # operator RViz window, so keep MoveIt headless in this combined launch.
     moveit = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(PathJoinSubstitution([
             FindPackageShare('mybot'),
@@ -65,6 +64,7 @@ def generate_launch_description():
             'my_moveit_rviz.launch.py',
         ])),
         condition=IfCondition(start_moveit),
+        launch_arguments={'start_moveit_rviz': 'false'}.items(),
     )
 
     perception = IncludeLaunchDescription(

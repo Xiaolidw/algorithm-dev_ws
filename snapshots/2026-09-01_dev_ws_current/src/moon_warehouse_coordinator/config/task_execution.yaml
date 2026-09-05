@@ -102,6 +102,11 @@ flow_execution:
   # 连续 B 区回归固定使用前两个蓝块；只排入 B 任务，用于同时验收
   # 第一块放置后的离场、第二块抓取/载物避障和第二槽位净距。
   b_double_dropoff_regression_objects: [blue_cube_1, blue_cube_2]
+  # One-cube-at-a-time coverage of every non-left blue pickup.  The test
+  # runner resets Gazebo between calls, so the three B slots never become a
+  # capacity variable while validating blue_cube_2 through blue_cube_5.
+  b_nonleft_blue_regression_objects:
+    [blue_cube_2, blue_cube_3, blue_cube_4, blue_cube_5]
   # 最后一段不再交给会避开目标方块本身的全局规划器。先导航到沿夹取
   # 朝向后退 0.5m 的安全工位，再以低速直线闭环驶入最终停车点；这样
   # 既不会碾过待抓方块，也能确保到位精度。
@@ -224,6 +229,8 @@ flow_execution:
     blue_cube_1: {x: -1.45, y: -2.40, yaw: -1.5708}
     blue_cube_2: {x: -1.45, y: -2.40, yaw: -1.5708}
     blue_cube_3: {x: -1.45, y: -2.40, yaw: -1.5708}
+    blue_cube_4: {x: -1.45, y: -2.40, yaw: -1.5708}
+    blue_cube_5: {x: -1.45, y: -2.40, yaw: -1.5708}
 
   destinations:
     # 由 Gazebo /model_states 真值和夹爪相对底盘实测偏移反算停车位。
@@ -253,3 +260,5 @@ flow_execution:
     blue_cube_1: {x: -1.55, y: -5.00, yaw: 3.1416}
     blue_cube_2: {x: -1.55, y: -5.00, yaw: 3.1416}
     blue_cube_3: {x: -1.55, y: -5.00, yaw: 3.1416}
+    blue_cube_4: {x: -1.55, y: -5.00, yaw: 3.1416}
+    blue_cube_5: {x: -1.55, y: -5.00, yaw: 3.1416}

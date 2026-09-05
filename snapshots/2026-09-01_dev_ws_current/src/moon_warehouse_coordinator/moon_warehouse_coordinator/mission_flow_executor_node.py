@@ -80,6 +80,13 @@ class MissionFlowExecutorNode(Node):
                 ['blue_cube_1', 'blue_cube_2'],
             )
         ]
+        self.b_nonleft_blue_regression_objects = [
+            str(value) for value in self.config.get(
+                'b_nonleft_blue_regression_objects',
+                ['blue_cube_2', 'blue_cube_3', 'blue_cube_4', 'blue_cube_5'],
+            )
+        ]
+        self.next_nonleft_blue_regression_index = 0
         self.dropoff_transits = self.config.get('dropoff_transits', {})
         self.nearest_pickup_enabled = bool(self.config.get(
             'nearest_pickup_enabled', True
@@ -352,6 +359,12 @@ class MissionFlowExecutorNode(Node):
             self.run_two_b_dropoff_regression_callback,
             callback_group=self.callback_group,
         )
+        self.next_nonleft_blue_regression_service = self.create_service(
+            Trigger,
+            '/mission/run_next_nonleft_blue_b_dropoff_regression',
+            self.run_next_nonleft_blue_b_dropoff_regression_callback,
+            callback_group=self.callback_group,
+        )
         self.stop_service = self.create_service(
             Trigger,
             '/mission/stop_flow',
@@ -621,6 +634,26 @@ class MissionFlowExecutorNode(Node):
         del request
         return self.start_b_dropoff_regression(
             self.b_double_dropoff_regression_objects, response)
+
+    def run_next_nonleft_blue_b_dropoff_regression_callback(
+            self, request, response):
+        """Run exactly one non-left blue cube, advancing only on acceptance."""
+        del request
+        if not self.b_nonleft_blue_regression_objects:
+            response.success = False
+            response.message = 'No non-left blue regression objects are configured'
+            return response
+        index = (self.next_nonleft_blue_regression_index
+                 % len(self.b_nonleft_blue_regression_objects))
+        object_id = self.b_nonleft_blue_regression_objects[index]
+        response = self.start_b_dropoff_regression([object_id], response)
+        if response.success:
+            self.next_nonleft_blue_regression_index = (
+                index + 1) % len(self.b_nonleft_blue_regression_objects)
+            response.message += (
+                f'; next non-left candidate will be '
+                f'{self.b_nonleft_blue_regression_objects[self.next_nonleft_blue_regression_index]}')
+        return response
 
     def start_b_dropoff_regression(self, object_ids, response):
         """Start a bounded B-only queue through the production task path."""
