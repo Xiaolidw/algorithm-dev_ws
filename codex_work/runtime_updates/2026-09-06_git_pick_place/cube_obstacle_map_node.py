@@ -133,6 +133,7 @@ class CubeObstacleMapNode(Node):
         self.transient_excluded_cubes = set()
         self.completed_exclusion_keys = set()
         self.robot_xy = None
+        self.initial_proximity_checked = False
         self.mission_excluded_cubes = set()
         self.mission_excluded_zones = set()
         self.active_dropoff_zone = None
@@ -158,7 +159,7 @@ class CubeObstacleMapNode(Node):
             self.execution_status_callback, status_qos)
         self.create_subscription(
             String, '/pick_place/navigation_status',
-            self.pick_place_status_callback, status_qos)
+            self.pick_place_status_callback, 10)
 
         # 周期性重发, 保证晚启动的 costmap 也能收到
         self.timer = self.create_timer(2.0, self.publish_map)
@@ -171,6 +172,7 @@ class CubeObstacleMapNode(Node):
     def model_states_callback(self, message):
         changed = False
         current_carried = set()
+        grounded_positions = {}
         for name, pose in zip(message.name, message.pose):
             if name == self.robot_model_name:
                 self.robot_xy = (
@@ -182,6 +184,7 @@ class CubeObstacleMapNode(Node):
                 current_carried.add(name)
                 continue
             position = (pose.position.x, pose.position.y)
+            grounded_positions[name] = position
             if any(abs(a - b) > 0.01 for a, b in zip(
                     position, self.cube_positions[name])):
                 self.cube_positions[name] = position
@@ -189,6 +192,24 @@ class CubeObstacleMapNode(Node):
         if current_carried != self.carried_cubes:
             self.carried_cubes = current_carried
             changed = True
+        # A navigation restart can occur while the chassis is still beside a
+        # cube placed by the previous leg. Perform this proximity handoff only
+        # once at startup; doing it continuously would hide arbitrary cubes
+        # merely because the robot drove close to them.
+        if self.robot_xy is not None and not self.initial_proximity_checked:
+            self.initial_proximity_checked = True
+            nearby = {
+                name for name, cube_xy in grounded_positions.items()
+                if math.hypot(self.robot_xy[0] - cube_xy[0],
+                              self.robot_xy[1] - cube_xy[1])
+                < self.placed_cube_release_clearance
+            }
+            if nearby:
+                self.transient_excluded_cubes.update(nearby)
+                self.get_logger().info(
+                    'Startup footprint handoff excludes nearby cube(s): '
+                    f'{sorted(nearby)}')
+                changed = True
         released = set()
         if self.robot_xy is not None:
             for name in self.transient_excluded_cubes:

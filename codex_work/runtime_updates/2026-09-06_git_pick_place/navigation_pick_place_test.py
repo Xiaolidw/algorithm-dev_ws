@@ -614,8 +614,46 @@ class PickPlaceTest(Node):
         # Leave room for the 0.15 m Nav2 position tolerance.  The old
         # (+0.36,+0.13) edge slot produced an observed x=+0.536 m and the
         # safety check correctly refused to release the cube.
-        object_zone_x = max(-0.18, min(0.18, robot_zone_x))
-        object_zone_y = max(-0.05, min(0.05, robot_zone_y))
+        if self.destination == 'B':
+            # Reuse the proven Git slot concept without importing its world
+            # plugin: choose a centre-line slot from live Gazebo truth and
+            # keep one cube width plus 55 mm surface clearance from cargo
+            # already stored in B.
+            occupied = []
+            for name, pose in self.model_poses.items():
+                if (name == self.object_id
+                        or not (name.startswith('red_cube_')
+                                or name.startswith('blue_cube_'))
+                        or pose.position.z > 0.08):
+                    continue
+                dx = pose.position.x - zone_world.position.x
+                dy = pose.position.y - zone_world.position.y
+                local_x = cos_zone * dx + sin_zone * dy
+                local_y = -sin_zone * dx + cos_zone * dy
+                if abs(local_x) <= 0.50 and abs(local_y) <= 0.25:
+                    occupied.append((local_x, local_y, name))
+            candidates = [(-0.18, 0.0), (0.0, 0.0), (0.18, 0.0)]
+            safe = [
+                candidate for candidate in candidates
+                if all(math.hypot(candidate[0] - ox,
+                                  candidate[1] - oy) >= 0.085
+                       for ox, oy, _name in occupied)
+            ]
+            if not safe:
+                raise RuntimeError(
+                    'No collision-free B placement slot remains; holding object')
+            object_zone_x, object_zone_y = min(
+                safe,
+                key=lambda candidate: math.hypot(
+                    candidate[0] - robot_zone_x,
+                    candidate[1] - robot_zone_y))
+            self.get_logger().info(
+                f'B slot selection: selected=({object_zone_x:.2f},'
+                f'{object_zone_y:.2f}), occupied='
+                f'{[(name, round(x, 3), round(y, 3)) for x, y, name in occupied]}')
+        else:
+            object_zone_x = max(-0.18, min(0.18, robot_zone_x))
+            object_zone_y = max(-0.05, min(0.05, robot_zone_y))
         object_world_x = (
             zone_world.position.x
             + cos_zone * object_zone_x - sin_zone * object_zone_y)
