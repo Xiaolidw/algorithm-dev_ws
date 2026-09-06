@@ -1,1 +1,0 @@
-data: '{"action_name":"/navigate_to_pose","active":false,"result":"SUCCEEDED","goal":{"purpose":"MISSION_GOAL","frame_id":"map","x":-13.2,"y":-7.1,"yaw":-1.5708},"feedback":{"distance_remaining_m":0.0}}'

@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=比赛系统一键启动
-Comment=启动 Gazebo、ROS2、导航、抓取、摄像头、避障和 CoStudio 数据桥
-Exec=/home/ros/dev_ws/scripts/competition_control.sh start
-Icon=utilities-terminal
-Terminal=false
-Categories=Development;Science;
-

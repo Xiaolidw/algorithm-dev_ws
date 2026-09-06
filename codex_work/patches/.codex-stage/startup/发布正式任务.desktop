@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=发布正式任务
-Comment=等待赛题系统就绪并发布一次正式题目
-Exec=gnome-terminal --title=发布正式任务 -- /home/ros/dev_ws/scripts/competition_control.sh task
-Icon=media-playback-start
-Terminal=false
-Categories=Development;Science;
-

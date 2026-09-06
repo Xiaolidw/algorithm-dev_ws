@@ -1,1 +1,0 @@
-"""Moon warehouse perception package."""
