@@ -1,0 +1,113 @@
+fixed_manipulation_server:
+  ros__parameters:
+    use_sim_time: true
+
+    # ROS interfaces
+    action_name: /manipulation/execute
+    arm_action_name: /arm_controller/follow_joint_trajectory
+    gripper_action_name: /gripper_controller/follow_joint_trajectory
+    attach_service_name: /ATTACHLINK
+    detach_service_name: /DETACHLINK
+    get_state_service_name: /gazebo/get_entity_state
+    set_state_service_name: /gazebo/set_entity_state
+    dependency_timeout_s: 10.0
+
+    # Gazebo model/link names
+    robot_model: six_arm
+    tool_link: link6
+    default_object: red_cube_1
+    object_link: link
+
+    # Controller joint order
+    arm_joints: [joint1, joint2, joint3, joint4, joint5, joint6]
+    gripper_joints: [finger_joint1, finger_joint2]
+
+    # Fixed poses
+    arm_home: [0.0, 0.6102, 1.2593, 0.0, -1.4931, 0.0]
+    arm_pick: [0.0, 1.2, 1.17, 0.0, -0.3, 0.0]
+    arm_pregrasp: [0.0, 1.2, 1.27, 0.0, -0.3, 0.0]
+    arm_lift: [0.0, 0.6102, 1.2593, 0.0, -1.4931, 0.0]
+    # Placement mirrors grasp: first above the zone, then one downward move.
+    arm_preplace: [0.0, 1.2, 1.27, 0.0, -0.3, 0.0]
+    arm_place: [0.0, 1.2, 1.17, 0.0, -0.3, 0.0]
+    # The fingers start on opposite sides. Their opposite positive axes both
+    # point toward the center, so zero is open and equal positive values close.
+    gripper_open: [0.0, 0.0]
+    # Current scoring cubes are 30 mm wide.  This closes the 65 mm open
+    # inner gap to about 29 mm so the fingers make physical contact.
+    gripper_closed: [0.018, 0.018]
+    # Dynamically reduce closing travel for yawed square cubes.  A 30 mm cube
+    # can project up to 42.4 mm across the finger axis at 45 degrees.
+    object_width_m: 0.030
+    gripper_open_inner_gap_m: 0.065
+    gripper_contact_compression_m: 0.001
+
+    # Phase-8: per-segment durations
+    arm_home_to_pregrasp_duration_s: 1.15
+    arm_pregrasp_to_grasp_duration_s: 1.30
+    arm_return_home_duration_s: 1.05
+    arm_motion_duration_s: 1.5
+    gripper_open_duration_s: 0.25
+    gripper_close_duration_s: 0.30
+    gripper_motion_duration_s: 0.6
+    settle_time_s: 0.015
+    pre_close_settle_time_s: 0.12
+
+    # Grasp window validation
+    validate_grasp_window: true
+    grasp_target_z: 0.045
+    grasp_xy_tolerance: 0.020
+    grasp_z_min: 0.027
+    grasp_z_max: 0.065
+
+    # Static attachment validation (phase-2)
+    attached_drift_tolerance: 0.01
+    carry_relative_tolerance_m: 0.08
+    attachment_validation_samples: 3
+    attachment_validation_interval_s: 0.08
+    attachment_settle_time_s: 0.0158
+    # Lift to the configured arm_lift pose after a stable low-position attach,
+    # then validate once more before navigation starts.
+    post_pick_lift_enabled: true
+    post_pick_lift_settle_time_s: 0.0158
+
+    # Phase-4: release order & placement zone
+    release_order: open_then_detach
+    placement_zone_models: [zone_a, zone_b, zone_c]
+    placement_zone_half_width: 0.50
+    placement_zone_half_depth: 0.25
+    placement_boundary_margin: 0.025
+    placement_slot_clearance: 0.055
+    placement_settle_time_s: 0.15
+    placement_validation_attempts: 3
+    placement_speed_tolerance_mps: 0.12
+    preplace_settle_time_s: 0.12
+    place_pose_settle_time_s: 0.20
+
+    # Phase-6: dynamic IK params
+    dynamic_grasp_ik: true
+    pregrasp_offset_m: 0.10
+    dynamic_grasp_max_target_distance_m: 0.48
+    ik_fk_error_tolerance_m: 0.005
+    fixed_pose_fallback: false
+    arm_ik_reference_link: base_footprint
+    arm_ik_reference_to_base_z: 0.1634
+    # Raise the grasp pose enough to keep the 80 mm vertical finger collision
+    # bodies clear while closing. A full arm lift follows attachment.
+    grasp_vertical_clearance_m: 0.018
+    object_half_height_m: 0.015
+    # Minimal clearance used only during the attach transition.
+    carried_object_floor_clearance_m: 0.006
+
+    # Phase-7: retry limits
+    pick_max_attempts: 2
+    ik_max_attempts: 1
+    attach_max_attempts: 1
+    retry_delay_s: 0.5
+
+    # Phase-8: velocity scaling
+    velocity_scaling: 1.0
+    acceleration_scaling: 1.0
+
+    # Dry run
+    dry_run: false
