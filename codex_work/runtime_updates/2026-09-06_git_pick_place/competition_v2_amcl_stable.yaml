@@ -222,7 +222,7 @@ global_costmap:
       robot_radius: 0.22
       resolution: 0.05
       track_unknown_space: true
-      plugins: ["static_layer", "cube_layer", "inflation_layer"]
+      plugins: ["static_layer", "cube_layer", "obstacle_layer", "inflation_layer"]
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
@@ -232,6 +232,27 @@ global_costmap:
         map_subscribe_transient_local: True
         subscribe_to_updates: False
         use_maximum: True
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        footprint_clearing_enabled: True
+        max_obstacle_height: 2.0
+        observation_sources: scan
+        scan:
+          # Use the dynamic-return-filtered scan so the global planner sees
+          # real walls and stones missing from the static occupancy map without
+          # baking moving obstacles into a persistent global wall.
+          topic: /scan_costmap
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          inf_is_valid: True
+          raytrace_max_range: 3.5
+          raytrace_min_range: 0.0
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.0
+          observation_persistence: 0.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0

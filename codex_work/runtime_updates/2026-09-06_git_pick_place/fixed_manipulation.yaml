@@ -28,7 +28,11 @@ fixed_manipulation_server:
     arm_pregrasp: [0.0, 1.2, 1.27, 0.0, -0.3, 0.0]
     arm_lift: [0.0, 0.6102, 1.2593, 0.0, -1.4931, 0.0]
     # Placement mirrors grasp: first above the zone, then one downward move.
-    arm_preplace: [0.0, 1.2, 1.27, 0.0, -0.3, 0.0]
+    # Pre-place is genuinely above the final pose.  This FK solution keeps
+    # the same forward reach while lifting the gripper centre to about
+    # 0.12 m world height, preventing the attached cube from striking the
+    # floor and levering the chassis upward.
+    arm_preplace: [0.0, 0.8154, 1.3923, 0.0, -0.4636, 0.0]
     arm_place: [0.0, 1.2, 1.17, 0.0, -0.3, 0.0]
     # The fingers start on opposite sides. Their opposite positive axes both
     # point toward the center, so zero is open and equal positive values close.
@@ -57,6 +61,7 @@ fixed_manipulation_server:
     validate_grasp_window: true
     grasp_target_z: 0.045
     grasp_xy_tolerance: 0.020
+    grasp_forward_tolerance_m: 0.036
     grasp_z_min: 0.027
     grasp_z_max: 0.065
 
@@ -81,6 +86,15 @@ fixed_manipulation_server:
     placement_settle_time_s: 0.15
     placement_validation_attempts: 3
     placement_speed_tolerance_mps: 0.12
+    pre_release_object_z_min_m: 0.015
+    pre_release_object_z_max_m: 0.035
+    pre_release_max_tilt_rad: 0.12
+    pre_release_robot_max_z_m: 0.003
+    pre_release_robot_max_tilt_rad: 0.05
+    placed_object_z_min_m: 0.012
+    placed_object_z_max_m: 0.020
+    placed_object_max_tilt_rad: 0.12
+    place_target_object_z_m: 0.0215
     preplace_settle_time_s: 0.12
     place_pose_settle_time_s: 0.20
 

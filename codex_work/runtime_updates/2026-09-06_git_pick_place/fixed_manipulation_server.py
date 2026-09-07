@@ -176,7 +176,11 @@ class FixedManipulationServer(Node):
             'post_pick_lift_settle_time_s': 0.3,
             'arm_pregrasp': [0.0, 1.2, 1.27, 0.0, -0.3, 0.0],
             'arm_lift': [0.0, 0.6102, 1.2593, 0.0, -1.4931, 0.0],
-            'arm_preplace': [0.0, 1.2, 1.27, 0.0, -0.3, 0.0],
+            # Keep the attached cube about 0.10 m above the floor before the
+            # one-way descent.  The former [0,1.2,1.27,0,-0.3,0] endpoint
+            # put the gripper centre at only 0.017 m world height and drove
+            # the cube into the floor, transmitting the impact to the base.
+            'arm_preplace': [0.0, 0.8154, 1.3923, 0.0, -0.4636, 0.0],
             'arm_place': [0.0, 1.2, 1.17, 0.0, -0.3, 0.0],
             # Both finger joints start on opposite sides and use opposite
             # positive axes.  Increasing both positions moves both fingers
@@ -204,6 +208,10 @@ class FixedManipulationServer(Node):
             'validate_grasp_window': True,
             'grasp_target_z': 0.045,
             'grasp_xy_tolerance': 0.018,
+            # The fingers are long in tool x but narrow in tool y.  Keep the
+            # lateral jaw-centering check strict while allowing harmless
+            # fore/aft seating produced by closing against floor friction.
+            'grasp_forward_tolerance_m': 0.036,
             'grasp_z_min': 0.027,
             'grasp_z_max': 0.063,
             'attached_drift_tolerance': 0.01,
@@ -221,6 +229,21 @@ class FixedManipulationServer(Node):
             'placement_settle_time_s': 0.2,
             'placement_validation_attempts': 3,
             'placement_speed_tolerance_mps': 0.12,
+            # A successful x/y score is not sufficient: reject a release if
+            # the cube is already penetrating the floor or the chassis has
+            # been levered upward by the attached payload.
+            'pre_release_object_z_min_m': 0.015,
+            'pre_release_object_z_max_m': 0.035,
+            'pre_release_max_tilt_rad': 0.12,
+            'pre_release_robot_max_z_m': 0.003,
+            'pre_release_robot_max_tilt_rad': 0.05,
+            'placed_object_z_min_m': 0.012,
+            'placed_object_z_max_m': 0.020,
+            'placed_object_max_tilt_rad': 0.12,
+            # Release a few millimetres above the 15 mm resting centre.  The
+            # final arm joint target is solved once from the live attachment
+            # offset, because individual grasps seat at different tool z.
+            'place_target_object_z_m': 0.0215,
             'preplace_settle_time_s': 0.12,
             'place_pose_settle_time_s': 0.20,
             # Phase-7: retry limits
@@ -289,6 +312,8 @@ class FixedManipulationServer(Node):
         self._grasp_target_z = float(value('grasp_target_z'))
         self._grasp_xy_tolerance = float(
             value('grasp_xy_tolerance'))
+        self._grasp_forward_tolerance = float(
+            value('grasp_forward_tolerance_m'))
         self._grasp_z_min = float(value('grasp_z_min'))
         self._grasp_z_max = float(value('grasp_z_max'))
         self._attached_drift_tolerance = float(
@@ -314,6 +339,17 @@ class FixedManipulationServer(Node):
             value('placement_validation_attempts'))
         self._placement_speed_tolerance = float(
             value('placement_speed_tolerance_mps'))
+        self._pre_release_z_min = float(value('pre_release_object_z_min_m'))
+        self._pre_release_z_max = float(value('pre_release_object_z_max_m'))
+        self._pre_release_max_tilt = float(value('pre_release_max_tilt_rad'))
+        self._pre_release_robot_max_z = float(
+            value('pre_release_robot_max_z_m'))
+        self._pre_release_robot_max_tilt = float(
+            value('pre_release_robot_max_tilt_rad'))
+        self._placed_z_min = float(value('placed_object_z_min_m'))
+        self._placed_z_max = float(value('placed_object_z_max_m'))
+        self._placed_max_tilt = float(value('placed_object_max_tilt_rad'))
+        self._place_target_object_z = float(value('place_target_object_z_m'))
         self._preplace_settle_time = float(
             value('preplace_settle_time_s'))
         self._place_pose_settle_time = float(
@@ -379,6 +415,8 @@ class FixedManipulationServer(Node):
                 'Trajectory durations must be positive.')
         if self._grasp_xy_tolerance <= 0.0:
             raise ValueError('grasp_xy_tolerance must be positive.')
+        if not self._grasp_xy_tolerance <= self._grasp_forward_tolerance <= 0.04:
+            raise ValueError('grasp_forward_tolerance_m is outside safe range.')
         if self._grasp_z_min >= self._grasp_z_max:
             raise ValueError(
                 'grasp_z_min must be less than grasp_z_max.')
@@ -408,6 +446,12 @@ class FixedManipulationServer(Node):
                 'open_then_detach', 'detach_then_open'):
             raise ValueError(
                 f'Invalid release_order: {self._release_order}')
+        if not self._pre_release_z_min < self._pre_release_z_max:
+            raise ValueError('pre-release z limits are invalid.')
+        if not self._placed_z_min < self._placed_z_max:
+            raise ValueError('placed-object z limits are invalid.')
+        if not self._placed_z_min <= self._place_target_object_z <= 0.035:
+            raise ValueError('place_target_object_z_m is outside safe range.')
         if self._pick_max < 1 or self._pick_max > 3:
             raise ValueError('pick_max_attempts must be 1-3')
         if self._ik_max < 0 or self._ik_max > 2:
@@ -858,8 +902,8 @@ class FixedManipulationServer(Node):
         return grasp
 
     @staticmethod
-    def _grasp_fk_center(joints):
-        """Return link6 + 45 mm fingertip centre in arm_base_link."""
+    def _arm_fk_point(joints, link6_point):
+        """Transform a point fixed in link6 into arm_base_link."""
         origins = (
             (0.0, 0.0, 0.07), (0.0, 0.0, 0.05),
             (0.0, 0.0, 0.14), (0.0, 0.0, 0.22),
@@ -884,7 +928,12 @@ class FixedManipulationServer(Node):
                 + (1.0 - math.cos(angle)) * (skew @ skew)
             )
             matrix = matrix @ translate @ rotate
-        return (matrix @ np.array((0.0, 0.0, 0.045, 1.0)))[:3]
+        return (matrix @ np.array((*link6_point, 1.0)))[:3]
+
+    @classmethod
+    def _grasp_fk_center(cls, joints):
+        """Return link6 + 45 mm fingertip centre in arm_base_link."""
+        return cls._arm_fk_point(joints, (0.0, 0.0, 0.045))
 
     def _solve_grasp_center_ik(self, target, seed):
         joints = np.asarray(seed, dtype=float).copy()
@@ -923,6 +972,46 @@ class FixedManipulationServer(Node):
             joints = np.clip(joints + delta, lower, upper)
         residual = float(np.linalg.norm(
             self._grasp_fk_center(joints) - target))
+        return [float(value) for value in joints], residual
+
+    def _solve_link_point_ik(self, target, link6_point, seed):
+        """Solve IK for the actual carried-object centre fixed in link6."""
+        joints = np.asarray(seed, dtype=float).copy()
+        lower = np.array((-2.30, -2.30, -2.57, -2.30, -2.30, -2.30))
+        upper = np.array((2.30, 2.30, 2.57, 2.30, 2.30, 2.30))
+        target = np.asarray(target, dtype=float)
+        point = np.asarray(link6_point, dtype=float)
+        pitch_axis = np.array((0.0, 1.0, 1.0, 0.0, -1.0, 0.0))
+        reference_pitch = float(pitch_axis @ np.asarray(seed, dtype=float))
+        for _ in range(260):
+            centre = self._arm_fk_point(joints, point)
+            error = target - centre
+            if float(np.linalg.norm(error)) <= 0.0015:
+                break
+            epsilon = 1e-5
+            columns = []
+            for index in range(6):
+                perturbed = joints.copy()
+                perturbed[index] += epsilon
+                columns.append(
+                    (self._arm_fk_point(perturbed, point) - centre) / epsilon)
+            jacobian = np.column_stack(columns)
+            pitch_error = reference_pitch - float(pitch_axis @ joints)
+            augmented_jacobian = np.vstack((jacobian, 0.22 * pitch_axis))
+            augmented_error = np.append(error, 0.22 * pitch_error)
+            try:
+                delta = np.linalg.solve(
+                    augmented_jacobian.T @ augmented_jacobian
+                    + 0.004 * np.eye(6),
+                    augmented_jacobian.T @ augmented_error)
+            except np.linalg.LinAlgError:
+                break
+            length = float(np.linalg.norm(delta))
+            if length > 0.055:
+                delta *= 0.055 / length
+            joints = np.clip(joints + delta, lower, upper)
+        residual = float(np.linalg.norm(
+            self._arm_fk_point(joints, point) - target))
         return [float(value) for value in joints], residual
 
     async def _solve_dynamic_grasp(self, object_id):
@@ -1002,7 +1091,7 @@ class FixedManipulationServer(Node):
         x = float(pose.position.x)
         y = float(pose.position.y)
         z = float(pose.position.z)
-        in_window = (abs(x) <= self._grasp_xy_tolerance
+        in_window = (abs(x) <= self._grasp_forward_tolerance
                      and abs(y) <= self._grasp_xy_tolerance
                      and self._grasp_z_min <= z <= self._grasp_z_max)
         self.get_logger().info(
@@ -1149,9 +1238,10 @@ class FixedManipulationServer(Node):
         # parked, verify the physical attachment in the tool frame instead.
         await self._validate_attachment_static(object_id)
 
+        place_pose = await self._compute_place_pose_for(object_id)
         await self._stage(handle, 'descend_to_place_pose', 0.35)
         await self._send_trajectory(
-            self._arm_client, self._arm_joints, self._arm_place,
+            self._arm_client, self._arm_joints, place_pose,
             self._dur_pregrasp_to_grasp, self.ARM_FAILED,
             'descend once to place pose')
         await self._sleep(self._place_pose_settle_time)
@@ -1166,6 +1256,10 @@ class FixedManipulationServer(Node):
             raise ManipulationError(
                 self.INVALID_GOAL,
                 f'Target zone invalid for {object_id}; holding object.')
+        if not self._release_geometry_safe(object_id):
+            raise ManipulationError(
+                self.INVALID_GOAL,
+                f'Unsafe release geometry for {object_id}; holding object.')
         # Execute release sequence based on config
         await self._stage(handle, 'prepare_release', 0.48)
         if self._release_order == 'open_then_detach':
@@ -1260,18 +1354,120 @@ class FixedManipulationServer(Node):
                 f'local=({local[0]:.3f},{local[1]:.3f}).')
         return valid
 
+    async def _compute_place_pose_for(self, object_id):
+        """Solve one descent for the actual object centre fixed in link6."""
+        msg = self._latest_model_states
+        if msg is None:
+            raise ManipulationError(
+                self.ARM_FAILED, 'No Gazebo state for dynamic placement IK.')
+        try:
+            object_pose = msg.pose[msg.name.index(object_id)]
+            _robot_pose = msg.pose[msg.name.index(self._robot_model)]
+        except ValueError as exc:
+            raise ManipulationError(
+                self.ARM_FAILED,
+                f'Missing model for dynamic placement IK: {exc}.')
+
+        relative = await self._get_relative_pose(object_id)
+        link6_point = (
+            float(relative.position.x),
+            float(relative.position.y),
+            float(relative.position.z))
+        current_object = self._arm_fk_point(
+            self._arm_preplace, link6_point)
+        height_delta = (
+            self._place_target_object_z - float(object_pose.position.z))
+        target = (
+            float(current_object[0]),
+            float(current_object[1]),
+            float(current_object[2]) + height_delta)
+        solution, residual = self._solve_link_point_ik(
+            target, link6_point, self._arm_preplace)
+        if residual > self._ik_fk_tol:
+            raise ManipulationError(
+                self.ARM_FAILED,
+                f'Dynamic placement IK residual too high: {residual:.4f}m.')
+        self.get_logger().info(
+            f'Dynamic placement IK {object_id}: '
+            f'link6_object=({link6_point[0]:.4f},'
+            f'{link6_point[1]:.4f},{link6_point[2]:.4f})m, '
+            f'object_target_z={self._place_target_object_z:.4f}m, '
+            f'height_delta={height_delta:.4f}m, '
+            f'residual={residual:.4f}m.')
+        return solution
+
+    @staticmethod
+    def _pose_roll_pitch(pose):
+        q = pose.orientation
+        roll = math.atan2(
+            2.0 * (q.w*q.x + q.y*q.z),
+            1.0 - 2.0 * (q.x*q.x + q.y*q.y))
+        pitch = math.asin(max(-1.0, min(1.0,
+            2.0 * (q.w*q.y - q.z*q.x))))
+        return roll, pitch
+
+    def _release_geometry_safe(self, object_id):
+        """Verify payload and chassis geometry before physical ownership ends."""
+        msg = self._latest_model_states
+        if msg is None:
+            return False
+        try:
+            object_index = msg.name.index(object_id)
+            robot_index = msg.name.index(self._robot_model)
+        except ValueError:
+            return False
+        object_pose = msg.pose[object_index]
+        robot_pose = msg.pose[robot_index]
+        object_roll, object_pitch = self._pose_roll_pitch(object_pose)
+        robot_roll, robot_pitch = self._pose_roll_pitch(robot_pose)
+        object_tilt = max(abs(object_roll), abs(object_pitch))
+        robot_tilt = max(abs(robot_roll), abs(robot_pitch))
+        safe = (
+            self._pre_release_z_min <= object_pose.position.z
+            <= self._pre_release_z_max
+            and object_tilt <= self._pre_release_max_tilt
+            and robot_pose.position.z <= self._pre_release_robot_max_z
+            and robot_tilt <= self._pre_release_robot_max_tilt)
+        self.get_logger().info(
+            f'Pre-release 3D geometry for {object_id}: '
+            f'object_z={object_pose.position.z:.4f}m, '
+            f'object_tilt={object_tilt:.4f}rad, '
+            f'robot_z={robot_pose.position.z:.4f}m, '
+            f'robot_tilt={robot_tilt:.4f}rad, safe={safe}')
+        return safe
+
     async def _verify_placement_validated(self, object_id):
         required = max(1, self._placement_val_attempts)
         for sample in range(required):
             in_zone = self._is_in_valid_placement_zone(object_id)
             speed = self._object_speed(object_id)
-            if not in_zone or speed > self._placement_speed_tolerance:
+            surface_ok, z, tilt = self._placed_surface_geometry(object_id)
+            if (not in_zone or not surface_ok
+                    or speed > self._placement_speed_tolerance):
                 self.get_logger().warning(
                     f'Placement sample {sample + 1}/{required} invalid: '
-                    f'in_zone={in_zone}, speed={speed:.3f}m/s.')
+                    f'in_zone={in_zone}, surface_ok={surface_ok}, '
+                    f'z={z:.4f}m, tilt={tilt:.4f}rad, '
+                    f'speed={speed:.3f}m/s.')
                 return False
             await self._sleep(0.10)
         return True
+
+    def _placed_surface_geometry(self, object_id):
+        msg = self._latest_model_states
+        if msg is None:
+            return False, float('nan'), float('nan')
+        try:
+            pose = msg.pose[msg.name.index(object_id)]
+        except ValueError:
+            return False, float('nan'), float('nan')
+        roll, pitch = self._pose_roll_pitch(pose)
+        tilt = max(abs(roll), abs(pitch))
+        z = float(pose.position.z)
+        return (
+            self._placed_z_min <= z <= self._placed_z_max
+            and tilt <= self._placed_max_tilt,
+            z, tilt)
 
     def _object_speed(self, object_id):
         msg = self._latest_model_states

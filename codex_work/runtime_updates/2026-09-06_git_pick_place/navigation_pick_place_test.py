@@ -57,6 +57,7 @@ class PickPlaceTest(Node):
         self.base_velocity = None
         self.base_velocity_received = 0.0
         self.model_poses = {}
+        self.model_twists = {}
         self.models_received = 0.0
         self.create_subscription(Odometry, '/odom', self._odom_callback, 10)
         self.create_subscription(
@@ -68,6 +69,7 @@ class PickPlaceTest(Node):
 
     def _models_callback(self, message):
         self.model_poses = dict(zip(message.name, message.pose))
+        self.model_twists = dict(zip(message.name, message.twist))
         self.models_received = time.monotonic()
 
     def _fresh_robot_pose(self):
@@ -500,7 +502,7 @@ class PickPlaceTest(Node):
                 'Pickup navigation ended outside the graspable window; '
                 'do not command the arm')
 
-    def fine_dock(self, timeout_sec=15.0):
+    def fine_dock(self, timeout_sec=20.0):
         """Center a static cube with coupled range and heading control."""
         target_x = 0.38
         deadline = time.monotonic() + timeout_sec
@@ -541,7 +543,11 @@ class PickPlaceTest(Node):
                     linear = max(-0.12, min(0.16, 1.4 * range_error))
                     if abs(range_error) > 0.015 and abs(linear) < 0.06:
                         linear = math.copysign(0.06, range_error)
-                    if abs(heading_error) > 0.60:
+                    # Explicit two-stage docking: first face the cube, then
+                    # change range.  Coupled reverse+turn at large heading
+                    # error orbited around blue_cube_3 and eventually put it
+                    # beneath the chassis protection boundary.
+                    if abs(heading_error) > 0.12:
                         linear = 0.0
                     else:
                         linear *= max(0.35, math.cos(heading_error) ** 2)
@@ -577,6 +583,128 @@ class PickPlaceTest(Node):
         command.angular.z = float(angular)
         self.dock_publisher.publish(command)
 
+    def align_dropoff_heading(self, target_yaw, timeout_sec=10.0):
+        """Precisely align the chassis before the arm extends for placement."""
+        deadline = time.monotonic() + float(timeout_sec)
+        stable_since = None
+        last_log = 0.0
+        tolerance = 0.035
+        self.get_logger().info(
+            f'Starting dropoff heading alignment: target={target_yaw:.3f}rad')
+        try:
+            while rclpy.ok() and time.monotonic() < deadline:
+                rclpy.spin_once(self, timeout_sec=0.04)
+                robot = self._fresh_robot_pose()
+                q = robot.orientation
+                yaw = math.atan2(
+                    2.0 * (q.w*q.z + q.x*q.y),
+                    1.0 - 2.0 * (q.y*q.y + q.z*q.z))
+                error = math.atan2(
+                    math.sin(float(target_yaw) - yaw),
+                    math.cos(float(target_yaw) - yaw))
+                now = time.monotonic()
+                if abs(error) <= tolerance:
+                    self._publish_dock_command(0.0, 0.0)
+                    stable_since = stable_since or now
+                    if now - stable_since >= 0.30:
+                        self.get_logger().info(
+                            f'Dropoff heading aligned: yaw={yaw:.3f}, '
+                            f'error={error:.3f}rad')
+                        return
+                else:
+                    stable_since = None
+                    angular = max(-0.28, min(0.28, 1.20 * error))
+                    if abs(angular) < 0.07:
+                        angular = math.copysign(0.07, error)
+                    self._publish_dock_command(0.0, angular)
+                    if now - last_log >= 1.0:
+                        self.get_logger().info(
+                            f'Dropoff heading control: yaw={yaw:.3f}, '
+                            f'error={error:.3f}, cmd_angular={angular:.3f}')
+                        last_log = now
+            raise RuntimeError(
+                'Dropoff heading did not settle; refusing arm placement')
+        finally:
+            self._publish_navigation_stop()
+
+    def egress_after_place(self, travel_distance=0.70, timeout_sec=11.0):
+        """Back straight away from a placed cube before starting another task.
+
+        This is deliberately opt-in: the final task still settles in place.
+        The manoeuvre keeps the placement heading, verifies that separation
+        from the released cube is increasing, and stops on stale Gazebo data
+        or lack of progress instead of forcing the chassis through an object.
+        """
+        robot = self._fresh_robot_pose()
+        cube = self.model_poses.get(self.object_id)
+        if cube is None:
+            raise RuntimeError('Placed object missing before B egress')
+        start_x = float(robot.position.x)
+        start_y = float(robot.position.y)
+        q = robot.orientation
+        start_yaw = math.atan2(
+            2.0 * (q.w*q.z + q.x*q.y),
+            1.0 - 2.0 * (q.y*q.y + q.z*q.z))
+        away_x = robot.position.x - cube.position.x
+        away_y = robot.position.y - cube.position.y
+        initial_separation = math.hypot(away_x, away_y)
+        # Gazebo's base model axis is not guaranteed to match the visible arm
+        # side.  Select forward or reverse from live geometry so the first
+        # command is mathematically away from the released cube.
+        heading_dot_away = (
+            math.cos(start_yaw) * away_x + math.sin(start_yaw) * away_y)
+        linear_command = 0.10 if heading_dot_away >= 0.0 else -0.10
+        deadline = time.monotonic() + float(timeout_sec)
+        last_progress = time.monotonic()
+        best_travel = 0.0
+        self.get_logger().info(
+            f'Starting post-place egress: initial cube separation='
+            f'{initial_separation:.3f}m, target travel={travel_distance:.3f}m, '
+            f'direction={"forward" if linear_command > 0.0 else "reverse"}')
+        self.publish_navigation_status(
+            phase='POST_PLACE_EGRESS', event='phase_start',
+            egress_target_distance=float(travel_distance))
+        try:
+            while rclpy.ok() and time.monotonic() < deadline:
+                rclpy.spin_once(self, timeout_sec=0.05)
+                robot = self._fresh_robot_pose()
+                cube = self.model_poses.get(self.object_id)
+                if cube is None:
+                    raise RuntimeError('Placed object disappeared during egress')
+                travelled = math.hypot(
+                    robot.position.x - start_x, robot.position.y - start_y)
+                separation = math.hypot(
+                    robot.position.x - cube.position.x,
+                    robot.position.y - cube.position.y)
+                if separation < initial_separation - 0.025:
+                    raise RuntimeError(
+                        'Post-place egress moved toward the released cube')
+                if travelled > best_travel + 0.008:
+                    best_travel = travelled
+                    last_progress = time.monotonic()
+                if travelled >= float(travel_distance):
+                    self.get_logger().info(
+                        f'Post-place egress succeeded: travelled={travelled:.3f}m, '
+                        f'cube separation={separation:.3f}m')
+                    self.publish_navigation_status(
+                        event='egress_complete', egress_distance=travelled,
+                        cube_separation=separation)
+                    return
+                if time.monotonic() - last_progress > 1.5:
+                    raise RuntimeError(
+                        'Post-place egress made no progress; stopping base')
+                q = robot.orientation
+                yaw = math.atan2(
+                    2.0 * (q.w*q.z + q.x*q.y),
+                    1.0 - 2.0 * (q.y*q.y + q.z*q.z))
+                yaw_error = math.atan2(
+                    math.sin(start_yaw - yaw), math.cos(start_yaw - yaw))
+                angular = max(-0.16, min(0.16, 1.2 * yaw_error))
+                self._publish_dock_command(linear_command, angular)
+            raise RuntimeError('Post-place egress timed out')
+        finally:
+            self._publish_navigation_stop()
+
     def check_drop_alignment(self):
         zone = ZONE_MODELS[self.destination]
         pose = self._relative_pose(self.object_id, zone)
@@ -587,6 +715,74 @@ class PickPlaceTest(Node):
             raise RuntimeError(
                 'Carried object is not inside the configured placement zone; '
                 'keeping it attached')
+
+    @staticmethod
+    def _pose_roll_pitch(pose):
+        q = pose.orientation
+        roll = math.atan2(
+            2.0 * (q.w*q.x + q.y*q.z),
+            1.0 - 2.0 * (q.x*q.x + q.y*q.y))
+        pitch = math.asin(max(-1.0, min(1.0,
+            2.0 * (q.w*q.y - q.z*q.x))))
+        return roll, pitch
+
+    def validate_destination_inventory(self, settle_sec=0.60):
+        """Recheck all stored cubes after a placement, including older ones."""
+        deadline = time.monotonic() + float(settle_sec)
+        while rclpy.ok() and time.monotonic() < deadline:
+            self._publish_dock_command(0.0, 0.0)
+            rclpy.spin_once(self, timeout_sec=0.05)
+        if time.monotonic() - self.models_received > 0.35:
+            raise RuntimeError('Gazebo model state stale during inventory validation')
+
+        zone = ZONE_MODELS[self.destination]
+        prefix = 'red_cube_' if self.destination == 'A' else 'blue_cube_'
+        checked = []
+        checked_positions = []
+        failures = []
+        for name, world_pose in sorted(self.model_poses.items()):
+            if not name.startswith(prefix) or world_pose.position.z > 0.08:
+                continue
+            local = self._relative_pose(name, zone)
+            # Expanded envelope catches a cube knocked just outside the zone.
+            if abs(local.position.x) > 0.60 or abs(local.position.y) > 0.35:
+                continue
+            roll, pitch = self._pose_roll_pitch(world_pose)
+            tilt = max(abs(roll), abs(pitch))
+            twist = self.model_twists.get(name)
+            speed = float('inf') if twist is None else math.sqrt(
+                twist.linear.x**2 + twist.linear.y**2 + twist.linear.z**2)
+            valid = (
+                abs(local.position.x) <= 0.475
+                and abs(local.position.y) <= 0.225
+                and 0.012 <= world_pose.position.z <= 0.020
+                and tilt <= 0.12
+                and speed <= 0.03)
+            checked.append(name)
+            checked_positions.append(
+                (name, local.position.x, local.position.y))
+            self.get_logger().info(
+                f'Inventory 3D check {name}: local='
+                f'({local.position.x:.3f},{local.position.y:.3f}), '
+                f'z={world_pose.position.z:.4f}m, tilt={tilt:.4f}rad, '
+                f'speed={speed:.4f}m/s, valid={valid}')
+            if not valid:
+                failures.append(name)
+        for index, (name_a, ax, ay) in enumerate(checked_positions):
+            for name_b, bx, by in checked_positions[index + 1:]:
+                separation = math.hypot(ax - bx, ay - by)
+                self.get_logger().info(
+                    f'Inventory pair clearance {name_a}/{name_b}: '
+                    f'{separation:.3f}m')
+                if separation < 0.05:
+                    failures.append(
+                        f'{name_a}/{name_b}:clearance={separation:.3f}m')
+        if self.object_id not in checked:
+            failures.append(f'{self.object_id}:missing_from_zone')
+        if failures:
+            raise RuntimeError(
+                'Destination inventory validation failed: '
+                + ', '.join(failures))
 
     def compute_dropoff_target(self, configured_target):
         """Approach the nearest safe side and place the cube inside the zone."""
@@ -614,7 +810,7 @@ class PickPlaceTest(Node):
         # Leave room for the 0.15 m Nav2 position tolerance.  The old
         # (+0.36,+0.13) edge slot produced an observed x=+0.536 m and the
         # safety check correctly refused to release the cube.
-        if self.destination == 'B':
+        if self.destination in ('A', 'B'):
             # Reuse the proven Git slot concept without importing its world
             # plugin: choose a centre-line slot from live Gazebo truth and
             # keep one cube width plus 55 mm surface clearance from cargo
@@ -632,24 +828,85 @@ class PickPlaceTest(Node):
                 local_y = -sin_zone * dx + cos_zone * dy
                 if abs(local_x) <= 0.50 and abs(local_y) <= 0.25:
                     occupied.append((local_x, local_y, name))
-            candidates = [(-0.18, 0.0), (0.0, 0.0), (0.18, 0.0)]
+            # Keep every chassis dock on the zone's open east side
+            # (local x=+0.18)
+            # and distribute cargo across the short y axis.  Moving the slot
+            # along x also moved the chassis into previously released cubes;
+            # five lateral slots preserve one repeatable x≈-2.0 parking line.
+            if self.destination == 'A':
+                # A's arm trajectory has an observed lateral sweep of up to
+                # 0.09 m.  A 2x3 interior grid keeps that sweep inside the
+                # 25 mm boundary margin and preserves >=0.10 m nominal
+                # centre spacing for five 30 mm cubes.
+                candidates = [
+                    (0.08, -0.13), (0.08, 0.05), (0.08, 0.18),
+                    (0.28, -0.13), (0.28, 0.16), (0.20, 0.02),
+                ]
+            else:
+                # A single five-wide row left only 70 mm nominal spacing.
+                # With measured Nav2/arm landing error that allowed a later
+                # attached cube to contact stored cargo and lift the chassis.
+                # This interior 2x3 grid keeps parking near (-2,-5) while
+                # providing at least 120 mm nominal centre spacing.
+                candidates = [
+                    (0.08, -0.13), (0.08, 0.05), (0.08, 0.18),
+                    (0.28, -0.13), (0.28, 0.16), (0.20, 0.02),
+                ]
+            preferred_indices = (
+                {5: 1, 2: 2, 3: 0, 1: 4, 4: 3}
+                if self.destination == 'A'
+                else {5: 1, 4: 2, 3: 0, 2: 4, 1: 3})
+            # An actual landing point can differ from its nominal candidate
+            # because Nav2 has finite pose tolerance.  Merely measuring the
+            # distance back to candidates allowed that nominal slot to be
+            # selected again on a later invocation.  Reserve the closest
+            # nominal slot for every stored cube, in addition to the live
+            # clearance check.
+            reserved = {
+                preferred_indices[int(name.rsplit('_', 1)[1])]
+                for _ox, _oy, name in occupied
+                if int(name.rsplit('_', 1)[1]) in preferred_indices
+            }
+            minimum_clearance = 0.05
             safe = [
-                candidate for candidate in candidates
-                if all(math.hypot(candidate[0] - ox,
-                                  candidate[1] - oy) >= 0.085
-                       for ox, oy, _name in occupied)
+                candidate for index, candidate in enumerate(candidates)
+                if index not in reserved
+                and all(math.hypot(candidate[0] - ox,
+                                   candidate[1] - oy) >= minimum_clearance
+                        for ox, oy, _name in occupied)
             ]
             if not safe:
                 raise RuntimeError(
-                    'No collision-free B placement slot remains; holding object')
-            object_zone_x, object_zone_y = min(
-                safe,
-                key=lambda candidate: math.hypot(
-                    candidate[0] - robot_zone_x,
-                    candidate[1] - robot_zone_y))
+                    f'No collision-free {self.destination} placement slot '
+                    'remains; holding object')
+            preferred = None
+            # Stable one-to-one claims survive separate per-cube test
+            # processes.  Inferring a claim from the actual landing point is
+            # ambiguous because arm sweep can move a cube closer to an
+            # adjacent nominal slot.
+            suffix = int(self.object_id.rsplit('_', 1)[1])
+            preferred_index = preferred_indices.get(suffix)
+            if preferred_index is not None:
+                preferred = candidates[preferred_index]
+            if preferred in safe:
+                object_zone_x, object_zone_y = preferred
+            elif occupied:
+                # Maximise the nearest existing-cube clearance.  The robot's
+                # incoming side must not pull successive cubes into one corner.
+                object_zone_x, object_zone_y = max(
+                    safe,
+                    key=lambda candidate: min(
+                        math.hypot(candidate[0] - ox,
+                                   candidate[1] - oy)
+                        for ox, oy, _name in occupied))
+            else:
+                object_zone_x, object_zone_y = (
+                    (0.22, 0.0) if self.destination == 'A'
+                    else (0.18, 0.0))
             self.get_logger().info(
-                f'B slot selection: selected=({object_zone_x:.2f},'
-                f'{object_zone_y:.2f}), occupied='
+                f'{self.destination} slot selection: '
+                f'selected=({object_zone_x:.2f},'
+                f'{object_zone_y:.2f}), reserved={sorted(reserved)}, occupied='
                 f'{[(name, round(x, 3), round(y, 3)) for x, y, name in occupied]}')
         else:
             object_zone_x = max(-0.18, min(0.18, robot_zone_x))
@@ -668,6 +925,14 @@ class PickPlaceTest(Node):
             # Align with its final tangent instead of rotating toward the
             # start-to-goal chord after already reaching the zone.
             yaw = math.pi
+        elif self.destination == 'B':
+            # Park on the east side of B and extend the arm straight west,
+            # matching the pickup-style forward reach.  A yaw chosen from the
+            # incoming chord left the chassis facing the north obstacle after
+            # release and every following Nav2 command was collision-rejected.
+            # This fixed heading also leaves a straight reverse egress to the
+            # open east corridor when another object remains.
+            yaw = math.pi
         elif math.hypot(to_slot_x, to_slot_y) > 0.05:
             yaw = math.atan2(to_slot_y, to_slot_x)
         else:
@@ -676,14 +941,16 @@ class PickPlaceTest(Node):
         sin_yaw = math.sin(yaw)
         world_dx = cos_yaw * carried.position.x - sin_yaw * carried.position.y
         world_dy = sin_yaw * carried.position.x + cos_yaw * carried.position.y
+        world_target_x = object_world_x - world_dx
+        world_target_y = object_world_y - world_dy
         target = {
             # Place the carried cube at the selected near-side slot.  Using
             # the zone centre here silently discarded object_world_{x,y} and
             # made the goal position inconsistent with the incoming yaw,
             # producing a long terminal rotation after the cube was already
             # inside the scoring area.
-            'x': object_world_x - world_dx,
-            'y': object_world_y - world_dy,
+            'x': world_target_x,
+            'y': world_target_y,
             'yaw': yaw,
         }
         self.get_logger().info(
@@ -789,10 +1056,14 @@ def main(args=None):
     parser.add_argument('--navigation-timeout', type=float, default=180.0)
     parser.add_argument('--manipulation-timeout', type=float, default=60.0)
     parser.add_argument(
-        '--pickup-handoff-distance', type=float, default=0.25,
+        '--pickup-handoff-distance', type=float, default=0.55,
         help='Distance from the coarse pickup dock pose before fine dock takes '
              'control (metres).')
     parser.add_argument('--select-only', action='store_true')
+    parser.add_argument(
+        '--egress-after-place', action='store_true',
+        help='After a successful non-final placement, reverse straight away '
+             'from the released cube before returning success.')
     parsed, ros_args = parser.parse_known_args(args)
     destination = parsed.destination.upper()
 
@@ -829,9 +1100,15 @@ def main(args=None):
         node.publish_navigation_status(
             phase='NAV_DROPOFF', event='phase_start')
         node.navigate(f'destination {destination}', dropoff)
+        node.publish_navigation_status(
+            phase='DROPOFF_ALIGN', event='phase_start')
+        node.align_dropoff_heading(float(dropoff['yaw']))
         node.check_drop_alignment()
         node.publish_navigation_status(phase='PLACE', event='phase_start')
         node.manipulate('place')
+        node.validate_destination_inventory()
+        if parsed.egress_after_place:
+            node.egress_after_place()
         node.publish_navigation_status(phase='COMPLETE', event='acceptance_passed')
         node.get_logger().info(
             'ACCEPTANCE PASSED: navigation + pick + carry + place')
