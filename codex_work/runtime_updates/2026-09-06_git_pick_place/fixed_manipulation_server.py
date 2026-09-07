@@ -1026,11 +1026,29 @@ class FixedManipulationServer(Node):
                 f'Cannot measure {object_id} in '
                 f'{self._arm_ik_reference_link} for IK.')
         position = response.state.pose.position
+        orientation = response.state.pose.orientation
+        sin_yaw = 2.0 * (
+            orientation.w * orientation.z
+            + orientation.x * orientation.y)
+        cos_yaw = 1.0 - 2.0 * (
+            orientation.y * orientation.y
+            + orientation.z * orientation.z)
+        yaw = math.atan2(sin_yaw, cos_yaw)
+        projected_width = self._object_width * (
+            abs(math.cos(yaw)) + abs(math.sin(yaw)))
+        # A square cube presented near 45 degrees seats higher between the
+        # fingers because its projected width is larger.  Raise link6 by that
+        # measured excess so the finger tips retain the same floor clearance
+        # as a face-on grasp.  This is a one-shot IK correction, not object
+        # following or a post-grasp teleport.
+        yaw_height_compensation = min(
+            0.004, max(0.0, projected_width - self._object_width))
         cube = np.array((
             position.x,
             position.y,
             position.z - self._arm_ik_reference_to_base_z
-            + self._grasp_vertical_clearance,
+            + self._grasp_vertical_clearance
+            + yaw_height_compensation,
         ), dtype=float)
         distance = float(np.linalg.norm(cube))
         if distance > self._max_ik_distance:
@@ -1050,6 +1068,7 @@ class FixedManipulationServer(Node):
         self.get_logger().info(
             f'Dynamic IK {object_id}: target='
             f'({cube[0]:.3f},{cube[1]:.3f},{cube[2]:.3f}), '
+            f'yaw_height_comp={yaw_height_compensation:.4f}m, '
             f'pick_error={pick_error:.4f}m, pre_error={pre_error:.4f}m.')
         return pregrasp, pick
 

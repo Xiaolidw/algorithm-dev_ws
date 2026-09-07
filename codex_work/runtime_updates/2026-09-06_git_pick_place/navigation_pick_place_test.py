@@ -188,12 +188,18 @@ class PickPlaceTest(Node):
         return object_id
 
     def nearest_dock_target(self, object_id, configured_target):
-        """Choose the nearest of eight arm-reachable poses around a cube."""
+        """Choose the nearest axis-aligned arm-reachable pose around a cube.
+
+        Keeping the chassis on one of the cube's four face normals prevents a
+        diagonal corner grasp.  A corner grasp changes the payload height in
+        the fingers and can make the fingers contact the floor before the cube
+        reaches the validated release height.
+        """
         cube = self._relative_pose(object_id, 'world')
         robot = self._relative_pose('six_arm', 'world')
         radius = 0.38
         configured_yaw = float(configured_target['yaw'])
-        yaws = [configured_yaw + index * math.pi / 4.0 for index in range(8)]
+        yaws = [configured_yaw + index * math.pi / 2.0 for index in range(4)]
         candidates = []
         for yaw in yaws:
             target = {
@@ -849,7 +855,7 @@ class PickPlaceTest(Node):
                 # This interior 2x3 grid keeps parking near (-2,-5) while
                 # providing at least 120 mm nominal centre spacing.
                 candidates = [
-                    (0.08, -0.13), (0.08, 0.05), (0.08, 0.18),
+                    (0.08, -0.13), (0.08, 0.05), (0.08, 0.13),
                     (0.28, -0.13), (0.28, 0.16), (0.20, 0.02),
                 ]
             preferred_indices = (
@@ -1099,7 +1105,14 @@ def main(args=None):
         dropoff = node.compute_dropoff_target(dropoff)
         node.publish_navigation_status(
             phase='NAV_DROPOFF', event='phase_start')
-        node.navigate(f'destination {destination}', dropoff)
+        # The carried payload and extended arm are not represented by the
+        # chassis-only recovery footprint.  Never run the default Spin/BackUp
+        # recovery subtree while carrying: a recovery rotation beside a wall
+        # or obstacle can create a rigid-body collision and launch the robot.
+        # This tree still replans when the path becomes invalid, but fails
+        # safely instead of executing those chassis recovery motions.
+        node.navigate(
+            f'destination {destination}', dropoff, lock_route=True)
         node.publish_navigation_status(
             phase='DROPOFF_ALIGN', event='phase_start')
         node.align_dropoff_heading(float(dropoff['yaw']))
