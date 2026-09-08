@@ -19,3 +19,14 @@ Windows-side evidence record.
 The Gazebo map geometry, wall/stone poses, zone coordinates, cube initial
 coordinates, and moving-obstacle endpoints/speeds are not retuned in this
 snapshot.
+## 2026-09-08 final regression update
+
+- Five-item nearest-first chain passed in 328.063 s with zero Nav2 recoveries.
+- `gazebo_link_attacher.cpp` removes detached joint records to prevent the
+  fourth-release stale `JointPtr` crash.
+- `mission_coordinator_node.py` assigns required cubes with live nearest
+  greedy selection; `mission_flow_executor_node.py` rechecks pending-task
+  distance after each completed placement.
+- The global/local cube obstacle layers remain enabled so subsequent routes
+  avoid already placed cubes.
+- Map/world coordinates and moving-obstacle tracks were not changed.

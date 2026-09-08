@@ -31,6 +31,7 @@ command_paths=(
   '/home/ros/dev_ws/install/moon_warehouse_dynamic_avoidance/lib/moon_warehouse_dynamic_avoidance/sipp_decision_node.py'
   '/home/ros/dev_ws/install/moon_warehouse_dynamic_avoidance/lib/moon_warehouse_dynamic_avoidance/sipp_velocity_gate.py'
   '/home/ros/dev_ws/install/moon_warehouse_bringup/lib/moon_warehouse_bringup/safe_goal_bridge.py'
+  '/home/ros/dev_ws/install/moon_warehouse_bringup/lib/moon_warehouse_bringup/cube_obstacle_map_node.py'
   '/home/ros/dev_ws/install/moon_warehouse_moveit/lib/moon_warehouse_moveit/fixed_manipulation_server'
   '/home/ros/dev_ws/install/moon_warehouse_semantic/lib/moon_warehouse_semantic/question_source_node'
   '/home/ros/dev_ws/install/moon_warehouse_semantic/lib/moon_warehouse_semantic/semantic_solver_node'

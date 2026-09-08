@@ -15,7 +15,10 @@ for spec in "$@"; do
   item=$((item + 1))
   colour="${spec%%:*}"
   destination="${spec##*:}"
-  selector="fastest-${colour}"
+  # Re-evaluate the live robot-to-cube distance after every placement/egress.
+  # This intentionally follows the competition policy requested for this
+  # workspace: nearest currently available cube of the required colour.
+  selector="nearest-${colour}"
   if [[ "$colour" == *_cube_* ]]; then
     selector="$colour"
   fi

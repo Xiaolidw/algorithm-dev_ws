@@ -1,0 +1,455 @@
+amcl:
+  ros__parameters:
+    use_sim_time: true
+    alpha1: 0.2
+    alpha2: 0.2
+    alpha3: 0.2
+    alpha4: 0.2
+    alpha5: 0.2
+    base_frame_id: "base_footprint"
+    beam_skip_distance: 0.5
+    beam_skip_error_threshold: 0.9
+    beam_skip_threshold: 0.3
+    # Ignore a minority of scan beams inconsistent with the static map; this
+    # prevents moving obstacles from pulling localization toward a false pose.
+    do_beamskip: true
+    global_frame_id: "map"
+    lambda_short: 0.1
+    laser_likelihood_max_dist: 2.0
+    laser_max_range: 100.0
+    laser_min_range: -1.0
+    laser_model_type: "likelihood_field"
+    max_beams: 90
+    max_particles: 3000
+    min_particles: 800
+    odom_frame_id: "odom"
+    pf_err: 0.05
+    pf_z: 0.99
+    recovery_alpha_fast: 0.0
+    recovery_alpha_slow: 0.0
+    resample_interval: 1
+    robot_model_type: "nav2_amcl::DifferentialMotionModel"
+    save_pose_rate: 0.5
+    sigma_hit: 0.2
+    # Simulation uses an identity map->odom transform because the robot always
+    # spawns at the known map origin. Repetitive warehouse corridors and moving
+    # objects can otherwise make AMCL jump to a visually similar aisle.
+    tf_broadcast: false
+    transform_tolerance: 1.0
+    update_min_a: 0.1
+    update_min_d: 0.1
+    z_hit: 0.65
+    z_max: 0.05
+    z_rand: 0.3
+    z_short: 0.05
+    scan_topic: scan
+bt_navigator:
+  ros__parameters:
+    use_sim_time: true
+    global_frame: map
+    robot_base_frame: base_footprint
+    odom_topic: /odom
+    # VMware scheduling jitter can exceed the upstream 20 ms action timeout.
+    # A 20 Hz tree and a 0.5 s server handshake keep recovery branches from
+    # aborting valid goals merely because MPPI/LSTM briefly occupy the CPU.
+    bt_loop_duration: 50
+    # Gazebo/MoveIt can briefly stall the executor immediately after a grasp.
+    # Keep BT child-action handshakes alive through that bounded CPU spike so
+    # FollowPath is not left running after NavigateToPose aborts.
+    default_server_timeout: 5000
+    wait_for_service_timeout: 1000
+    action_server_result_timeout: 900.0
+    navigators: ["navigate_to_pose", "navigate_through_poses"]
+    navigate_to_pose:
+      plugin: "nav2_bt_navigator/NavigateToPoseNavigator"
+    navigate_through_poses:
+      plugin: "nav2_bt_navigator/NavigateThroughPosesNavigator"
+    # Keep one stable global path. Dynamic obstacles are handled by MPPI/SIPP;
+    # recompute the static route only when the goal changes or the path becomes
+    # invalid instead of feeding MPPI a slightly different path every second.
+    default_nav_to_pose_bt_xml: "/opt/ros/humble/share/nav2_bt_navigator/behavior_trees/navigate_w_recovery_and_replanning_only_if_path_becomes_invalid.xml"
+    # 'default_nav_through_poses_bt_xml' otherwise uses the upstream default:
+    # nav2_bt_navigator/navigate_to_pose_w_replanning_and_recovery.xml
+    # nav2_bt_navigator/navigate_through_poses_w_replanning_and_recovery.xml
+    # They can be set here or via a RewrittenYaml remap from a parent launch file to Nav2.
+    # plugin_lib_names is used to add custom BT plugins to the executor (vector of strings).
+    # Built-in plugins are added automatically
+    # plugin_lib_names: []
+    error_code_names:
+      - compute_path_error_code
+      - follow_path_error_code
+controller_server:
+  ros__parameters:
+    use_sim_time: true
+    controller_frequency: 20.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.001
+    # RPP raises NoValidControl while its collision arc is occupied.  A 0.3 s
+    # tolerance aborted the whole mission before SIPP/local-costmap updates
+    # could clear a moving obstacle. Recorded legal SIPP waits approach 10 s,
+    # so keep this below the 30 s progress-check bound but above that window.
+    # Waiting here keeps the robot stopped; it does not bypass collision checks.
+    failure_tolerance: 15.0
+    progress_checker_plugins: ["progress_checker"]
+    goal_checker_plugins: ["general_goal_checker"] # "precise_goal_checker"
+    controller_plugins: ["FollowPath"]
+    use_realtime_priority: false
+    # Dynamic safety chain consumes geometry_msgs/Twist on cmd_vel_nav_raw.
+    enable_stamped_cmd_vel: false
+    # Progress checker parameters
+    progress_checker:
+      # Allow normal endpoint turns, but still recover if MPPI keeps rotating
+      # without producing useful translational progress.
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.15
+      # SIPP may intentionally hold at a stop line for one obstacle cycle.
+      # Do not treat that planned wait as controller failure/recovery.
+      movement_time_allowance: 30.0
+    # Goal checker parameters
+    #precise_goal_checker:
+    #  plugin: "nav2_controller/SimpleGoalChecker"
+    #  xy_goal_tolerance: 0.30
+    #  yaw_goal_tolerance: 0.25
+    #  stateful: True
+    general_goal_checker:
+      stateful: True
+      plugin: "nav2_controller::SimpleGoalChecker"
+      # The scoring zone is only 0.50 m wide. A 0.30 m tolerance allowed the
+      # carried cube centre to stop at y=0.226 m, just outside the safe window.
+      xy_goal_tolerance: 0.15
+      yaw_goal_tolerance: 0.25
+    FollowPath:
+      # A deterministic path tracker is used for the competition route.  The
+      # previous RotationShim + MPPI + two custom steering filters could turn a
+      # 1.4 m straight path into a multi-loop trajectory.  RPP owns heading,
+      # curvature slowdown and terminal approach in one controller.
+      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+      desired_linear_vel: 1.40
+      # Keep the tracking point far enough ahead while the base is slowing or
+      # changing steering direction.  The previous 0.55 m floor amplified a
+      # small heading overshoot into alternating rotate-to-heading episodes.
+      lookahead_dist: 0.90
+      min_lookahead_dist: 0.75
+      max_lookahead_dist: 1.30
+      lookahead_time: 0.85
+      rotate_to_heading_angular_vel: 1.00
+      transform_tolerance: 0.1
+      use_velocity_scaled_lookahead_dist: true
+      min_approach_linear_velocity: 0.16
+      approach_velocity_scaling_dist: 0.70
+      use_collision_detection: true
+      max_allowed_time_to_collision_up_to_carrot: 0.80
+      use_regulated_linear_velocity_scaling: true
+      use_cost_regulated_linear_velocity_scaling: true
+      # A 0.75 m radius generated excessive moving-turn angular velocity.
+      # Match moving-turn authority to the 1.0 rad/s
+      # rotate-to-heading command so the downstream smoother can track it.
+      regulated_linear_scaling_min_radius: 1.15
+      regulated_linear_scaling_min_speed: 0.28
+      cost_scaling_dist: 0.55
+      cost_scaling_gain: 1.0
+      inflation_cost_scaling_factor: 6.0
+      use_rotate_to_heading: true
+      rotate_to_heading_min_angle: 0.60
+      # The simulated drive can realize about 4.2 rad/s^2 from its wheel
+      # acceleration and 0.37 m track width.  A 2.0 limit made RPP chase the
+      # lagging odometry estimate and stretched a 175 degree turn to 8.6 s.
+      max_angular_accel: 4.0
+      allow_reversing: false
+      max_robot_pose_search_dist: 3.0
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      use_sim_time: true
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      global_frame: odom
+      robot_base_frame: base_footprint
+      rolling_window: true
+      width: 6
+      height: 6
+      resolution: 0.05
+      robot_radius: 0.22
+      # The input is a planar LaserScan. A 2-D obstacle layer clears moving
+      # returns deterministically and avoids persistent voxel columns left by
+      # a dynamic obstacle sweeping across the route.
+      plugins: ["cube_layer", "obstacle_layer", "inflation_layer"]
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        # Compact, steep local inflation: preserve collision clearance while
+        # allowing a committed SIPP pass once the moving object has cleared.
+        cost_scaling_factor: 6.0
+        inflation_radius: 0.45
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        footprint_clearing_enabled: True
+        max_obstacle_height: 2.0
+        observation_sources: scan
+        scan:
+          # Dynamic LSTM-tracked returns are removed only from this costmap
+          # stream. Collision Monitor still consumes the original /scan.
+          topic: /scan_costmap
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          # Gazebo reports clear beams as +Inf. Treat them as valid clearing
+          # rays, otherwise cells marked by a moved obstacle can remain as a
+          # local-costmap ghost indefinitely.
+          inf_is_valid: True
+          raytrace_max_range: 3.5
+          raytrace_min_range: 0.0
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.0
+          observation_persistence: 0.0
+      cube_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_topic: /cube_obstacle_map
+        map_subscribe_transient_local: True
+        subscribe_to_updates: False
+        use_maximum: True
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+      always_send_full_costmap: True
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      use_sim_time: true
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      global_frame: map
+      robot_base_frame: base_footprint
+      robot_radius: 0.22
+      resolution: 0.05
+      track_unknown_space: true
+      plugins: ["static_layer", "cube_layer", "obstacle_layer", "inflation_layer"]
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+      cube_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_topic: /cube_obstacle_map
+        map_subscribe_transient_local: True
+        subscribe_to_updates: False
+        use_maximum: True
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        footprint_clearing_enabled: True
+        max_obstacle_height: 2.0
+        observation_sources: scan
+        scan:
+          # Use the dynamic-return-filtered scan so the global planner sees
+          # real walls and stones missing from the static occupancy map without
+          # baking moving obstacles into a persistent global wall.
+          topic: /scan_costmap
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          inf_is_valid: True
+          raytrace_max_range: 3.5
+          raytrace_min_range: 0.0
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.0
+          observation_persistence: 0.0
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.7
+      always_send_full_costmap: True
+# The yaml_filename does not need to be specified since it going to be set by defaults in launch.
+# If you'd rather set it in the yaml, remove the default "map" value in the tb3_simulation_launch.py
+# file & provide full path to map below. If CLI map configuration or launch default is provided, that will be used.
+map_server:
+  ros__parameters:
+    yaml_filename: ""
+    use_sim_time: true
+map_saver:
+  ros__parameters:
+    use_sim_time: true
+    save_map_timeout: 5.0
+    free_thresh_default: 0.25
+    occupied_thresh_default: 0.65
+    map_subscribe_transient_local: True
+planner_server:
+  ros__parameters:
+    use_sim_time: true
+    expected_planner_frequency: 5.0
+    planner_plugins: ["GridBased"]
+    GridBased:
+      # Cost-aware 8-connected A* with an internal collision-aware smoother.
+      # The previous Navfn path was never passed through smoother_server, so
+      # grid-scale heading changes reached MPPI and provoked alternating wz.
+      plugin: "nav2_smac_planner/SmacPlanner2D"
+      tolerance: 0.30
+      downsample_costmap: false
+      downsampling_factor: 1
+      allow_unknown: true
+      max_iterations: 100000
+      max_on_approach_iterations: 1000
+      max_planning_time: 1.0
+      # Prefer useful clearance without taking long wall-hugging detours.
+      cost_travel_multiplier: 1.00
+      use_final_approach_orientation: false
+      smoother:
+        tolerance: 1.0e-10
+        max_iterations: 500
+        w_data: 0.10
+        w_smooth: 0.50
+        do_refinement: true
+smoother_server:
+  ros__parameters:
+    use_sim_time: true
+    smoother_plugins: ["simple_smoother"]
+    simple_smoother:
+      plugin: "nav2_smoother::SimpleSmoother"
+      tolerance: 1.0e-10
+      max_its: 1000
+      do_refinement: True
+behavior_server:
+  ros__parameters:
+    use_sim_time: true
+    local_costmap_topic: local_costmap/costmap_raw
+    global_costmap_topic: global_costmap/costmap_raw
+    local_footprint_topic: local_costmap/published_footprint
+    global_footprint_topic: global_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+    spin:
+      plugin: "nav2_behaviors/Spin"
+    backup:
+      plugin: "nav2_behaviors/BackUp"
+    drive_on_heading:
+      plugin: "nav2_behaviors/DriveOnHeading"
+    wait:
+      plugin: "nav2_behaviors/Wait"
+    assisted_teleop:
+      plugin: "nav2_behaviors/AssistedTeleop"
+    local_frame: odom
+    global_frame: map
+    robot_base_frame: base_footprint
+    transform_tolerance: 0.1
+    simulate_ahead_time: 2.0
+    max_rotational_vel: 1.0
+    min_rotational_vel: 0.4
+    rotational_acc_lim: 3.2
+waypoint_follower:
+  ros__parameters:
+    use_sim_time: true
+    loop_rate: 20
+    stop_on_failure: false
+    action_server_result_timeout: 900.0
+    waypoint_task_executor_plugin: "wait_at_waypoint"
+    wait_at_waypoint:
+      plugin: "nav2_waypoint_follower::WaitAtWaypoint"
+      enabled: True
+      waypoint_pause_duration: 200
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: true
+    # Interpolate each 20 Hz controller command at 40 Hz. Scaling both axes
+    # together preserves commanded curvature instead of bending the path when
+    # only one acceleration component reaches its limit.
+    smoothing_frequency: 40.0
+    scale_velocities: True
+    feedback: "OPEN_LOOP"
+    max_velocity: [1.50, 0.0, 1.5]
+    min_velocity: [-0.50, 0.0, -1.5]
+    max_accel: [2.8, 0.0, 2.5]
+    max_decel: [-3.2, 0.0, -2.8]
+    odom_topic: "odom"
+    odom_duration: 0.1
+    # Preserve low-speed convergence and final-yaw commands from MPPI.
+    deadband_velocity: [0.005, 0.0, 0.01]
+    velocity_timeout: 1.0
+collision_monitor:
+  ros__parameters:
+    use_sim_time: true
+    base_frame_id: "base_footprint"
+    odom_frame_id: "odom"
+    cmd_vel_in_topic: "cmd_vel_smoothed"
+    cmd_vel_out_topic: "cmd_vel"
+    state_topic: "collision_monitor_state"
+    transform_tolerance: 0.2
+    source_timeout: 1.0
+    base_shift_correction: True
+    stop_pub_timeout: 2.0
+    # Polygons represent zone around the robot for "stop", "slowdown" and "limit" action types,
+    # and robot footprint for "approach" action type.
+    polygons: ["FootprintApproach"]
+    FootprintApproach:
+      type: "polygon"
+      action_type: "approach"
+      footprint_topic: "/local_costmap/published_footprint"
+      time_before_collision: 1.2
+      simulation_time_step: 0.1
+      min_points: 3
+      visualize: False
+      enabled: True
+    observation_sources: ["scan"]
+    scan:
+      type: "scan"
+      topic: "scan"
+      min_height: 0.15
+      max_height: 2.0
+      enabled: True
+
+# Gazebo can briefly saturate the VM while plugins and controllers are loaded.
+# The Nav2 default 4 s bond timeout interpreted that startup jitter as a server
+# death and left the complete navigation stack inactive.  Keep lifecycle
+# supervision enabled, but tolerate one bounded startup/load spike.
+lifecycle_manager_localization:
+  ros__parameters:
+    use_sim_time: true
+    bond_timeout: 15.0
+
+lifecycle_manager_navigation:
+  ros__parameters:
+    use_sim_time: true
+    bond_timeout: 15.0
+docking_server:
+  ros__parameters:
+    use_sim_time: true
+    controller_frequency: 50.0
+    initial_perception_timeout: 5.0
+    wait_charge_timeout: 5.0
+    dock_approach_timeout: 30.0
+    undock_linear_tolerance: 0.05
+    undock_angular_tolerance: 0.1
+    max_retries: 3
+    base_frame: "base_link"
+    fixed_frame: "odom"
+    dock_backwards: false
+    dock_prestaging_tolerance: 0.5
+    # Types of docks
+    dock_plugins: ['simple_charging_dock']
+    simple_charging_dock:
+      plugin: 'opennav_docking/SimpleChargingDock'
+      docking_threshold: 0.05
+      staging_x_offset: -0.7
+      use_external_detection_pose: true
+      use_battery_status: false # true
+      use_stall_detection: false # true
+      external_detection_timeout: 1.0
+      external_detection_translation_x: -0.18
+      external_detection_translation_y: 0.0
+      external_detection_rotation_roll: -1.57
+      external_detection_rotation_pitch: -1.57
+      external_detection_rotation_yaw: 0.0
+      filter_coef: 0.1
+    # Dock instances
+    # The following example illustrates configuring dock instances.
+    # docks: ['home_dock']  # Input your docks here
+    # home_dock:
+    #   type: 'simple_charging_dock'
+    #   frame: map
+    #   pose: [0.0, 0.0, 0.0]
+    controller:
+      k_phi: 3.0
+      k_delta: 2.0
+      v_linear_min: 0.15
+      v_linear_max: 0.15

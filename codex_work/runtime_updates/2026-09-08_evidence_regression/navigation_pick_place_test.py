@@ -134,8 +134,16 @@ class PickPlaceTest(Node):
             raise RuntimeError('six_arm missing from model states')
         return self.model_poses['six_arm']
 
+    def _await_fresh_robot_pose(self, timeout_sec=0.8):
+        """Wait briefly for Gazebo truth without accepting a stale sample."""
+        deadline = time.monotonic() + float(timeout_sec)
+        while (time.monotonic() - self.models_received > 0.35
+               and time.monotonic() < deadline):
+            rclpy.spin_once(self, timeout_sec=0.04)
+        return self._fresh_robot_pose()
+
     def _dock_coordinates(self):
-        robot = self._fresh_robot_pose()
+        robot = self._await_fresh_robot_pose()
         cube = self.model_poses.get(self.object_id)
         if cube is None:
             raise RuntimeError('Target object missing from model states')
@@ -888,7 +896,7 @@ class PickPlaceTest(Node):
         from the released cube is increasing, and stops on stale Gazebo data
         or lack of progress instead of forcing the chassis through an object.
         """
-        robot = self._fresh_robot_pose()
+        robot = self._await_fresh_robot_pose()
         cube = self.model_poses.get(self.object_id)
         if cube is None:
             raise RuntimeError('Placed object missing before B egress')
@@ -906,7 +914,7 @@ class PickPlaceTest(Node):
         # command is mathematically away from the released cube.
         heading_dot_away = (
             math.cos(start_yaw) * away_x + math.sin(start_yaw) * away_y)
-        linear_command = 0.10 if heading_dot_away >= 0.0 else -0.10
+        linear_command = 0.20 if heading_dot_away >= 0.0 else -0.20
         deadline = time.monotonic() + float(timeout_sec)
         last_progress = time.monotonic()
         best_travel = 0.0
@@ -920,7 +928,13 @@ class PickPlaceTest(Node):
         try:
             while rclpy.ok() and time.monotonic() < deadline:
                 rclpy.spin_once(self, timeout_sec=0.05)
-                robot = self._fresh_robot_pose()
+                sample_wait_start = time.monotonic()
+                if time.monotonic() - self.models_received > 0.35:
+                    self._publish_dock_command(0.0, 0.0)
+                robot = self._await_fresh_robot_pose()
+                # A telemetry pause is a stopped safety wait, not failed base
+                # motion; exclude it from the 1.5 s progress watchdog.
+                last_progress += time.monotonic() - sample_wait_start
                 cube = self.model_poses.get(self.object_id)
                 if cube is None:
                     raise RuntimeError('Placed object disappeared during egress')
