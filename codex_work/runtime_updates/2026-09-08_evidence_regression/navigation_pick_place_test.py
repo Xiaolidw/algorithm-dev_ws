@@ -523,7 +523,20 @@ class PickPlaceTest(Node):
             # metre early at cruise speed and added ~8 s of crawling.
             dynamic_threshold = max(
                 threshold, 0.18 + 0.15*speed + speed*speed/(2.0*3.2))
-            if math.isfinite(distance) and distance <= dynamic_threshold:
+            pickup_front_ready = True
+            if not destination_handoff:
+                # A position-only handoff is unsafe while Nav2 is still
+                # turning the chassis toward the selected grasp dock.  The
+                # base can be close to that dock with the cube behind it,
+                # where fine_dock must refuse to rotate.  Let Nav2 finish the
+                # coarse turn; normal approaches already satisfy this gate
+                # and therefore gain no extra delay.
+                cube_in_base = self._relative_pose(
+                    self.object_id, 'six_arm')
+                pickup_front_ready = cube_in_base.position.x > 0.15
+            if (math.isfinite(distance)
+                    and distance <= dynamic_threshold
+                    and pickup_front_ready):
                 stable_samples += 1
             else:
                 stable_samples = 0
@@ -721,6 +734,26 @@ class PickPlaceTest(Node):
     def navigate_dropoff_transits(self):
         """Enter each delivery corridor before the final continuous leg."""
         if self.destination == 'B':
+            if self.object_id.startswith('red_cube_'):
+                # Red cubes start in the upper row.  A direct chord to the B
+                # east transit selects the blocked left-hand homotopy and was
+                # observed to abort at (-4.34, 1.62) with 6.02 m remaining.
+                # Route the inverse-colour acceptance case through the same
+                # verified central doorway used by A traffic.  Normal
+                # blue->B missions do not enter this branch.
+                cross_zone_transits = (
+                    {'x': -2.30, 'y': 1.30, 'yaw': -math.pi / 2.0},
+                    {'x': -2.25, 'y': -0.25, 'yaw': -math.pi / 2.0},
+                )
+                for index, transit in enumerate(cross_zone_transits, 1):
+                    self.publish_navigation_status(
+                        phase='DROPOFF_TRANSIT', event='phase_start',
+                        transit_index=index,
+                        transit_count=len(cross_zone_transits),
+                        route_mode='red_to_b_central_doorway')
+                    self.navigate(
+                        f'red-to-B doorway transit {index}', transit,
+                        handoff_distance=0.35, lock_route=True)
             # The fixed stone west of the centre corridor makes the direct B
             # chord intermittently stop about 1.2 m from the dock.  Approach
             # its east side first; this point is already proven in the
@@ -1100,12 +1133,12 @@ class PickPlaceTest(Node):
             raise RuntimeError('Gazebo model state stale during inventory validation')
 
         zone = ZONE_MODELS[self.destination]
-        prefix = 'red_cube_' if self.destination == 'A' else 'blue_cube_'
         checked = []
         checked_positions = []
         failures = []
         for name, world_pose in sorted(self.model_poses.items()):
-            if not name.startswith(prefix) or world_pose.position.z > 0.08:
+            if (not name.startswith(('red_cube_', 'blue_cube_'))
+                    or world_pose.position.z > 0.08):
                 continue
             local = self._relative_pose(name, zone)
             # Expanded envelope catches a cube knocked just outside the zone.
@@ -1460,7 +1493,7 @@ class PickPlaceTest(Node):
             f'Arm stage={feedback.stage}, progress={feedback.progress:.0%}')
 
 
-def load_targets(destination):
+def load_targets(destination, requested_object=None):
     share = get_package_share_directory('moon_warehouse_coordinator')
     path = f'{share}/config/task_execution.yaml'
     with open(path, 'r', encoding='utf-8') as stream:
@@ -1480,6 +1513,13 @@ def load_targets(destination):
     for rule in mapping.values():
         if str(rule.get('destination', '')).upper() == destination:
             assigned.extend(str(name) for name in rule.get('objects', []))
+    # An explicit acceptance command may intentionally test a colour/zone
+    # pairing outside the official mapping.  Permit that one named cube while
+    # keeping generic nearest/fastest selectors restricted to the competition
+    # mapping, so the normal red->A and blue->B choice/order is unchanged.
+    if (requested_object in all_approaches
+            and requested_object not in assigned):
+        assigned.append(requested_object)
     if not assigned:
         raise RuntimeError(
             f'No competition objects are assigned to destination {destination}')
@@ -1516,7 +1556,7 @@ def main(args=None):
         parsed.navigation_timeout, parsed.manipulation_timeout)
     exit_code = 1
     try:
-        approaches, dropoff = load_targets(destination)
+        approaches, dropoff = load_targets(destination, parsed.object)
         node.wait_for_state_service()
         selected = node.select_object(parsed.object, approaches)
         node.object_id = selected
