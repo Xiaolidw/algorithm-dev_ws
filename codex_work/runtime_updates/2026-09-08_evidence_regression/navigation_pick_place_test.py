@@ -4,6 +4,7 @@
 import argparse
 import json
 import math
+import os
 import sys
 import time
 
@@ -67,6 +68,7 @@ class PickPlaceTest(Node):
         self.model_twists = {}
         self.models_received = 0.0
         self.global_costmap = None
+        self.slot_claim_path = '/tmp/moon_warehouse_slot_claims.json'
         costmap_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
             depth=1,
@@ -90,6 +92,24 @@ class PickPlaceTest(Node):
 
     def _global_costmap_callback(self, message):
         self.global_costmap = message
+
+    def _load_slot_claims(self):
+        try:
+            with open(self.slot_claim_path, 'r', encoding='utf-8') as stream:
+                value = json.load(stream)
+            return value if isinstance(value, dict) else {}
+        except (OSError, ValueError, TypeError):
+            return {}
+
+    def _save_slot_claims(self, claims):
+        temporary = self.slot_claim_path + '.tmp'
+        try:
+            with open(temporary, 'w', encoding='utf-8') as stream:
+                json.dump(claims, stream, sort_keys=True)
+            os.replace(temporary, self.slot_claim_path)
+        except OSError as error:
+            self.get_logger().warning(
+                f'Cannot persist placement slot claims: {error}')
 
     def _global_costmap_cell(self, x, y):
         """Return the published occupancy value at a world point, if known."""
@@ -210,6 +230,21 @@ class PickPlaceTest(Node):
                          + zone_orientation.z * zone_orientation.z))
         cos_zone = math.cos(zone_yaw)
         sin_zone = math.sin(zone_yaw)
+        # A legal return from A must first leave through its east doorway.
+        # Ranking from the parking pose by a straight chord ignores the walls
+        # and can prefer a longer route.  In that state, compare grasp docks
+        # from the verified outer doorway; elsewhere compare them from the
+        # live robot pose.
+        ranking_x = float(robot.position.x)
+        ranking_y = float(robot.position.y)
+        robot_in_a = self._relative_pose('six_arm', 'zone_a')
+        ranking_mode = 'live_robot_to_grasp_dock'
+        if (self.destination == 'A'
+                and math.hypot(robot_in_a.position.x,
+                               robot_in_a.position.y) <= 1.80):
+            ranking_x = -2.30
+            ranking_y = 1.30
+            ranking_mode = 'a_outer_doorway_to_grasp_dock'
         ranked = []
         for object_id in candidates:
             pose = self._relative_pose(object_id, 'world')
@@ -223,9 +258,19 @@ class PickPlaceTest(Node):
                     f'Skipping {object_id}: already inside destination '
                     f'{self.destination}')
                 continue
-            pickup_distance = math.hypot(
-                pose.position.x - robot.position.x,
-                pose.position.y - robot.position.y)
+            configured_yaw = float(approaches[object_id]['yaw'])
+            pickup_distance = min(
+                math.hypot(
+                    float(pose.position.x) - 0.38 * math.cos(yaw) - ranking_x,
+                    float(pose.position.y) - 0.38 * math.sin(yaw) - ranking_y)
+                for yaw in (
+                    configured_yaw,
+                    configured_yaw + math.pi / 2.0,
+                    configured_yaw + math.pi,
+                    configured_yaw + 3.0 * math.pi / 2.0))
+            self.get_logger().info(
+                f'Pickup candidate {object_id}: '
+                f'route_rank={pickup_distance:.3f}m, mode={ranking_mode}')
             if not race_selection:
                 ranked.append((pickup_distance, object_id, 0.0))
                 continue
@@ -621,6 +666,31 @@ class PickPlaceTest(Node):
 
     def navigate_pickup_transits(self):
         """Bypass a dynamic swept track before selected pickup approaches."""
+        if self.destination == 'A':
+            robot_in_a = self._relative_pose('six_arm', 'zone_a')
+            if math.hypot(
+                    robot_in_a.position.x,
+                    robot_in_a.position.y) <= 1.80:
+                # After an intermediate A placement, leave through the same
+                # verified doorway instead of letting a fresh global plan
+                # select the much longer lower-room homotopy seen in the
+                # 2026-09-09 return-to-pickup trace.
+                exit_transits = (
+                    # Stay on the proven interior corridor, then traverse the
+                    # exact inbound doorway points in reverse order.
+                    {'x': -4.00, 'y': -1.75, 'yaw': 0.0},
+                    {'x': -2.25, 'y': -0.25, 'yaw': math.pi / 2.0},
+                    {'x': -2.30, 'y': 1.30, 'yaw': math.pi / 2.0},
+                )
+                for index, transit in enumerate(exit_transits, 1):
+                    self.publish_navigation_status(
+                        phase='PICKUP_TRANSIT', event='phase_start',
+                        transit_index=index,
+                        transit_count=len(exit_transits),
+                        route_mode='a_reverse_doorway_handoff')
+                    self.navigate(
+                        f'A reverse doorway transit {index}', transit,
+                        handoff_distance=0.35, lock_route=True)
         if self.object_id != 'red_cube_4':
             return
         # A direct origin -> red_cube_4 chord crosses moving_obstacle_1's
@@ -639,7 +709,7 @@ class PickPlaceTest(Node):
                 f'red_cube_4 rail bypass {index}', transit, lock_route=True)
 
     def navigate_dropoff_transits(self):
-        """Use the real A-room doorway instead of a fragile direct chord."""
+        """Enter each delivery corridor before the final continuous leg."""
         if self.destination == 'B':
             # The fixed stone west of the centre corridor makes the direct B
             # chord intermittently stop about 1.2 m from the dock.  Approach
@@ -655,23 +725,40 @@ class PickPlaceTest(Node):
             return
         if self.destination != 'A':
             return
-        # World geometry evidence: Wall_38 closes the upper-left room at
-        # y=0.896 until x=-2.857, while Wall_57/75 form the x=-3.2 vertical
-        # divider.  The valid entrance is the gap at the east end of Wall_46.
-        # These poses do not edit the map; they constrain the carried route to
-        # that existing doorway and keep it away from the blue-cube row.
+        if self.object_id == 'red_cube_4':
+            # The pickup pose is north-east of moving_obstacle_1's immutable
+            # y=2.8 rail.  A direct carried-object chord to A crosses that
+            # physical obstacle and the 2026-09-09 trace launched the chassis
+            # out of the map.  Retrace the proven west-end bypass before
+            # entering A; the obstacle's map pose and motion stay untouched.
+            rail_transits = (
+                {'x': -2.75, 'y': 3.50, 'yaw': math.pi},
+                {'x': -2.75, 'y': 2.00, 'yaw': -math.pi / 2.0},
+            )
+            for index, transit in enumerate(rail_transits, 1):
+                self.publish_navigation_status(
+                    phase='DROPOFF_TRANSIT', event='phase_start',
+                    transit_index=index,
+                    transit_count=len(rail_transits),
+                    route_mode='red4_carried_rail_bypass')
+                self.navigate(
+                    f'red_cube_4 carried rail bypass {index}', transit,
+                    lock_route=True)
+        # These two position handoffs constrain the chassis to the verified
+        # east-side doorway.  Once inside, Nav2 plans continuously to the
+        # actual A dock instead of stopping at two extra interior pose goals.
         transits = (
             {'x': -2.30, 'y': 1.30, 'yaw': -math.pi / 2.0},
-            {'x': -2.25, 'y': -0.25, 'yaw': math.pi},
-            {'x': -4.00, 'y': -0.25, 'yaw': -math.pi / 2.0},
-            {'x': -4.00, 'y': -1.75, 'yaw': -2.40},
+            {'x': -2.25, 'y': -0.25, 'yaw': -math.pi / 2.0},
         )
         for index, transit in enumerate(transits, 1):
             self.publish_navigation_status(
                 phase='DROPOFF_TRANSIT', event='phase_start',
-                transit_index=index, transit_count=len(transits))
+                transit_index=index, transit_count=len(transits),
+                route_mode='doorway_position_handoff')
             self.navigate(
-                f'A doorway transit {index}', transit, lock_route=True)
+                f'A doorway transit {index}', transit,
+                handoff_distance=0.35, lock_route=True)
 
     def check_pick_alignment(self):
         pose = self._relative_pose(self.object_id, 'six_arm')
@@ -1131,11 +1218,43 @@ class PickPlaceTest(Node):
             # selected again on a later invocation.  Reserve the closest
             # nominal slot for every stored cube, in addition to the live
             # clearance check.
-            reserved = {
-                preferred_indices[int(name.rsplit('_', 1)[1])]
-                for _ox, _oy, name in occupied
-                if int(name.rsplit('_', 1)[1]) in preferred_indices
+            claims = self._load_slot_claims()
+            zone_claims = claims.get(self.destination, {})
+            if not isinstance(zone_claims, dict):
+                zone_claims = {}
+            occupied_names = {name for _ox, _oy, name in occupied}
+            zone_claims = {
+                name: int(index)
+                for name, index in zone_claims.items()
+                if name in occupied_names
+                and isinstance(index, int)
+                and 0 <= index < len(candidates)
             }
+            claims[self.destination] = zone_claims
+            self._save_slot_claims(claims)
+            reserved = set(zone_claims.values())
+            unclaimed_occupied = [
+                (ox, oy, name) for ox, oy, name in occupied
+                if name not in zone_claims
+            ]
+            reserved.update(
+                preferred_indices[int(name.rsplit('_', 1)[1])]
+                for _ox, _oy, name in unclaimed_occupied
+                if int(name.rsplit('_', 1)[1]) in preferred_indices
+            )
+            # A lethal chassis cell can force an object away from its
+            # number-based preferred slot.  Reserve the closest nominal slot
+            # to every live landing as well; otherwise the next short-lived
+            # process forgets that fallback choice and may reuse it.
+            reserved.update(
+                min(
+                    range(len(candidates)),
+                    key=lambda index: math.hypot(
+                        candidates[index][0] - ox,
+                        candidates[index][1] - oy),
+                )
+                for ox, oy, _name in unclaimed_occupied
+            )
             minimum_clearance = 0.05
             safe = [
                 candidate for index, candidate in enumerate(candidates)
@@ -1144,9 +1263,43 @@ class PickPlaceTest(Node):
                                    candidate[1] - oy) >= minimum_clearance
                         for ox, oy, _name in occupied)
             ]
+            # A cargo slot can be clear while its corresponding chassis dock
+            # lies inside the inflated obstacle cell of an earlier delivery.
+            # Evaluate the base pose for every candidate now, so a lethal
+            # preferred slot falls through to another slot instead of failing
+            # only after the B transit has already completed.
+            dock_yaw = math.pi
+            carried_world_dx = (
+                math.cos(dock_yaw) * carried.position.x
+                - math.sin(dock_yaw) * carried.position.y)
+            carried_world_dy = (
+                math.sin(dock_yaw) * carried.position.x
+                + math.cos(dock_yaw) * carried.position.y)
+            cost_safe = []
+            rejected_costs = []
+            for candidate in safe:
+                candidate_world_x = (
+                    zone_world.position.x
+                    + cos_zone * candidate[0] - sin_zone * candidate[1])
+                candidate_world_y = (
+                    zone_world.position.y
+                    + sin_zone * candidate[0] + cos_zone * candidate[1])
+                dock_x = candidate_world_x - carried_world_dx
+                dock_y = candidate_world_y - carried_world_dy
+                dock_cost = self._global_costmap_cell(dock_x, dock_y)
+                if dock_cost is not None and dock_cost >= 99:
+                    rejected_costs.append(
+                        (candidate, dock_cost, dock_x, dock_y))
+                else:
+                    cost_safe.append(candidate)
+            if rejected_costs:
+                self.get_logger().warning(
+                    f'{self.destination} slots rejected by chassis cost: '
+                    f'{[(slot, cost, round(x, 3), round(y, 3)) for slot, cost, x, y in rejected_costs]}')
+            safe = cost_safe
             if not safe:
                 raise RuntimeError(
-                    f'No collision-free {self.destination} placement slot '
+                    f'No cargo-and-chassis-safe {self.destination} placement slot '
                     'remains; holding object')
             preferred = None
             # Stable one-to-one claims survive separate per-cube test
@@ -1172,10 +1325,19 @@ class PickPlaceTest(Node):
                 object_zone_x, object_zone_y = (
                     (0.22, 0.0) if self.destination == 'A'
                     else (0.18, 0.0))
+            selected_index = min(
+                range(len(candidates)),
+                key=lambda index: math.hypot(
+                    candidates[index][0] - object_zone_x,
+                    candidates[index][1] - object_zone_y))
+            zone_claims[self.object_id] = selected_index
+            claims[self.destination] = zone_claims
+            self._save_slot_claims(claims)
             self.get_logger().info(
                 f'{self.destination} slot selection: '
                 f'selected=({object_zone_x:.2f},'
-                f'{object_zone_y:.2f}), reserved={sorted(reserved)}, occupied='
+                f'{object_zone_y:.2f}), claim={selected_index}, '
+                f'reserved={sorted(reserved)}, occupied='
                 f'{[(name, round(x, 3), round(y, 3)) for x, y, name in occupied]}')
         else:
             object_zone_x = max(-0.18, min(0.18, robot_zone_x))
