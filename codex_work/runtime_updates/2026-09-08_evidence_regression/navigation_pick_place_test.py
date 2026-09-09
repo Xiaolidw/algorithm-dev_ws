@@ -34,6 +34,17 @@ class NavigationNoProgress(RuntimeError):
     """A Nav2 goal is alive but its route feedback has stopped changing."""
 
 
+class ManipulationFailure(RuntimeError):
+    """A manipulation action failed with a machine-readable result code."""
+
+    def __init__(self, operation, error_code, message):
+        super().__init__(
+            f'{operation} failed: code={error_code}, message={message}')
+        self.operation = operation
+        self.error_code = int(error_code)
+        self.result_message = str(message)
+
+
 class PickPlaceTest(Node):
     """Blocking acceptance client built only on the project's public APIs."""
 
@@ -625,9 +636,8 @@ class PickPlaceTest(Node):
             raise RuntimeError(f'{operation} returned no result')
         result = wrapped.result
         if not result.success:
-            raise RuntimeError(
-                f'{operation} failed: code={result.error_code}, '
-                f'message={result.message}')
+            raise ManipulationFailure(
+                operation, result.error_code, result.message)
         self.get_logger().info(
             f'{operation} succeeded: {result.message}')
 
@@ -1528,7 +1538,26 @@ def main(args=None):
         node.fine_dock()
         node.check_pick_alignment()
         node.publish_navigation_status(phase='PICK', event='phase_start')
-        node.manipulate('pick')
+        try:
+            node.manipulate('pick')
+        except ManipulationFailure as error:
+            # A failed physical attachment can move the cube after the server
+            # has already rolled the joint back.  Retrying only the arm from
+            # its home pose then targets stale geometry and cannot recover.
+            # Reacquire the live cube with the existing bounded fine-dock
+            # controller once; normal successful picks pay no extra time.
+            if error.error_code not in (5, 7):
+                raise
+            node.get_logger().warning(
+                f'Pick geometry changed after a failed grasp '
+                f'(code={error.error_code}); re-running one live fine dock '
+                'before the final pick attempt')
+            node.publish_navigation_status(
+                phase='FINE_DOCK', event='post_grasp_reacquire',
+                manipulation_error=error.error_code)
+            node.fine_dock()
+            node.check_pick_alignment()
+            node.manipulate('pick')
         node.configure_dropoff_tracking()
         dropoff = node.compute_dropoff_target(dropoff)
         node.navigate_dropoff_transits()

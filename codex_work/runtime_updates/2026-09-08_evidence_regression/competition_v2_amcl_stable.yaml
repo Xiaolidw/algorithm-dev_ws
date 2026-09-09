@@ -151,7 +151,10 @@ controller_server:
       cost_scaling_gain: 1.0
       inflation_cost_scaling_factor: 6.0
       use_rotate_to_heading: true
-      rotate_to_heading_min_angle: 0.60
+      # Keep sharp corners as explicit in-place turns, but let moderate bends
+      # remain continuous.  The 0.60 rad threshold spent 16.2 s in in-place
+      # rotation during the red_cube_3 -> A reference run.
+      rotate_to_heading_min_angle: 0.90
       # The simulated drive can realize about 4.2 rad/s^2 from its wheel
       # acceleration and 0.37 m track width.  A 2.0 limit made RPP chase the
       # lagging odometry estimate and stretched a 175 degree turn to 8.6 s.
