@@ -743,7 +743,7 @@ class PickPlaceTest(Node):
                     route_mode='red4_carried_rail_bypass')
                 self.navigate(
                     f'red_cube_4 carried rail bypass {index}', transit,
-                    lock_route=True)
+                    handoff_distance=0.35, lock_route=True)
         # These two position handoffs constrain the chassis to the verified
         # east-side doorway.  Once inside, Nav2 plans continuously to the
         # actual A dock instead of stopping at two extra interior pose goals.
