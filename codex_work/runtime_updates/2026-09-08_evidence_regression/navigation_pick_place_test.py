@@ -524,7 +524,8 @@ class PickPlaceTest(Node):
             dynamic_threshold = max(
                 threshold, 0.18 + 0.15*speed + speed*speed/(2.0*3.2))
             pickup_front_ready = True
-            if not destination_handoff:
+            object_pickup_handoff = label.startswith('pickup ')
+            if object_pickup_handoff:
                 # A position-only handoff is unsafe while Nav2 is still
                 # turning the chassis toward the selected grasp dock.  The
                 # base can be close to that dock with the cube behind it,
@@ -729,12 +730,39 @@ class PickPlaceTest(Node):
                 phase='PICKUP_TRANSIT', event='phase_start',
                 transit_index=index, transit_count=len(transits))
             self.navigate(
-                f'red_cube_4 rail bypass {index}', transit, lock_route=True)
+                f'red_cube_4 rail bypass {index}', transit,
+                # The second point only selects the north-side homotopy.  Its
+                # yaw is not an action requirement, and exact yaw convergence
+                # caused an endless 0.00-0.21 m rotate/translate oscillation.
+                # Request the smallest position-only handoff floor; the live
+                # braking-distance term may enlarge it at cruise speed.  The
+                # following strict pickup dock and fine dock still establish
+                # the actual grasp geometry.
+                handoff_distance=0.08 if index == 2 else None,
+                lock_route=True)
 
     def navigate_dropoff_transits(self):
         """Enter each delivery corridor before the final continuous leg."""
         if self.destination == 'B':
             if self.object_id.startswith('red_cube_'):
+                if self.object_id == 'red_cube_4':
+                    # red_cube_4 is picked north of moving_obstacle_1's
+                    # immutable y=2.8 rail.  Retrace the west-end bypass while
+                    # carrying it; a direct diagonal to the central doorway
+                    # crossed the rail and launched the chassis out of bounds.
+                    rail_exit_transits = (
+                        {'x': -2.75, 'y': 3.50, 'yaw': math.pi},
+                        {'x': -2.75, 'y': 2.00, 'yaw': -math.pi / 2.0},
+                    )
+                    for index, transit in enumerate(rail_exit_transits, 1):
+                        self.publish_navigation_status(
+                            phase='DROPOFF_TRANSIT', event='phase_start',
+                            transit_index=index,
+                            transit_count=len(rail_exit_transits),
+                            route_mode='red4_to_b_rail_exit')
+                        self.navigate(
+                            f'red_cube_4 to-B rail exit {index}', transit,
+                            handoff_distance=0.35, lock_route=True)
                 # Red cubes start in the upper row.  A direct chord to the B
                 # east transit selects the blocked left-hand homotopy and was
                 # observed to abort at (-4.34, 1.62) with 6.02 m remaining.
@@ -764,7 +792,7 @@ class PickPlaceTest(Node):
             self.navigate(
                 'B east transit',
                 {'x': -1.45, 'y': -2.40, 'yaw': -math.pi / 2.0},
-                lock_route=True)
+                handoff_distance=0.35, lock_route=True)
             return
         if self.destination != 'A':
             return
@@ -819,12 +847,12 @@ class PickPlaceTest(Node):
 
     def fine_dock(self, timeout_sec=20.0):
         """Center a static cube with coupled range and heading control."""
-        target_x = 0.38
+        target_x = 0.385
         deadline = time.monotonic() + timeout_sec
         stable_samples = 0
         last_log = 0.0
         self.get_logger().info(
-            'Starting fine dock: target object=(0.38m, 0.00m) in base frame')
+            'Starting fine dock: target object=(0.385m, 0.00m) in base frame')
         try:
             while time.monotonic() < deadline:
                 rclpy.spin_once(self, timeout_sec=0.01)
