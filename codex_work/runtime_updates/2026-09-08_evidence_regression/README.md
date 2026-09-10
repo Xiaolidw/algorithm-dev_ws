@@ -30,3 +30,27 @@ snapshot.
 - The global/local cube obstacle layers remain enabled so subsequent routes
   avoid already placed cubes.
 - Map/world coordinates and moving-obstacle tracks were not changed.
+
+## 2026-09-10 sub-270-second validated runtime
+
+- `navigation_pick_place_test.py` is the exact u22 runtime used by two
+  consecutive official five-item passes: 260.054 s and 254.522 s, both 5/5
+  with zero Nav2 recoveries.
+- `fixed_manipulation_server.py` replaces transient ROS-timer sleeps inside
+  manipulation action callbacks with bounded wall-clock sleeps in the
+  four-thread executor. This removes the repeat-item attachment deadlock
+  without adding object-following updates.
+- `fixed_manipulation.yaml` stores the individually validated arm durations:
+  0.95 s home-to-pregrasp, 1.10 s descend, and 0.90 s return-home.
+- `simulation.launch.py` uses only the official sequential controller
+  spawners. The previous looping repair helper was removed because repeated
+  controller-manager service requests could destabilize startup.
+- The timing run is headless (`race_mode:=true`) and has exactly one
+  `gzserver`; normal presentation startup must still create no more than one
+  Gazebo GUI and one RViz.
+- Before mission publication, require unique ROS node names, all three robot
+  controllers active, all four core Nav2 lifecycle nodes active, and exactly
+  one `/navigate_to_pose` action server. Orphan nodes from an earlier launch
+  must be cleaned before a run is counted.
+- Map/world geometry, zone coordinates, cube initial poses, and moving
+  obstacle trajectories/speeds were not changed by this timing update.

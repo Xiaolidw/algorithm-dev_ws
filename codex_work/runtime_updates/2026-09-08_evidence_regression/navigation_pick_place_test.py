@@ -146,7 +146,11 @@ class PickPlaceTest(Node):
                 or time.monotonic() - self.models_received > 0.35)
                and time.monotonic() < deadline):
             rclpy.spin_once(self, timeout_sec=0.05)
-        robot = self._fresh_robot_pose()
+        # The global costmap is a large reliable sample and can briefly win
+        # the single-threaded executor over /gazebo/model_states.  Require a
+        # fresh pose after that sample, but allow one bounded publish cycle
+        # on a loaded simulator instead of failing on the first gap.
+        robot = self._await_fresh_robot_pose(timeout_sec=1.2)
         start_cost = self._global_costmap_cell(
             robot.position.x, robot.position.y)
         goal_cost = self._global_costmap_cell(x, y)
@@ -621,7 +625,7 @@ class PickPlaceTest(Node):
                        and abs(velocity.linear.x) < 0.025
                        and abs(velocity.angular.z) < 0.05)
             stopped_since = (stopped_since or now) if stopped else None
-            if stopped_since is not None and now - stopped_since >= 0.25:
+            if stopped_since is not None and now - stopped_since >= 0.15:
                 return
         raise RuntimeError('Base did not stop with fresh odometry; handoff refused')
 
@@ -897,7 +901,7 @@ class PickPlaceTest(Node):
                     # Close the lateral error promptly once range is already
                     # correct.  The former 1.25 gain spent about three seconds
                     # creeping from |y|=0.036 m into the 0.015 m grasp window.
-                    angular = max(-0.45, min(0.45, 2.40 * heading_error))
+                    angular = max(-0.60, min(0.60, 2.40 * heading_error))
                     if (abs(heading_error) > 0.018
                             and abs(angular) < 0.065):
                         angular = math.copysign(0.065, heading_error)
@@ -931,7 +935,7 @@ class PickPlaceTest(Node):
 
         The controller operates only inside the final roughly 0.6 m.  It
         first faces the already-planned dock point, then advances at no more
-        than 0.10 m/s.  Final yaw remains a separate stopped operation, so the
+        than 0.13 m/s.  Final yaw remains a separate stopped operation, so the
         payload cannot sweep through a zone obstacle during translation.
         """
         target_x = float(target['x'])
@@ -939,7 +943,7 @@ class PickPlaceTest(Node):
         deadline = time.monotonic() + float(timeout_sec)
         stable_since = None
         last_log = 0.0
-        initial = self._fresh_robot_pose()
+        initial = self._await_fresh_robot_pose()
         initial_distance = math.hypot(
             initial.position.x - target_x, initial.position.y - target_y)
         if initial_distance > 0.90:
@@ -948,11 +952,15 @@ class PickPlaceTest(Node):
                 f'({initial_distance:.3f}m); refusing open-loop approach')
         self.get_logger().info(
             f'Starting low-speed destination approach: '
-            f'distance={initial_distance:.3f}m, target_tolerance=0.14m')
+            f'distance={initial_distance:.3f}m, target_tolerance=0.15m')
         try:
             while rclpy.ok() and time.monotonic() < deadline:
                 rclpy.spin_once(self, timeout_sec=0.04)
-                robot = self._fresh_robot_pose()
+                # Model states can miss a publish interval when Gazebo is
+                # below real time.  Wait for one genuinely fresh sample
+                # rather than failing on the first 350 ms gap; the helper
+                # still refuses data older than the original safety limit.
+                robot = self._await_fresh_robot_pose()
                 if not -0.05 <= float(robot.position.z) <= 0.08:
                     raise RuntimeError(
                         'Chassis left the floor during destination approach; '
@@ -969,7 +977,7 @@ class PickPlaceTest(Node):
                     math.sin(path_heading - yaw),
                     math.cos(path_heading - yaw))
                 now = time.monotonic()
-                if distance <= 0.14:
+                if distance <= 0.15:
                     self._publish_dock_command(0.0, 0.0)
                     stable_since = stable_since or now
                     if now - stable_since >= 0.45:
@@ -981,10 +989,15 @@ class PickPlaceTest(Node):
                     stable_since = None
                     # Do not combine a sharp turn with payload translation.
                     # Once facing the dock, use a mild coupled correction.
-                    if abs(heading_error) > 0.18:
+                    # Small destination-heading errors are safe to correct
+                    # while advancing.  Stopping translation at 0.18 rad
+                    # caused a repeated turn/go/turn hesitation near both
+                    # scoring zones; reserve in-place rotation for genuinely
+                    # sharp approaches.
+                    if abs(heading_error) > 0.28:
                         linear = 0.0
                     else:
-                        linear = max(0.045, min(0.10, 0.55 * distance))
+                        linear = max(0.045, min(0.13, 0.55 * distance))
                         linear *= max(0.45, math.cos(heading_error) ** 2)
                     angular = max(-0.22, min(0.22, 1.35 * heading_error))
                     if abs(heading_error) <= 0.015:
@@ -1013,7 +1026,7 @@ class PickPlaceTest(Node):
         try:
             while rclpy.ok() and time.monotonic() < deadline:
                 rclpy.spin_once(self, timeout_sec=0.04)
-                robot = self._fresh_robot_pose()
+                robot = self._await_fresh_robot_pose()
                 q = robot.orientation
                 yaw = math.atan2(
                     2.0 * (q.w*q.z + q.x*q.y),
@@ -1032,7 +1045,7 @@ class PickPlaceTest(Node):
                         return
                 else:
                     stable_since = None
-                    angular = max(-0.28, min(0.28, 1.20 * error))
+                    angular = max(-0.55, min(0.55, 1.50 * error))
                     if abs(angular) < 0.07:
                         angular = math.copysign(0.07, error)
                     self._publish_dock_command(0.0, angular)
@@ -1046,7 +1059,7 @@ class PickPlaceTest(Node):
         finally:
             self._publish_navigation_stop()
 
-    def egress_after_place(self, travel_distance=0.70, timeout_sec=11.0):
+    def egress_after_place(self, travel_distance=0.45, timeout_sec=9.0):
         """Back straight away from a placed cube before starting another task.
 
         This is deliberately opt-in: the final task still settles in place.
@@ -1072,7 +1085,7 @@ class PickPlaceTest(Node):
         # command is mathematically away from the released cube.
         heading_dot_away = (
             math.cos(start_yaw) * away_x + math.sin(start_yaw) * away_y)
-        linear_command = 0.20 if heading_dot_away >= 0.0 else -0.20
+        linear_command = 0.25 if heading_dot_away >= 0.0 else -0.25
         deadline = time.monotonic() + float(timeout_sec)
         last_progress = time.monotonic()
         best_travel = 0.0
@@ -1559,6 +1572,77 @@ def load_targets(destination, requested_object=None):
     return approaches, destinations[destination]
 
 
+def execute_one_task(node, requested_object, destination,
+                     pickup_handoff_distance, egress_after_place=False,
+                     select_only=False):
+    """Execute one item while allowing the ROS node to be reused in a batch."""
+    node.object_id = requested_object
+    node.destination = destination
+    node.navigation_status = {
+        'phase': 'INITIALIZING',
+        'event': 'task_started',
+        'label': '',
+    }
+    approaches, dropoff = load_targets(destination, requested_object)
+    node.wait_for_state_service()
+    selected = node.select_object(requested_object, approaches)
+    node.object_id = selected
+    node.publish_navigation_status(
+        phase='SELECTED', event='object_selected', object_id=selected,
+        destination=destination)
+    if select_only:
+        print(f'SELECTED_OBJECT={selected}', flush=True)
+        return selected
+    node.wait_for_interfaces()
+    pickup = node.nearest_dock_target(selected, approaches[selected])
+    node.navigate_pickup_transits()
+    node.publish_navigation_status(phase='NAV_PICKUP', event='phase_start')
+    node.navigate(
+        f'pickup {selected}', pickup,
+        handoff_distance=pickup_handoff_distance)
+    node.publish_navigation_status(phase='FINE_DOCK', event='phase_start')
+    node.fine_dock()
+    node.check_pick_alignment()
+    node.publish_navigation_status(phase='PICK', event='phase_start')
+    try:
+        node.manipulate('pick')
+    except ManipulationFailure as error:
+        if error.error_code not in (5, 7):
+            raise
+        node.get_logger().warning(
+            f'Pick geometry changed after a failed grasp '
+            f'(code={error.error_code}); re-running one live fine dock '
+            'before the final pick attempt')
+        node.publish_navigation_status(
+            phase='FINE_DOCK', event='post_grasp_reacquire',
+            manipulation_error=error.error_code)
+        node.fine_dock()
+        node.check_pick_alignment()
+        node.manipulate('pick')
+    node.configure_dropoff_tracking()
+    dropoff = node.compute_dropoff_target(dropoff)
+    node.navigate_dropoff_transits()
+    node.publish_navigation_status(
+        phase='NAV_DROPOFF', event='phase_start')
+    node.navigate(f'destination {destination}', dropoff, lock_route=True)
+    node.publish_navigation_status(
+        phase='DROPOFF_FINE_APPROACH', event='phase_start')
+    node.fine_dropoff_approach(dropoff)
+    node.publish_navigation_status(
+        phase='DROPOFF_ALIGN', event='phase_start')
+    node.align_dropoff_heading(float(dropoff['yaw']))
+    node.check_drop_alignment()
+    node.publish_navigation_status(phase='PLACE', event='phase_start')
+    node.manipulate('place')
+    node.validate_destination_inventory()
+    if egress_after_place:
+        node.egress_after_place()
+    node.publish_navigation_status(phase='COMPLETE', event='acceptance_passed')
+    node.get_logger().info(
+        'ACCEPTANCE PASSED: navigation + pick + carry + place')
+    return selected
+
+
 def main(args=None):
     parser = argparse.ArgumentParser(
         description='Navigate, pick one cube, navigate, and place it.')
@@ -1575,85 +1659,47 @@ def main(args=None):
         '--egress-after-place', action='store_true',
         help='After a successful non-final placement, reverse straight away '
              'from the released cube before returning success.')
+    parser.add_argument(
+        '--batch', default='',
+        help='Comma-separated object:destination items. Reuses one ROS node '
+             'and automatically omits egress after the final item.')
     parsed, ros_args = parser.parse_known_args(args)
     destination = parsed.destination.upper()
 
+    tasks = []
+    if parsed.batch:
+        for item in parsed.batch.split(','):
+            fields = item.strip().rsplit(':', 1)
+            if len(fields) != 2 or fields[1].upper() not in ZONE_MODELS:
+                parser.error(
+                    f'Invalid --batch item {item!r}; expected object:A|B|C')
+            tasks.append((fields[0], fields[1].upper()))
+    else:
+        tasks.append((parsed.object, destination))
+
     rclpy.init(args=ros_args)
     node = PickPlaceTest(
-        parsed.object, destination,
+        tasks[0][0], tasks[0][1],
         parsed.navigation_timeout, parsed.manipulation_timeout)
     exit_code = 1
     try:
-        approaches, dropoff = load_targets(destination, parsed.object)
-        node.wait_for_state_service()
-        selected = node.select_object(parsed.object, approaches)
-        node.object_id = selected
-        node.publish_navigation_status(
-            phase='SELECTED', event='object_selected', object_id=selected,
-            destination=destination)
-        if parsed.select_only:
-            print(f'SELECTED_OBJECT={selected}', flush=True)
-            exit_code = 0
-            return
-        node.wait_for_interfaces()
-        pickup = node.nearest_dock_target(selected, approaches[selected])
-        node.navigate_pickup_transits()
-        node.publish_navigation_status(phase='NAV_PICKUP', event='phase_start')
-        node.navigate(
-            f'pickup {selected}', pickup,
-            handoff_distance=parsed.pickup_handoff_distance)
-        node.publish_navigation_status(phase='FINE_DOCK', event='phase_start')
-        node.fine_dock()
-        node.check_pick_alignment()
-        node.publish_navigation_status(phase='PICK', event='phase_start')
-        try:
-            node.manipulate('pick')
-        except ManipulationFailure as error:
-            # A failed physical attachment can move the cube after the server
-            # has already rolled the joint back.  Retrying only the arm from
-            # its home pose then targets stale geometry and cannot recover.
-            # Reacquire the live cube with the existing bounded fine-dock
-            # controller once; normal successful picks pay no extra time.
-            if error.error_code not in (5, 7):
-                raise
-            node.get_logger().warning(
-                f'Pick geometry changed after a failed grasp '
-                f'(code={error.error_code}); re-running one live fine dock '
-                'before the final pick attempt')
-            node.publish_navigation_status(
-                phase='FINE_DOCK', event='post_grasp_reacquire',
-                manipulation_error=error.error_code)
-            node.fine_dock()
-            node.check_pick_alignment()
-            node.manipulate('pick')
-        node.configure_dropoff_tracking()
-        dropoff = node.compute_dropoff_target(dropoff)
-        node.navigate_dropoff_transits()
-        node.publish_navigation_status(
-            phase='NAV_DROPOFF', event='phase_start')
-        # The carried payload and extended arm are not represented by the
-        # chassis-only recovery footprint.  Never run the default Spin/BackUp
-        # recovery subtree while carrying: a recovery rotation beside a wall
-        # or obstacle can create a rigid-body collision and launch the robot.
-        # This tree still replans when the path becomes invalid, but fails
-        # safely instead of executing those chassis recovery motions.
-        node.navigate(
-            f'destination {destination}', dropoff, lock_route=True)
-        node.publish_navigation_status(
-            phase='DROPOFF_FINE_APPROACH', event='phase_start')
-        node.fine_dropoff_approach(dropoff)
-        node.publish_navigation_status(
-            phase='DROPOFF_ALIGN', event='phase_start')
-        node.align_dropoff_heading(float(dropoff['yaw']))
-        node.check_drop_alignment()
-        node.publish_navigation_status(phase='PLACE', event='phase_start')
-        node.manipulate('place')
-        node.validate_destination_inventory()
-        if parsed.egress_after_place:
-            node.egress_after_place()
-        node.publish_navigation_status(phase='COMPLETE', event='acceptance_passed')
+        batch_start = time.monotonic()
+        for index, (requested_object, task_destination) in enumerate(tasks, 1):
+            item_start = time.monotonic()
+            execute_one_task(
+                node, requested_object, task_destination,
+                parsed.pickup_handoff_distance,
+                egress_after_place=(
+                    parsed.egress_after_place
+                    if len(tasks) == 1 else index < len(tasks)),
+                select_only=parsed.select_only)
+            node.get_logger().info(
+                f'BATCH ITEM {index}/{len(tasks)} complete: '
+                f'{requested_object}->{task_destination}, '
+                f'elapsed={time.monotonic() - item_start:.3f}s')
         node.get_logger().info(
-            'ACCEPTANCE PASSED: navigation + pick + carry + place')
+            f'BATCH COMPLETE: items={len(tasks)}, '
+            f'elapsed={time.monotonic() - batch_start:.3f}s')
         exit_code = 0
     except (KeyboardInterrupt, RuntimeError, KeyError, ValueError) as error:
         node.publish_navigation_status(

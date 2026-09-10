@@ -102,39 +102,12 @@ def generate_launch_description():
         output='screen',
     )
 
-    # Gazebo occasionally finishes loading the gripper plugin just after the
-    # spawner's internal result wait expires.  In that race the controller is
-    # present but remains "unconfigured".  Run an idempotent state repair only
-    # after the spawner exits; a normally active controller is left untouched.
-    ensure_gripper_active = ExecuteProcess(
-        cmd=[
-            'bash', '-c',
-            "export RCUTILS_COLORIZED_OUTPUT=0; "
-            "state=; "
-            "for attempt in $(seq 1 20); do "
-            "state=$(timeout 4 ros2 control list_controllers 2>/dev/null | "
-            "awk '$1 == \"gripper_controller\" {print $3}'); "
-            "[ -n \"$state\" ] && break; sleep 1; done; "
-            "if [ \"$state\" = active ]; then exit 0; fi; "
-            "if [ \"$state\" = unconfigured ]; then "
-            "ros2 control set_controller_state gripper_controller inactive || exit 1; "
-            "state=inactive; fi; "
-            "if [ \"$state\" = inactive ]; then "
-            "ros2 control set_controller_state gripper_controller active; "
-            "else echo 'gripper_controller did not become visible after spawner exit' >&2; "
-            "exit 1; fi",
-        ],
-        output='screen',
-    )
-
     load_joint_state = RegisterEventHandler(OnProcessExit(
         target_action=spawn_robot, on_exit=[joint_state]))
     load_arm = RegisterEventHandler(OnProcessExit(
         target_action=joint_state, on_exit=[arm]))
     load_gripper = RegisterEventHandler(OnProcessExit(
         target_action=arm, on_exit=[gripper]))
-    repair_gripper = RegisterEventHandler(OnProcessExit(
-        target_action=gripper, on_exit=[ensure_gripper_active]))
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -149,7 +122,6 @@ def generate_launch_description():
         load_joint_state,
         load_arm,
         load_gripper,
-        repair_gripper,
         gazebo_gui,
         gazebo_server,
         state_publisher,
