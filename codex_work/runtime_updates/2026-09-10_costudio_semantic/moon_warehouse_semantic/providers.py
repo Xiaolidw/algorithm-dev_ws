@@ -82,49 +82,70 @@ class DeepSeekProvider:
                 + '。variables必须包含且只能包含这些变量名。'
             )
 
+        if self.is_local:
+            # The 0.5B local model shares the two VM CPU cores with Gazebo.
+            # Keep its prompt and answer compact so semantic parsing remains
+            # responsive while the camera and GUI are rendering.
+            system_prompt = (
+                '计算题目明确声明的全部变量。合并同类需求；并列人物各计一次；'
+                '遇到每单元容量时用向上取整。题目写某物需要N个时，'
+                '所对应变量的值就是N；'
+                '必须读取“需要”后的实际数量，绝不能输出变量序号。'
+                '只输出一行最短JSON，键为变量名、值为实际非负整数，'
+                '不要代码块、标签、换行、空格或解释。变量必须且只能是：'
+                + '、'.join(sorted(declared_variables))
+                + '。'
+            )
+            max_tokens = 32
+        else:
+            system_prompt = (
+                '你是比赛题目求解器。'
+                '请根据题目完整计算其中明确声明的所有变量。'
+                '必须在内部完成需求汇总、容量换算、方程求解和结果核验。'
+                '必须采用以下赛题约定：当题目说明每个容器、商店、柜子或'
+                '其他资源单元可容纳N件物品，并列出多种类型时，'
+                '每种类型的资源单元只供应名称对应的同类物品。'
+                '先把所有人物对同一类型物品的需求相加，'
+                '特别注意并列主语：当题目写“甲、乙都需要N件”或'
+                '“甲、乙各需要N件”时，表示甲需要N件且乙也需要N件，'
+                '必须按人数分别累加，不能只把N计算一次；'
+                '三个或更多并列人物时也遵循同一规则。'
+                '再用该类型总需求除以单个资源单元容量N并向上取整；'
+                '即所需数量=(总需求+N-1)//N。'
+                '即使题目省略“每类资源只供应同类物品”这句话，'
+                '也必须按照上述赛题约定求解，不能以关系未说明为由拒绝。'
+                '如果题目要求计算容器、商店、柜子或其他资源数量，'
+                '结果必须满足全部需求，数量不能不足，必要时必须向上取整。'
+                '只计算题目中声明的变量，不执行颜色、区域、导航或抓取映射。'
+                '只输出一个JSON对象，不输出Markdown、推导过程或额外文字。'
+                'JSON必须包含variables、valid和error三个字段。'
+                'variables必须是变量名到非负整数的非空对象；'
+                'valid必须是布尔值；成功时valid为true且error为空字符串。'
+                '不得照抄格式说明中的任何数值，必须使用题目的实际计算结果。'
+                + declared_variables_hint
+            )
+            max_tokens = 512
+
         payload = {
             'model': self.model,
             'messages': [
                 {
                     'role': 'system',
-                    'content': (
-                        '你是比赛题目求解器。'
-                        '请根据题目完整计算其中明确声明的所有变量。'
-                        '必须在内部完成需求汇总、容量换算、方程求解和结果核验。'
-                        '必须采用以下赛题约定：当题目说明每个容器、商店、柜子或'
-                        '其他资源单元可容纳N件物品，并列出多种类型时，'
-                        '每种类型的资源单元只供应名称对应的同类物品。'
-                        '先把所有人物对同一类型物品的需求相加，'
-                        '特别注意并列主语：当题目写“甲、乙都需要N件”或'
-                        '“甲、乙各需要N件”时，表示甲需要N件且乙也需要N件，'
-                        '必须按人数分别累加，不能只把N计算一次；'
-                        '三个或更多并列人物时也遵循同一规则。'
-                        '再用该类型总需求除以单个资源单元容量N并向上取整；'
-                        '即所需数量=(总需求+N-1)//N。'
-                        '即使题目省略“每类资源只供应同类物品”这句话，'
-                        '也必须按照上述赛题约定求解，不能以关系未说明为由拒绝。'
-                        '如果题目要求计算容器、商店、柜子或其他资源数量，'
-                        '结果必须满足全部需求，数量不能不足，必要时必须向上取整。'
-                        '只计算题目中声明的变量，不执行颜色、区域、导航或抓取映射。'
-                        '只输出一个JSON对象，不输出Markdown、推导过程或额外文字。'
-                        'JSON必须包含variables、valid和error三个字段。'
-                        'variables必须是变量名到非负整数的非空对象；'
-                        'valid必须是布尔值；成功时valid为true且error为空字符串。'
-                        '不得照抄格式说明中的任何数值，必须使用题目的实际计算结果。'
-                        + declared_variables_hint
-                    ),
+                    'content': system_prompt,
                 },
                 {
                     'role': 'user',
                     'content': question,
                 },
             ],
-            'response_format': {'type': 'json_object'},
             'temperature': 0,
-            'max_tokens': 512,
+            'max_tokens': max_tokens,
             'stream': False,
         }
-        if not self.is_local:
+        if self.is_local:
+            payload['response_format'] = {'type': 'json_object'}
+        else:
+            payload['response_format'] = {'type': 'json_object'}
             payload['thinking'] = {'type': 'disabled'}
 
         headers = {'Content-Type': 'application/json'}
@@ -158,15 +179,44 @@ class DeepSeekProvider:
         if not isinstance(raw_text, str) or not raw_text.strip():
             raise ProviderError('Model returned empty content')
 
-        try:
-            result_data = json.loads(raw_text)
-        except json.JSONDecodeError as exc:
-            raise ProviderError(
-                f'Model content is not valid JSON: {raw_text[:200]}'
-            ) from exc
+        if self.is_local:
+            variable_names = sorted(declared_variables)
+            compact = raw_text.strip()
+            if re.fullmatch(r'\d+(?:\s*,\s*\d+)*', compact):
+                values = [int(value) for value in compact.split(',')]
+                if len(values) != len(variable_names):
+                    raise ProviderError(
+                        'Local model value count does not match variables: '
+                        f'expected={len(variable_names)}, got={len(values)}')
+                result_data = {
+                    'variables': dict(zip(variable_names, values)),
+                    'valid': True,
+                    'error': '',
+                }
+            else:
+                try:
+                    result_data = json.loads(compact)
+                except json.JSONDecodeError as exc:
+                    raise ProviderError(
+                        'Local model content is neither compact values nor '
+                        f'valid JSON: {raw_text[:200]}') from exc
+        else:
+            try:
+                result_data = json.loads(raw_text)
+            except json.JSONDecodeError as exc:
+                raise ProviderError(
+                    f'Model content is not valid JSON: {raw_text[:200]}'
+                ) from exc
 
         if not isinstance(result_data, dict):
             raise ProviderError('DeepSeek JSON result must be an object')
+
+        if self.is_local and 'variables' not in result_data:
+            result_data = {
+                'variables': result_data,
+                'valid': True,
+                'error': '',
+            }
 
         if result_data.get('valid') is not True:
             model_error = result_data.get(

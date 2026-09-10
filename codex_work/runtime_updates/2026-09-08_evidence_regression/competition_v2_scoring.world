@@ -1899,7 +1899,7 @@
           <wrench>0 0 0 0 -0 0</wrench>
         </link>
         <link name="letter_A_3">
-          <pose>-11 -7 0.26 0 -0 0</pose>
+          <pose>-7 -3.8 0.26 0 -0 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
           <acceleration>0 0 0 0 -0 0</acceleration>
           <wrench>0 0 0 0 -0 0</wrench>

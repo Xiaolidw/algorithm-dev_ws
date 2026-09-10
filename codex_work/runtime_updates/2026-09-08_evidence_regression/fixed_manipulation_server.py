@@ -219,7 +219,7 @@ class FixedManipulationServer(Node):
             'attachment_validation_interval_s': 0.1,
             'attachment_settle_time_s': 0.1,
             # Phase-4: release order & placement zone
-            'release_order': 'open_then_detach',
+            'release_order': 'detach_then_open',
             'placement_zone_models': ['zone_a', 'zone_b', 'zone_c'],
             'placement_zone_half_width': 0.50,
             'placement_zone_half_depth': 0.25,
@@ -1391,10 +1391,41 @@ class FixedManipulationServer(Node):
             float(relative.position.x),
             float(relative.position.y),
             float(relative.position.z))
-        current_object = self._arm_fk_point(
-            self._arm_preplace, link6_point)
-        height_delta = (
-            self._place_target_object_z - float(object_pose.position.z))
+        # Measure the carried cube in the real arm-base frame after the
+        # pre-place move.  Reconstructing this point from the nominal
+        # pre-place joints worked for face-on grasps, but could be wrong by
+        # about 20 mm for a yawed/tilted grasp because Gazebo attachment and
+        # contact compliance change the realised link pose.  The measured
+        # x/y/z is the correct seed for the one-shot vertical descent.
+        request = GetEntityState.Request()
+        request.name = object_id
+        request.reference_frame = (
+            f'{self._robot_model}::{self._arm_ik_reference_link}')
+        measured = await self._state_client.call_async(request)
+        if not measured.success:
+            raise ManipulationError(
+                self.ARM_FAILED,
+                f'Cannot measure {object_id} in '
+                f'{self._arm_ik_reference_link} for placement.')
+        current_object = np.array((
+            float(measured.state.pose.position.x),
+            float(measured.state.pose.position.y),
+            float(measured.state.pose.position.z)
+            - self._arm_ik_reference_to_base_z))
+        # Use a fresh world-frame sample from the same service as the
+        # arm-frame sample.  ``/gazebo/model_states`` can lag the completed
+        # pre-place motion by one callback; using that older height made the
+        # one-shot descent stop roughly 15 mm too high on some A approaches.
+        world_request = GetEntityState.Request()
+        world_request.name = object_id
+        world_request.reference_frame = 'world'
+        world_measured = await self._state_client.call_async(world_request)
+        if not world_measured.success:
+            raise ManipulationError(
+                self.ARM_FAILED,
+                f'Cannot measure fresh world height for {object_id}.')
+        current_world_z = float(world_measured.state.pose.position.z)
+        height_delta = self._place_target_object_z - current_world_z
         target = (
             float(current_object[0]),
             float(current_object[1]),
@@ -1409,7 +1440,10 @@ class FixedManipulationServer(Node):
             f'Dynamic placement IK {object_id}: '
             f'link6_object=({link6_point[0]:.4f},'
             f'{link6_point[1]:.4f},{link6_point[2]:.4f})m, '
+            f'measured_arm_base=({current_object[0]:.4f},'
+            f'{current_object[1]:.4f},{current_object[2]:.4f})m, '
             f'object_target_z={self._place_target_object_z:.4f}m, '
+            f'current_world_z={current_world_z:.4f}m, '
             f'height_delta={height_delta:.4f}m, '
             f'residual={residual:.4f}m.')
         return solution

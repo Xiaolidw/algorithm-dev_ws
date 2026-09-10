@@ -29,6 +29,8 @@ type MissionStatus = {
   completed_task_count?: number;
   tasks?: MissionTask[];
   current_task?: MissionTask | null;
+  started_at_unix_ms?: number | null;
+  elapsed_time_s?: number;
 };
 
 type CurrentTask = {
@@ -179,6 +181,7 @@ function CompetitionDashboard({ context }: { context: PanelExtensionContext }): 
   const [blueDestination, setBlueDestination] = useState("B");
   const [blueFirst, setBlueFirst] = useState(true);
   const [publishFeedback, setPublishFeedback] = useState("尚未发布");
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   useLayoutEffect(() => {
     context.onRender = (renderState, done) => {
@@ -198,6 +201,11 @@ function CompetitionDashboard({ context }: { context: PanelExtensionContext }): 
     renderDone?.();
   }, [renderDone]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => { setNowMs(Date.now()); }, 250);
+    return () => { window.clearInterval(timer); };
+  }, []);
+
   const tasks = useMemo(() => dashboard.plan.tasks ?? [], [dashboard.plan.tasks]);
   const metrics = useMemo(() => {
     const red = tasks.filter((task) => task.color?.toLowerCase() === "red").length;
@@ -216,6 +224,10 @@ function CompetitionDashboard({ context }: { context: PanelExtensionContext }): 
   const currentTaskStatus = currentTask?.execution_status ?? currentTask?.status;
   const taskLabel = currentTaskStatus ? (TASK_LABELS[currentTaskStatus] ?? currentTaskStatus) : stateLabel;
   const destination = currentTask?.destination ? `${currentTask.destination} 区` : "—";
+  const elapsedSeconds = dashboard.status.active === true
+    && typeof dashboard.status.started_at_unix_ms === "number"
+    ? Math.max(0, (nowMs - dashboard.status.started_at_unix_ms) / 1000)
+    : dashboard.status.elapsed_time_s ?? 0;
 
   const publishMission = (): void => {
     const question = questionInput.trim();
@@ -323,6 +335,7 @@ function CompetitionDashboard({ context }: { context: PanelExtensionContext }): 
           <StatusCard label="当前目标" value={currentTask ? `${colorLabel(currentTask.color)} → ${destination}` : "尚未分配"} />
           <StatusCard label="工作状态" value={taskLabel} />
           <StatusCard label="系统详情" value={dashboard.status.detail ?? "—"} compact />
+          <StatusCard label="赛题用时" value={formatElapsed(elapsedSeconds)} />
         </aside>
       </section>
 
@@ -358,6 +371,13 @@ function colorLabel(color?: string): string {
 
 function formatTask(task?: MissionTask): string {
   return task ? `${colorLabel(task.color)}到 ${task.destination ?? "—"} 区` : "—";
+}
+
+function formatElapsed(seconds: number): string {
+  const rounded = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(rounded / 60);
+  const remainder = rounded % 60;
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
 const CSS = `
@@ -407,7 +427,7 @@ const CSS = `
   .task-main { display:flex; flex-direction:column; gap:3px; min-width:0; }
   .task-main b { font-size:16px; } .task-main small { color:#aebed2; font-size:14px; line-height:1.3; }
   .task-status { color:#8ec8ff; font-size:13px; line-height:1.3; white-space:normal; overflow-wrap:anywhere; }
-  .status-column { display:grid; grid-template-rows:repeat(4,minmax(0,1fr)); gap:9px; }
+  .status-column { display:grid; grid-template-rows:repeat(5,minmax(0,1fr)); gap:9px; }
   .status-card { display:flex; flex-direction:column; justify-content:center; gap:5px; padding:12px 14px; border-radius:11px; background:linear-gradient(135deg,rgba(20,83,61,.88),rgba(24,126,81,.72)); }
   .status-card span { color:#b8dbc9; font-size:14px; font-weight:700; }
   .status-card strong { font-size:clamp(19px,2vw,28px); line-height:1.3; overflow-wrap:anywhere; }

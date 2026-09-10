@@ -415,6 +415,7 @@ class PickPlaceTest(Node):
                 label,
                 x,
                 y,
+                yaw,
                 handoff_distance,
             )
         except RuntimeError as error:
@@ -459,7 +460,7 @@ class PickPlaceTest(Node):
 
     def _wait_navigation_result(
             self, handle, result_future, label, target_x, target_y,
-            handoff_distance):
+            target_yaw, handoff_distance):
         """Wait for Nav2 while supporting a confirmed position-only handoff."""
         destination_handoff = (
             handoff_distance is None and label.startswith('destination '))
@@ -520,28 +521,79 @@ class PickPlaceTest(Node):
             velocity_fresh = now - self.base_velocity_received <= 0.35
             speed = min(1.5, abs(self.base_velocity.linear.x)) if (
                 velocity_fresh and self.base_velocity is not None) else 1.5
-            # Include pipeline latency, conservative braking and pose sampling.
-            # Braking allowance: 150 ms command/actuation latency plus a
-            # conservative 3.2 m/s^2 measured deceleration.  The previous
-            # 1.0 m/s^2 assumption handed control to fine dock more than a
-            # metre early at cruise speed and added ~8 s of crawling.
-            dynamic_threshold = max(
-                threshold, 0.18 + 0.15*speed + speed*speed/(2.0*3.2))
-            pickup_front_ready = True
+            # Include pipeline latency, braking and pose sampling.  With the
+            # visual stack active, a measured 1.2 m/s pickup approach travelled
+            # about 0.77 m between cancellation request and confirmed zero
+            # odometry.  The old 150 ms / 3.2 m/s^2 estimate therefore let the
+            # chassis pass the dock and touch the cube.  This measured 550 ms /
+            # 2.0 m/s^2 envelope stops before the dock while retaining the
+            # verified 1.2 m/s cruise speed.
             object_pickup_handoff = label.startswith('pickup ')
+            object_proximity_handoff = False
+            if destination_handoff:
+                dynamic_threshold = threshold
+            elif object_pickup_handoff:
+                dynamic_threshold = max(
+                    threshold,
+                    0.20 + 0.55*speed + speed*speed/(2.0*2.0))
+            else:
+                dynamic_threshold = max(
+                    threshold,
+                    0.18 + 0.15*speed + speed*speed/(2.0*3.2))
             if object_pickup_handoff:
-                # A position-only handoff is unsafe while Nav2 is still
-                # turning the chassis toward the selected grasp dock.  The
-                # base can be close to that dock with the cube behind it,
-                # where fine_dock must refuse to rotate.  Let Nav2 finish the
-                # coarse turn; normal approaches already satisfy this gate
-                # and therefore gain no extra delay.
+                # Hand off on dock distance even if Nav2 has not completed
+                # its final yaw.  Waiting for the cube to enter the front
+                # half-plane let the fast base overshoot the dock during its
+                # last turn; on blue_cube_3 this produced a physical impact
+                # and an ODE impulse.  Fine docking already rotates with zero
+                # linear speed until the cube is in front, so stopping early
+                # is both safer and deterministic.
                 cube_in_base = self._relative_pose(
                     self.object_id, 'six_arm')
-                pickup_front_ready = cube_in_base.position.x > 0.15
+                cube_distance = math.hypot(
+                    cube_in_base.position.x, cube_in_base.position.y)
+                # The global path may approach the dock from its far side, so
+                # dock error alone does not bound chassis-to-cube clearance.
+                # The action cancellation took up to 1.3 s in visual mode;
+                # trigger directly from live cube range with that measured
+                # delay, then finish at 0.16 m/s under fine-dock control.
+                cube_brake_threshold = (
+                    0.385 + 1.20*speed + speed*speed/(2.0*2.0))
+                # A cube can be physically close while a wall still separates
+                # the chassis from its selected dock.  Do not abandon the
+                # collision-aware global path until it has actually entered
+                # the final 1.10 m dock corridor; the earlier unrestricted
+                # proximity trigger handed blue_cube_3 to the direct controller
+                # with 2.26 m of global path remaining and the robot hit a wall.
+                object_proximity_handoff = (
+                    cube_distance <= cube_brake_threshold
+                    and distance <= 1.10)
+                if cube_distance <= 0.28:
+                    raise RuntimeError(
+                        'Cube entered chassis protection radius during '
+                        'pickup handoff; stopping before contact')
+            destination_approach_ready = True
+            if destination_handoff:
+                q = robot.orientation
+                robot_yaw = math.atan2(
+                    2.0 * (q.w*q.z + q.x*q.y),
+                    1.0 - 2.0 * (q.y*q.y + q.z*q.z))
+                target_bearing = math.atan2(
+                    target_y - float(robot.position.y),
+                    target_x - float(robot.position.x))
+                approach_error = math.atan2(
+                    math.sin(target_bearing - robot_yaw),
+                    math.cos(target_bearing - robot_yaw))
+                final_yaw_error = math.atan2(
+                    math.sin(float(target_yaw) - robot_yaw),
+                    math.cos(float(target_yaw) - robot_yaw))
+                destination_approach_ready = (
+                    abs(approach_error) <= 0.75
+                    and abs(final_yaw_error) <= 0.40)
             if (math.isfinite(distance)
-                    and distance <= dynamic_threshold
-                    and pickup_front_ready):
+                    and (distance <= dynamic_threshold
+                         or object_proximity_handoff)
+                    and destination_approach_ready):
                 stable_samples += 1
             else:
                 stable_samples = 0
@@ -623,11 +675,17 @@ class PickPlaceTest(Node):
             stopped = (velocity is not None
                        and now - self.base_velocity_received < 0.35
                        and abs(velocity.linear.x) < 0.025
-                       and abs(velocity.angular.z) < 0.05)
+                       and abs(velocity.angular.z) < 0.08)
             stopped_since = (stopped_since or now) if stopped else None
             if stopped_since is not None and now - stopped_since >= 0.15:
                 return
-        raise RuntimeError('Base did not stop with fresh odometry; handoff refused')
+        velocity = self.base_velocity
+        velocity_age = time.monotonic() - self.base_velocity_received
+        linear = float('nan') if velocity is None else velocity.linear.x
+        angular = float('nan') if velocity is None else velocity.angular.z
+        raise RuntimeError(
+            'Base did not stop with fresh odometry; handoff refused '
+            f'(vx={linear:.4f}, wz={angular:.4f}, age={velocity_age:.3f}s)')
 
     def manipulate(self, operation):
         goal = ExecuteManipulation.Goal()
@@ -820,8 +878,11 @@ class PickPlaceTest(Node):
                     f'red_cube_4 carried rail bypass {index}', transit,
                     handoff_distance=0.35, lock_route=True)
         # These two position handoffs constrain the chassis to the verified
-        # east-side doorway.  Once inside, Nav2 plans continuously to the
-        # actual A dock instead of stopping at two extra interior pose goals.
+        # east-side doorway.  NavigateThroughPoses was deliberately removed:
+        # the default through-poses BT oscillated at the second waypoint
+        # (0.00-0.24 m remaining) for the full 120 s timeout.  Explicit
+        # position handoffs cost under a second each and have deterministic
+        # braking ownership.
         transits = (
             {'x': -2.30, 'y': 1.30, 'yaw': -math.pi / 2.0},
             {'x': -2.25, 'y': -0.25, 'yaw': -math.pi / 2.0},
@@ -864,10 +925,11 @@ class PickPlaceTest(Node):
                 range_error = math.hypot(x, y) - target_x
                 distance_error = x - target_x
                 heading_error = math.atan2(y, x)
-                if x <= 0.05:
+                object_distance = math.hypot(x, y)
+                if object_distance <= 0.28:
                     raise RuntimeError(
-                        'Object behind or underneath base after handoff; '
-                        'stopping instead of rotating around it')
+                        'Object entered chassis protection radius after '
+                        'handoff; stopping instead of driving through it')
                 # Centre more tightly than the arm's grasp window.  A 15 mm
                 # lateral handoff left no margin for base reaction while the
                 # arm descended; 6 mm remains quick but repeatable.
@@ -894,7 +956,7 @@ class PickPlaceTest(Node):
                     # change range.  Coupled reverse+turn at large heading
                     # error orbited around blue_cube_3 and eventually put it
                     # beneath the chassis protection boundary.
-                    if abs(heading_error) > 0.12:
+                    if abs(heading_error) > 0.20:
                         linear = 0.0
                     else:
                         linear *= max(0.35, math.cos(heading_error) ** 2)
@@ -930,7 +992,7 @@ class PickPlaceTest(Node):
         command.angular.z = float(angular)
         self.dock_publisher.publish(command)
 
-    def fine_dropoff_approach(self, target, timeout_sec=16.0):
+    def fine_dropoff_approach(self, target, timeout_sec=26.0):
         """Finish the carried-object dock slowly after the Nav2 handoff.
 
         The controller operates only inside the final roughly 0.6 m.  It
@@ -946,7 +1008,7 @@ class PickPlaceTest(Node):
         initial = self._await_fresh_robot_pose()
         initial_distance = math.hypot(
             initial.position.x - target_x, initial.position.y - target_y)
-        if initial_distance > 0.90:
+        if initial_distance > 1.05:
             raise RuntimeError(
                 f'Destination handoff occurred too early '
                 f'({initial_distance:.3f}m); refusing open-loop approach')
@@ -1638,7 +1700,26 @@ def execute_one_task(node, requested_object, destination,
     node.navigate_dropoff_transits()
     node.publish_navigation_status(
         phase='NAV_DROPOFF', event='phase_start')
-    node.navigate(f'destination {destination}', dropoff, lock_route=True)
+    if destination in ('A', 'B'):
+        # The permissive Nav2 goal checker can report success at a scoring
+        # slot with the chassis still facing away from it or with enough
+        # lateral position error to put the carried cube outside the narrow
+        # half-depth.  Establish the final west-facing heading at a clear
+        # east-side pre-approach, then let the bounded controller enter the
+        # slot almost straight.  This is needed for both A and B; each uses
+        # its own computed slot and base target.
+        pre_approach_offset = 0.25 if destination == 'A' else 0.55
+        pre_approach = {
+            'x': float(dropoff['x']) + pre_approach_offset,
+            'y': float(dropoff['y']),
+            'yaw': float(dropoff['yaw']),
+        }
+        node.navigate(
+            f'{destination} final pre-approach', pre_approach,
+            handoff_distance=0.20, lock_route=True)
+        node.align_dropoff_heading(float(dropoff['yaw']))
+    else:
+        node.navigate(f'destination {destination}', dropoff, lock_route=True)
     node.publish_navigation_status(
         phase='DROPOFF_FINE_APPROACH', event='phase_start')
     node.fine_dropoff_approach(dropoff)

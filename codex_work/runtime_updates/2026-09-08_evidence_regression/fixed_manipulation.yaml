@@ -79,7 +79,7 @@ fixed_manipulation_server:
     post_pick_lift_settle_time_s: 0.0158
 
     # Phase-4: release order & placement zone
-    release_order: open_then_detach
+    release_order: detach_then_open
     placement_zone_models: [zone_a, zone_b, zone_c]
     placement_zone_half_width: 0.50
     placement_zone_half_depth: 0.25

@@ -152,8 +152,9 @@ controller_server:
       inflation_cost_scaling_factor: 6.0
       use_rotate_to_heading: true
       # Keep sharp corners as explicit in-place turns, but let moderate bends
-      # remain continuous.  The 0.60 rad threshold spent 16.2 s in in-place
-      # rotation during the red_cube_3 -> A reference run.
+      # remain continuous.  The 1.15 rad experiment cut the inside of the A
+      # final corridor and produced a physical collision (vx=-5.03 m/s,
+      # wz=49.14 rad/s), so sharp bends retain the proven 0.90 rad boundary.
       rotate_to_heading_min_angle: 0.90
       # The simulated drive can realize about 4.2 rad/s^2 from its wheel
       # acceleration and 0.37 m track width.  A 2.0 limit made RPP chase the

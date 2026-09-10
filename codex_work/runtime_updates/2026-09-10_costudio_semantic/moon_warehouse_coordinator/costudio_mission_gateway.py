@@ -53,6 +53,7 @@ class CoStudioMissionGateway(Node):
         self.tasks = []
         self.completed = 0
         self.started_at = 0.0
+        self.started_at_unix_ms = 0
         self.semantic_started_at = 0.0
         self.total_recoveries = 0
         self.process = None
@@ -102,6 +103,7 @@ class CoStudioMissionGateway(Node):
             self.tasks = []
             self.total_recoveries = 0
             self.started_at = time.monotonic()
+            self.started_at_unix_ms = int(time.time() * 1000)
             self.semantic_started_at = self.started_at
             self.publish_state('WAITING_SEMANTIC', '本地大模型正在解析题目')
             self.question_pub.publish(String(data=question))
@@ -230,6 +232,7 @@ class CoStudioMissionGateway(Node):
             'current_task_index': current_index,
             'current_task': current_task,
             'tasks': self.tasks,
+            'started_at_unix_ms': self.started_at_unix_ms or None,
             **extra,
         }
         encoded = String(data=json.dumps(payload, ensure_ascii=False))
