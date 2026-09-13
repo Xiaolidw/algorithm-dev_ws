@@ -1,0 +1,307 @@
+[INFO] [1789309853.665464824] [navigation_pick_place_test]: Waiting for Nav2 and manipulation interfaces...
+[INFO] [1789309854.424197679] [navigation_pick_place_test]: Pickup RPP speed restored: 1.40m/s
+[INFO] [1789309854.431764982] [navigation_pick_place_test]: Nearest dock for blue_cube_5: x=0.450, y=1.320, yaw=1.571, direct_distance=1.380m
+[INFO] [1789309854.973409449] [navigation_pick_place_test]: Global costmap probe for pickup blue_cube_5: start_cost=0, goal_cost=0, goal=(0.450,1.320)
+[INFO] [1789309854.974333837] [navigation_pick_place_test]: Navigating to pickup blue_cube_5: x=0.450, y=1.320, yaw=1.571, route_policy=default
+[INFO] [1789309854.982961969] [navigation_pick_place_test]: Nav2 remaining=0.00m, recoveries=0
+[INFO] [1789309857.030674403] [navigation_pick_place_test]: Nav2 remaining=1.41m, recoveries=0
+[INFO] [1789309858.002615012] [navigation_pick_place_test]: Pickup handoff reached: distance=1.077m, threshold=1.111m; canceling Nav2
+[INFO] [1789309858.687874581] [navigation_pick_place_test]: Nav2 stopped; transferring base control to fine dock
+[INFO] [1789309858.689178393] [navigation_pick_place_test]: Starting fine dock: target object=(0.385m, 0.00m) in base frame
+[INFO] [1789309858.696400475] [navigation_pick_place_test]: Fine dock control: x=0.963, y=-0.571, range_error=0.734, heading_error=-0.535, cmd=(0.000,-0.600)
+[INFO] [1789309859.711281689] [navigation_pick_place_test]: Fine dock control: x=1.114, y=-0.141, range_error=0.738, heading_error=-0.126, cmd=(0.157,-0.303)
+[INFO] [1789309860.752629511] [navigation_pick_place_test]: Fine dock control: x=1.010, y=0.040, range_error=0.625, heading_error=0.039, cmd=(0.160,0.094)
+[INFO] [1789309861.778234615] [navigation_pick_place_test]: Fine dock control: x=0.854, y=0.010, range_error=0.470, heading_error=0.012, cmd=(0.160,0.028)
+[INFO] [1789309862.808815946] [navigation_pick_place_test]: Fine dock control: x=0.699, y=0.008, range_error=0.314, heading_error=0.012, cmd=(0.160,0.028)
+[INFO] [1789309863.839376463] [navigation_pick_place_test]: Fine dock control: x=0.528, y=0.007, range_error=0.143, heading_error=0.012, cmd=(0.160,0.030)
+[INFO] [1789309864.844527908] [navigation_pick_place_test]: Fine dock control: x=0.421, y=0.003, range_error=0.036, heading_error=0.006, cmd=(0.060,0.014)
+[INFO] [1789309865.359732392] [navigation_pick_place_test]: Fine dock succeeded: x=0.395, y=0.003
+[INFO] [1789309865.422204568] [navigation_pick_place_test]: Pickup alignment: object relative to six_arm x=0.394, y=0.003, distance=0.394m
+[INFO] [1789309865.423144235] [navigation_pick_place_test]: Starting pick: blue_cube_5
+[INFO] [1789309865.428619759] [navigation_pick_place_test]: Arm stage=open_gripper, progress=0%
+[INFO] [1789309865.768326150] [navigation_pick_place_test]: Arm stage=move_to_pregrasp, progress=10%
+[INFO] [1789309866.786561826] [navigation_pick_place_test]: Arm stage=descend_to_pick_pose, progress=25%
+[INFO] [1789309867.957467118] [navigation_pick_place_test]: Arm stage=stabilize_before_close, progress=35%
+[INFO] [1789309868.079037260] [navigation_pick_place_test]: Arm stage=close_gripper, progress=40%
+[INFO] [1789309868.453473125] [navigation_pick_place_test]: Arm stage=validate_grasp_window, progress=50%
+[INFO] [1789309868.457951380] [navigation_pick_place_test]: Arm stage=establish_floor_clearance, progress=58%
+[INFO] [1789309868.473521043] [navigation_pick_place_test]: Arm stage=attach_object, progress=65%
+[INFO] [1789309868.481287301] [navigation_pick_place_test]: Arm stage=settling_for_attachment, progress=72%
+[INFO] [1789309868.499605896] [navigation_pick_place_test]: Arm stage=validate_attachment, progress=85%
+[INFO] [1789309868.767228175] [navigation_pick_place_test]: Arm stage=lift_attached_object, progress=90%
+[INFO] [1789309869.752963515] [navigation_pick_place_test]: Arm stage=validate_lifted_attachment, progress=93%
+[INFO] [1789309870.024017179] [navigation_pick_place_test]: Arm stage=carry_hold, progress=97%
+[INFO] [1789309870.039832165] [navigation_pick_place_test]: Arm stage=pick_complete, progress=100%
+[INFO] [1789309870.056821003] [navigation_pick_place_test]: pick succeeded: pick completed for blue_cube_5.
+[INFO] [1789309870.059908646] [navigation_pick_place_test]: Dropoff RPP profile configured: carried_speed=1.05m/s, lookahead=1.10m, range=0.90..1.60m, time=1.00s
+[INFO] [1789309870.064810621] [navigation_pick_place_test]: C slot selection: selected=(-0.16,-0.10), claim=0, reserved=[], occupied=[]
+[INFO] [1789309870.065238094] [navigation_pick_place_test]: Nearest-side drop dock for zone_c: base=(6.841,-5.790), object_slot=(-0.160,-0.100), yaw=-1.571, carried_offset=(0.310,-0.001)
+[INFO] [1789309870.065814052] [navigation_pick_place_test]: C route selected from moving_obstacle_2 y=-4.699: c_east_bypass_obstacle_lower, bypass_x=2.85
+[INFO] [1789309870.066607866] [navigation_pick_place_test]: Global costmap probe for C dynamic bypass 1: start_cost=0, goal_cost=0, goal=(2.850,-1.900)
+[INFO] [1789309870.067730445] [navigation_pick_place_test]: Navigating to C dynamic bypass 1: x=2.850, y=-1.900, yaw=-1.571, route_policy=replan_if_invalid
+[INFO] [1789309870.195565091] [navigation_pick_place_test]: Nav2 remaining=0.05m, recoveries=0
+[INFO] [1789309872.246341496] [navigation_pick_place_test]: Nav2 remaining=4.13m, recoveries=0
+[INFO] [1789309874.294811962] [navigation_pick_place_test]: Nav2 remaining=4.13m, recoveries=0
+[INFO] [1789309876.294789624] [navigation_pick_place_test]: Nav2 remaining=3.30m, recoveries=0
+[INFO] [1789309878.345817239] [navigation_pick_place_test]: Nav2 remaining=1.16m, recoveries=0
+[INFO] [1789309880.055668090] [navigation_pick_place_test]: Pickup handoff reached: distance=0.298m, threshold=0.300m; canceling Nav2
+[INFO] [1789309880.441068506] [navigation_pick_place_test]: Nav2 stopped; transferring base control to fine dock
+[INFO] [1789309880.443624918] [navigation_pick_place_test]: Global costmap probe for C dynamic bypass 2: start_cost=28, goal_cost=0, goal=(3.750,-6.650)
+[INFO] [1789309880.445409649] [navigation_pick_place_test]: Navigating to C dynamic bypass 2: x=3.750, y=-6.650, yaw=0.000, route_policy=replan_if_invalid
+[INFO] [1789309880.449497444] [navigation_pick_place_test]: Nav2 remaining=0.22m, recoveries=0
+[INFO] [1789309882.499123042] [navigation_pick_place_test]: Nav2 remaining=5.59m, recoveries=0
+[INFO] [1789309884.549160414] [navigation_pick_place_test]: Nav2 remaining=6.71m, recoveries=0
+[INFO] [1789309886.549041898] [navigation_pick_place_test]: Nav2 remaining=7.11m, recoveries=0
+[INFO] [1789309888.600754906] [navigation_pick_place_test]: Nav2 remaining=10.01m, recoveries=0
+[INFO] [1789309890.649642682] [navigation_pick_place_test]: Nav2 remaining=12.00m, recoveries=0
+[INFO] [1789309892.698763987] [navigation_pick_place_test]: Nav2 remaining=11.45m, recoveries=0
+[INFO] [1789309894.698905490] [navigation_pick_place_test]: Nav2 remaining=10.48m, recoveries=0
+[INFO] [1789309896.750177051] [navigation_pick_place_test]: Nav2 remaining=9.24m, recoveries=0
+[INFO] [1789309898.798943287] [navigation_pick_place_test]: Nav2 remaining=7.69m, recoveries=0
+[INFO] [1789309900.848842892] [navigation_pick_place_test]: Nav2 remaining=5.16m, recoveries=0
+[INFO] [1789309902.850512897] [navigation_pick_place_test]: Nav2 remaining=3.08m, recoveries=0
+[INFO] [1789309904.899608225] [navigation_pick_place_test]: Nav2 remaining=1.48m, recoveries=0
+[INFO] [1789309905.558259456] [navigation_pick_place_test]: Pickup handoff reached: distance=0.299m, threshold=0.336m; canceling Nav2
+[INFO] [1789309905.940966294] [navigation_pick_place_test]: Nav2 stopped; transferring base control to fine dock
+[INFO] [1789309905.942177513] [navigation_pick_place_test]: Global costmap probe for C final pre-approach: start_cost=29, goal_cost=27, goal=(6.841,-5.340)
+[INFO] [1789309905.943883979] [navigation_pick_place_test]: Navigating to C final pre-approach: x=6.841, y=-5.340, yaw=-1.571, route_policy=replan_if_invalid
+[INFO] [1789309906.946830860] [navigation_pick_place_test]: Nav2 remaining=3.20m, recoveries=0
+[INFO] [1789309908.949403837] [navigation_pick_place_test]: Nav2 remaining=3.20m, recoveries=0
+[INFO] [1789309910.998195211] [navigation_pick_place_test]: Nav2 remaining=3.20m, recoveries=0
+[INFO] [1789309913.047490541] [navigation_pick_place_test]: Nav2 remaining=1.81m, recoveries=0
+[INFO] [1789309914.676240333] [navigation_pick_place_test]: Pickup handoff reached: distance=0.259m, threshold=0.274m; canceling Nav2
+[INFO] [1789309915.156090345] [navigation_pick_place_test]: Nav2 stopped; transferring base control to fine dock
+[INFO] [1789309915.157317697] [navigation_pick_place_test]: Starting dropoff heading alignment: target=-1.571rad
+[INFO] [1789309915.169634199] [navigation_pick_place_test]: Dropoff heading control: yaw=0.167, error=-1.738, cmd_angular=-0.550
+[INFO] [1789309916.180029291] [navigation_pick_place_test]: Dropoff heading control: yaw=-0.277, error=-1.294, cmd_angular=-0.550
+[INFO] [1789309917.185497982] [navigation_pick_place_test]: Dropoff heading control: yaw=-0.664, error=-0.907, cmd_angular=-0.550
+[INFO] [1789309918.194978187] [navigation_pick_place_test]: Dropoff heading control: yaw=-0.984, error=-0.587, cmd_angular=-0.550
+[INFO] [1789309919.200925137] [navigation_pick_place_test]: Dropoff heading control: yaw=-1.336, error=-0.234, cmd_angular=-0.352
+[INFO] [1789309920.513181253] [navigation_pick_place_test]: Dropoff heading aligned: yaw=-1.562, error=-0.009rad
+[INFO] [1789309920.707736805] [navigation_pick_place_test]: Starting low-speed destination approach: distance=0.520m, target_tolerance=0.15m
+[INFO] [1789309920.711942856] [navigation_pick_place_test]: Low-speed destination control: distance=0.520, heading_error=-0.022, cmd=(0.130,-0.030)
+[INFO] [1789309921.715350262] [navigation_pick_place_test]: Low-speed destination control: distance=0.441, heading_error=-0.021, cmd=(0.130,-0.029)
+[INFO] [1789309922.748252137] [navigation_pick_place_test]: Low-speed destination control: distance=0.302, heading_error=-0.023, cmd=(0.130,-0.031)
+[INFO] [1789309923.759834213] [navigation_pick_place_test]: Low-speed destination control: distance=0.181, heading_error=-0.031, cmd=(0.099,-0.042)
+[INFO] [1789309924.638970261] [navigation_pick_place_test]: Low-speed destination approach complete: distance=0.138m
+[INFO] [1789309924.844051624] [navigation_pick_place_test]: Starting dropoff heading alignment: target=-1.571rad
+[INFO] [1789309925.174567176] [navigation_pick_place_test]: Dropoff heading aligned: yaw=-1.602, error=0.031rad
+[INFO] [1789309925.362743663] [navigation_pick_place_test]: Drop alignment relative to zone_c: x=-0.160, y=0.035
+[INFO] [1789309925.363382644] [navigation_pick_place_test]: Starting place: blue_cube_5
+[INFO] [1789309925.369266535] [navigation_pick_place_test]: Arm stage=validate_carried_object, progress=5%
+[INFO] [1789309925.386013135] [navigation_pick_place_test]: Arm stage=move_to_preplace_pose, progress=15%
+[INFO] [1789309926.792416616] [navigation_pick_place_test]: Arm stage=descend_to_place_pose, progress=35%
+[INFO] [1789309928.415757302] [navigation_pick_place_test]: Arm stage=validate_placement_zone, progress=45%
+[INFO] [1789309928.432369159] [navigation_pick_place_test]: Arm stage=prepare_release, progress=48%
+[INFO] [1789309928.448537721] [navigation_pick_place_test]: Arm stage=detach_object, progress=50%
+[INFO] [1789309928.474802773] [navigation_pick_place_test]: Arm stage=open_gripper, progress=70%
+[INFO] [1789309928.795762579] [navigation_pick_place_test]: Arm stage=settle_object, progress=90%
+[INFO] [1789309928.962260105] [navigation_pick_place_test]: Arm stage=validate_placement, progress=95%
+[INFO] [1789309929.281818188] [navigation_pick_place_test]: Arm stage=return_home, progress=98%
+[INFO] [1789309929.298199816] [navigation_pick_place_test]: Arm stage=return_home, progress=25%
+[INFO] [1789309930.266815987] [navigation_pick_place_test]: Arm stage=return_home_complete, progress=100%
+[INFO] [1789309930.284325757] [navigation_pick_place_test]: Arm stage=place_complete, progress=100%
+[INFO] [1789309930.301243071] [navigation_pick_place_test]: place succeeded: place completed for blue_cube_5.
+[INFO] [1789309930.935512815] [navigation_pick_place_test]: Inventory 3D check blue_cube_5: local=(-0.162,-0.023), z=0.0150m, tilt=0.0015rad, speed=0.0000m/s, valid=True
+[INFO] [1789309930.939339644] [navigation_pick_place_test]: Starting post-place egress: initial cube separation=0.369m, target travel=0.450m, direction=reverse
+[INFO] [1789309934.076931668] [navigation_pick_place_test]: Post-place egress succeeded: travelled=0.458m, cube separation=0.827m
+[INFO] [1789309934.372271188] [navigation_pick_place_test]: ACCEPTANCE PASSED: navigation + pick + carry + place
+[INFO] [1789309934.372703928] [navigation_pick_place_test]: BATCH ITEM 1/4 complete: blue_cube_5->C, elapsed=80.995s
+[INFO] [1789309934.380691784] [navigation_pick_place_test]: Waiting for Nav2 and manipulation interfaces...
+[INFO] [1789309934.383494194] [navigation_pick_place_test]: Pickup RPP speed restored: 1.40m/s
+[INFO] [1789309934.385375462] [navigation_pick_place_test]: Nearest dock for blue_cube_4: x=-1.370, y=1.700, yaw=3.142, direct_distance=10.734m
+[INFO] [1789309934.386621997] [navigation_pick_place_test]: Global costmap probe for pickup blue_cube_4: start_cost=49, goal_cost=66, goal=(-1.370,1.700)
+[INFO] [1789309934.387099777] [navigation_pick_place_test]: Navigating to pickup blue_cube_4: x=-1.370, y=1.700, yaw=3.142, route_policy=default
+[INFO] [1789309934.574385650] [navigation_pick_place_test]: Nav2 remaining=0.00m, recoveries=0
+[INFO] [1789309936.624810591] [navigation_pick_place_test]: Nav2 remaining=11.40m, recoveries=0
+[INFO] [1789309938.674079108] [navigation_pick_place_test]: Nav2 remaining=9.33m, recoveries=0
+[INFO] [1789309940.725477654] [navigation_pick_place_test]: Nav2 remaining=12.54m, recoveries=0
+[INFO] [1789309942.774567034] [navigation_pick_place_test]: Nav2 remaining=12.54m, recoveries=0
+[INFO] [1789309944.825194788] [navigation_pick_place_test]: Nav2 remaining=11.94m, recoveries=0
+[INFO] [1789309946.874246739] [navigation_pick_place_test]: Nav2 remaining=9.78m, recoveries=0
+[INFO] [1789309948.875050052] [navigation_pick_place_test]: Nav2 remaining=9.53m, recoveries=0
+[INFO] [1789309950.924007766] [navigation_pick_place_test]: Nav2 remaining=7.56m, recoveries=0
+[INFO] [1789309952.924146944] [navigation_pick_place_test]: Nav2 remaining=4.79m, recoveries=0
+[INFO] [1789309954.924491380] [navigation_pick_place_test]: Nav2 remaining=2.03m, recoveries=0
+[INFO] [1789309955.656034363] [navigation_pick_place_test]: Pickup handoff reached: distance=1.021m, threshold=1.459m; canceling Nav2
+[INFO] [1789309956.338418189] [navigation_pick_place_test]: Nav2 stopped; transferring base control to fine dock
+[INFO] [1789309956.339793045] [navigation_pick_place_test]: Starting fine dock: target object=(0.385m, 0.00m) in base frame
+[INFO] [1789309956.350906578] [navigation_pick_place_test]: Fine dock control: x=0.804, y=0.323, range_error=0.481, heading_error=0.382, cmd=(0.000,0.600)
+[INFO] [1789309957.372639206] [navigation_pick_place_test]: Fine dock control: x=0.826, y=0.102, range_error=0.447, heading_error=0.123, cmd=(0.158,0.296)
+[INFO] [1789309958.404301927] [navigation_pick_place_test]: Fine dock control: x=0.678, y=0.006, range_error=0.293, heading_error=0.008, cmd=(0.160,0.020)
+[INFO] [1789309959.407514033] [navigation_pick_place_test]: Fine dock control: x=0.523, y=0.003, range_error=0.138, heading_error=0.005, cmd=(0.160,0.012)
+[INFO] [1789309960.434850399] [navigation_pick_place_test]: Fine dock control: x=0.414, y=0.001, range_error=0.029, heading_error=0.002, cmd=(0.060,0.000)
+[INFO] [1789309960.798937479] [navigation_pick_place_test]: Fine dock succeeded: x=0.391, y=0.001
+[INFO] [1789309960.896310130] [navigation_pick_place_test]: Pickup alignment: object relative to six_arm x=0.385, y=0.001, distance=0.385m
+[INFO] [1789309960.897249728] [navigation_pick_place_test]: Starting pick: blue_cube_4
+[INFO] [1789309960.902039340] [navigation_pick_place_test]: Arm stage=open_gripper, progress=0%
+[INFO] [1789309961.234628535] [navigation_pick_place_test]: Arm stage=move_to_pregrasp, progress=10%
+[INFO] [1789309962.254264942] [navigation_pick_place_test]: Arm stage=descend_to_pick_pose, progress=25%
+[INFO] [1789309963.425877348] [navigation_pick_place_test]: Arm stage=stabilize_before_close, progress=35%
+[INFO] [1789309963.547116729] [navigation_pick_place_test]: Arm stage=close_gripper, progress=40%
+[INFO] [1789309963.921703902] [navigation_pick_place_test]: Arm stage=validate_grasp_window, progress=50%
+[INFO] [1789309963.926340859] [navigation_pick_place_test]: Arm stage=establish_floor_clearance, progress=58%
+[INFO] [1789309963.935473711] [navigation_pick_place_test]: Arm stage=attach_object, progress=65%
+[INFO] [1789309963.941338273] [navigation_pick_place_test]: Arm stage=settling_for_attachment, progress=72%
+[INFO] [1789309963.958918668] [navigation_pick_place_test]: Arm stage=validate_attachment, progress=85%
+[INFO] [1789309964.225135103] [navigation_pick_place_test]: Arm stage=lift_attached_object, progress=90%
+[INFO] [1789309965.214589679] [navigation_pick_place_test]: Arm stage=validate_lifted_attachment, progress=93%
+[INFO] [1789309965.484385031] [navigation_pick_place_test]: Arm stage=carry_hold, progress=97%
+[INFO] [1789309965.501319221] [navigation_pick_place_test]: Arm stage=pick_complete, progress=100%
+[INFO] [1789309965.519723879] [navigation_pick_place_test]: pick succeeded: pick completed for blue_cube_4.
+[INFO] [1789309965.529340095] [navigation_pick_place_test]: Dropoff RPP profile configured: carried_speed=1.05m/s, lookahead=1.10m, range=0.90..1.60m, time=1.00s
+[INFO] [1789309965.539087117] [navigation_pick_place_test]: C slot selection: selected=(0.16,-0.10), claim=1, reserved=[0], occupied=[('blue_cube_5', -0.162, -0.023)]
+[INFO] [1789309965.539693922] [navigation_pick_place_test]: Nearest-side drop dock for zone_c: base=(7.160,-5.786), object_slot=(0.160,-0.100), yaw=-1.571, carried_offset=(0.314,0.000)
+[INFO] [1789309965.540298690] [navigation_pick_place_test]: C route selected from moving_obstacle_2 y=-4.274: c_west_bypass_obstacle_upper, bypass_x=0.35
+[INFO] [1789309965.541340750] [navigation_pick_place_test]: Global costmap probe for C dynamic bypass 1: start_cost=0, goal_cost=0, goal=(0.350,-2.200)
+[INFO] [1789309965.543051536] [navigation_pick_place_test]: Navigating to C dynamic bypass 1: x=0.350, y=-2.200, yaw=-1.571, route_policy=replan_if_invalid
+[INFO] [1789309965.761605051] [navigation_pick_place_test]: Nav2 remaining=0.16m, recoveries=0
+[INFO] [1789309967.762459058] [navigation_pick_place_test]: Nav2 remaining=4.23m, recoveries=0
+[INFO] [1789309969.810619970] [navigation_pick_place_test]: Nav2 remaining=4.23m, recoveries=0
+[INFO] [1789309971.810814814] [navigation_pick_place_test]: Nav2 remaining=3.05m, recoveries=0
+[INFO] [1789309973.860459054] [navigation_pick_place_test]: Nav2 remaining=0.93m, recoveries=0
+[INFO] [1789309974.387470671] [navigation_pick_place_test]: Pickup handoff reached: distance=0.373m, threshold=0.469m; canceling Nav2
+[INFO] [1789309974.790661438] [navigation_pick_place_test]: Nav2 stopped; transferring base control to fine dock
+[INFO] [1789309974.791621823] [navigation_pick_place_test]: Global costmap probe for C dynamic bypass 2: start_cost=0, goal_cost=61, goal=(2.850,-1.900)
+[INFO] [1789309974.792666805] [navigation_pick_place_test]: Navigating to C dynamic bypass 2: x=2.850, y=-1.900, yaw=0.000, route_policy=replan_if_invalid
+[INFO] [1789309975.901204556] [navigation_pick_place_test]: Nav2 remaining=3.96m, recoveries=0
+[INFO] [1789309977.946108700] [navigation_pick_place_test]: Nav2 remaining=3.96m, recoveries=0
+[INFO] [1789309979.995836497] [navigation_pick_place_test]: Nav2 remaining=2.43m, recoveries=0
+[INFO] [1789309982.045722157] [navigation_pick_place_test]: Nav2 remaining=0.90m, recoveries=0
+[INFO] [1789309983.117353786] [navigation_pick_place_test]: Pickup handoff reached: distance=0.276m, threshold=0.300m; canceling Nav2
+[INFO] [1789309983.460054629] [navigation_pick_place_test]: Nav2 stopped; transferring base control to fine dock
+[INFO] [1789309983.461161066] [navigation_pick_place_test]: Global costmap probe for C dynamic bypass 3: start_cost=39, goal_cost=26, goal=(3.750,-6.650)
+[INFO] [1789309983.462840419] [navigation_pick_place_test]: Navigating to C dynamic bypass 3: x=3.750, y=-6.650, yaw=0.000, route_policy=replan_if_invalid
+[INFO] [1789309984.065430277] [navigation_pick_place_test]: Nav2 remaining=8.88m, recoveries=0
+[INFO] [1789309986.065587322] [navigation_pick_place_test]: Nav2 remaining=8.88m, recoveries=0
+[INFO] [1789309988.065613805] [navigation_pick_place_test]: Nav2 remaining=8.88m, recoveries=0
+[INFO] [1789309990.116240340] [navigation_pick_place_test]: Nav2 remaining=7.75m, recoveries=0
+[INFO] [1789309992.165774756] [navigation_pick_place_test]: Nav2 remaining=7.75m, recoveries=0
+[INFO] [1789309994.215358379] [navigation_pick_place_test]: Nav2 remaining=6.79m, recoveries=0
+[INFO] [1789309996.215642349] [navigation_pick_place_test]: Nav2 remaining=5.10m, recoveries=0
+[INFO] [1789309998.215651135] [navigation_pick_place_test]: Nav2 remaining=3.80m, recoveries=0
+[INFO] [1789310000.268626201] [navigation_pick_place_test]: Nav2 remaining=0.97m, recoveries=0
+[INFO] [1789310002.315783429] [navigation_pick_place_test]: Nav2 remaining=0.34m, recoveries=0
+[INFO] [1789310002.634469353] [navigation_pick_place_test]: Pickup handoff reached: distance=0.298m, threshold=0.300m; canceling Nav2
+[INFO] [1789310003.010144957] [navigation_pick_place_test]: Nav2 stopped; transferring base control to fine dock
+[INFO] [1789310003.011190206] [navigation_pick_place_test]: Global costmap probe for C final pre-approach: start_cost=27, goal_cost=0, goal=(7.160,-5.336)
+[INFO] [1789310003.012135276] [navigation_pick_place_test]: Navigating to C final pre-approach: x=7.160, y=-5.336, yaw=-1.571, route_policy=replan_if_invalid
+[INFO] [1789310004.317710126] [navigation_pick_place_test]: Nav2 remaining=3.28m, recoveries=0
+[INFO] [1789310006.365246172] [navigation_pick_place_test]: Nav2 remaining=1.20m, recoveries=0
+[INFO] [1789310007.034400705] [navigation_pick_place_test]: Pickup handoff reached: distance=0.458m, threshold=0.510m; canceling Nav2
+[INFO] [1789310007.581805970] [navigation_pick_place_test]: Nav2 stopped; transferring base control to fine dock
+[INFO] [1789310007.582567464] [navigation_pick_place_test]: Starting dropoff heading alignment: target=-1.571rad
+[INFO] [1789310007.618842340] [navigation_pick_place_test]: Dropoff heading control: yaw=0.180, error=-1.751, cmd_angular=-0.550
+[INFO] [1789310008.643840259] [navigation_pick_place_test]: Dropoff heading control: yaw=-0.219, error=-1.352, cmd_angular=-0.550
+[INFO] [1789310009.655245519] [navigation_pick_place_test]: Dropoff heading control: yaw=-0.662, error=-0.909, cmd_angular=-0.550
+[INFO] [1789310010.672351380] [navigation_pick_place_test]: Dropoff heading control: yaw=-0.983, error=-0.588, cmd_angular=-0.550
+[INFO] [1789310011.680370491] [navigation_pick_place_test]: Dropoff heading control: yaw=-1.356, error=-0.214, cmd_angular=-0.321
+[INFO] [1789310012.688173228] [navigation_pick_place_test]: Dropoff heading control: yaw=-1.517, error=-0.054, cmd_angular=-0.080
+[INFO] [1789310013.595782140] [navigation_pick_place_test]: Dropoff heading aligned: yaw=-1.544, error=-0.027rad
+[INFO] [1789310013.768675383] [navigation_pick_place_test]: Starting low-speed destination approach: distance=0.542m, target_tolerance=0.15m
+[INFO] [1789310013.801364055] [navigation_pick_place_test]: Low-speed destination control: distance=0.542, heading_error=-0.109, cmd=(0.128,-0.147)
+[INFO] [1789310014.810579302] [navigation_pick_place_test]: Low-speed destination control: distance=0.438, heading_error=-0.073, cmd=(0.129,-0.099)
+[INFO] [1789310015.820086385] [navigation_pick_place_test]: Low-speed destination control: distance=0.312, heading_error=-0.061, cmd=(0.130,-0.083)
+[INFO] [1789310016.829586726] [navigation_pick_place_test]: Low-speed destination control: distance=0.188, heading_error=-0.065, cmd=(0.103,-0.087)
+[INFO] [1789310017.707346110] [navigation_pick_place_test]: Low-speed destination approach complete: distance=0.112m
+[INFO] [1789310018.185861088] [navigation_pick_place_test]: Starting dropoff heading alignment: target=-1.571rad
+[INFO] [1789310018.219441307] [navigation_pick_place_test]: Dropoff heading control: yaw=-1.828, error=0.257, cmd_angular=0.386
+[INFO] [1789310019.448667996] [navigation_pick_place_test]: Dropoff heading aligned: yaw=-1.574, error=0.003rad
+[INFO] [1789310019.629175301] [navigation_pick_place_test]: Drop alignment relative to zone_c: x=0.156, y=-0.033
+[INFO] [1789310019.629948563] [navigation_pick_place_test]: Starting place: blue_cube_4
+[INFO] [1789310019.636873638] [navigation_pick_place_test]: Arm stage=validate_carried_object, progress=5%
+[INFO] [1789310019.654967773] [navigation_pick_place_test]: Arm stage=move_to_preplace_pose, progress=15%
+[INFO] [1789310021.067031128] [navigation_pick_place_test]: Arm stage=descend_to_place_pose, progress=35%
+[INFO] [1789310023.150727177] [navigation_pick_place_test]: Arm stage=validate_placement_zone, progress=45%
+[INFO] [1789310023.168559058] [navigation_pick_place_test]: Arm stage=prepare_release, progress=48%
+[INFO] [1789310023.183940636] [navigation_pick_place_test]: Arm stage=detach_object, progress=50%
+[INFO] [1789310023.207882132] [navigation_pick_place_test]: Arm stage=open_gripper, progress=70%
+[INFO] [1789310023.527343520] [navigation_pick_place_test]: Arm stage=settle_object, progress=90%
+[INFO] [1789310023.694415582] [navigation_pick_place_test]: Arm stage=validate_placement, progress=95%
+[INFO] [1789310024.012058815] [navigation_pick_place_test]: Arm stage=return_home, progress=98%
+[INFO] [1789310024.028719003] [navigation_pick_place_test]: Arm stage=return_home, progress=25%
+[INFO] [1789310024.996798399] [navigation_pick_place_test]: Arm stage=return_home_complete, progress=100%
+[INFO] [1789310025.015048410] [navigation_pick_place_test]: Arm stage=place_complete, progress=100%
+[INFO] [1789310025.031133724] [navigation_pick_place_test]: place succeeded: place completed for blue_cube_4.
+[INFO] [1789310025.637886083] [navigation_pick_place_test]: Inventory 3D check blue_cube_4: local=(0.140,-0.081), z=0.0148m, tilt=0.0128rad, speed=0.0000m/s, valid=True
+[INFO] [1789310025.640840661] [navigation_pick_place_test]: Inventory 3D check blue_cube_5: local=(-0.162,-0.023), z=0.0150m, tilt=0.0015rad, speed=0.0000m/s, valid=True
+[INFO] [1789310025.644717283] [navigation_pick_place_test]: Inventory pair clearance blue_cube_4/blue_cube_5: 0.307m
+[INFO] [1789310025.645344127] [navigation_pick_place_test]: Starting post-place egress: initial cube separation=0.364m, target travel=0.450m, direction=reverse
+[INFO] [1789310028.634318375] [navigation_pick_place_test]: Post-place egress succeeded: travelled=0.460m, cube separation=0.824m
+[INFO] [1789310028.968335462] [navigation_pick_place_test]: ACCEPTANCE PASSED: navigation + pick + carry + place
+[INFO] [1789310028.968736113] [navigation_pick_place_test]: BATCH ITEM 2/4 complete: blue_cube_4->C, elapsed=94.596s
+[INFO] [1789310028.977212373] [navigation_pick_place_test]: Waiting for Nav2 and manipulation interfaces...
+[INFO] [1789310028.980359894] [navigation_pick_place_test]: Pickup RPP speed restored: 1.40m/s
+[INFO] [1789310028.983504888] [navigation_pick_place_test]: Nearest dock for blue_cube_3: x=-3.570, y=1.700, yaw=3.142, direct_distance=12.786m
+[INFO] [1789310028.985218042] [navigation_pick_place_test]: Global costmap probe for pickup blue_cube_3: start_cost=31, goal_cost=57, goal=(-3.570,1.700)
+[INFO] [1789310028.985798373] [navigation_pick_place_test]: Navigating to pickup blue_cube_3: x=-3.570, y=1.700, yaw=3.142, route_policy=default
+[INFO] [1789310029.168924182] [navigation_pick_place_test]: Nav2 remaining=0.00m, recoveries=0
+[INFO] [1789310031.218123141] [navigation_pick_place_test]: Nav2 remaining=13.32m, recoveries=0
+[INFO] [1789310033.269701498] [navigation_pick_place_test]: Nav2 remaining=12.00m, recoveries=0
+[INFO] [1789310035.318945055] [navigation_pick_place_test]: Nav2 remaining=14.58m, recoveries=0
+[INFO] [1789310037.368803060] [navigation_pick_place_test]: Nav2 remaining=14.58m, recoveries=0
+[INFO] [1789310039.418111074] [navigation_pick_place_test]: Nav2 remaining=14.58m, recoveries=0
+[INFO] [1789310041.469380640] [navigation_pick_place_test]: Nav2 remaining=13.42m, recoveries=0
+[INFO] [1789310043.518326967] [navigation_pick_place_test]: Nav2 remaining=13.42m, recoveries=0
+[INFO] [1789310045.518677485] [navigation_pick_place_test]: Nav2 remaining=13.42m, recoveries=0
+[INFO] [1789310047.568398810] [navigation_pick_place_test]: Nav2 remaining=12.50m, recoveries=0
+[INFO] [1789310049.618169272] [navigation_pick_place_test]: Nav2 remaining=10.90m, recoveries=0
+[INFO] [1789310051.618312281] [navigation_pick_place_test]: Nav2 remaining=9.62m, recoveries=0
+[INFO] [1789310053.618369319] [navigation_pick_place_test]: Nav2 remaining=7.33m, recoveries=0
+[INFO] [1789310055.619001964] [navigation_pick_place_test]: Nav2 remaining=4.57m, recoveries=0
+[INFO] [1789310057.618741579] [navigation_pick_place_test]: Nav2 remaining=1.85m, recoveries=0
+[INFO] [1789310058.258380771] [navigation_pick_place_test]: Pickup handoff reached: distance=0.843m, threshold=1.459m; canceling Nav2
+[INFO] [1789310058.939274921] [navigation_pick_place_test]: Nav2 stopped; transferring base control to fine dock
+[INFO] [1789310058.941243138] [navigation_pick_place_test]: Starting fine dock: target object=(0.385m, 0.00m) in base frame
+[INFO] [1789310058.952920959] [navigation_pick_place_test]: Fine dock control: x=0.855, y=0.101, range_error=0.476, heading_error=0.118, cmd=(0.158,0.282)
+[INFO] [1789310059.976700913] [navigation_pick_place_test]: Fine dock control: x=0.718, y=0.014, range_error=0.333, heading_error=0.019, cmd=(0.160,0.065)
+[INFO] [1789310060.979199435] [navigation_pick_place_test]: Fine dock control: x=0.577, y=0.010, range_error=0.192, heading_error=0.016, cmd=(0.160,0.040)
+[INFO] [1789310062.000955012] [navigation_pick_place_test]: Fine dock control: x=0.422, y=0.003, range_error=0.037, heading_error=0.008, cmd=(0.060,0.019)
+[INFO] [1789310062.592223195] [navigation_pick_place_test]: Fine dock succeeded: x=0.396, y=0.003
+[INFO] [1789310062.651131092] [navigation_pick_place_test]: Pickup alignment: object relative to six_arm x=0.395, y=0.002, distance=0.395m
+[INFO] [1789310062.652493114] [navigation_pick_place_test]: Starting pick: blue_cube_3
+[INFO] [1789310062.657118845] [navigation_pick_place_test]: Arm stage=open_gripper, progress=0%
+[INFO] [1789310062.996952899] [navigation_pick_place_test]: Arm stage=move_to_pregrasp, progress=10%
+[INFO] [1789310064.018370209] [navigation_pick_place_test]: Arm stage=descend_to_pick_pose, progress=25%
+[INFO] [1789310065.189294095] [navigation_pick_place_test]: Arm stage=stabilize_before_close, progress=35%
+[INFO] [1789310065.310023670] [navigation_pick_place_test]: Arm stage=close_gripper, progress=40%
+[INFO] [1789310065.685357999] [navigation_pick_place_test]: Arm stage=validate_grasp_window, progress=50%
+[INFO] [1789310065.690139466] [navigation_pick_place_test]: Arm stage=establish_floor_clearance, progress=58%
+[INFO] [1789310065.695466391] [navigation_pick_place_test]: Arm stage=attach_object, progress=65%
+[INFO] [1789310065.703852484] [navigation_pick_place_test]: Arm stage=settling_for_attachment, progress=72%
+[INFO] [1789310065.721542656] [navigation_pick_place_test]: Arm stage=validate_attachment, progress=85%
+[INFO] [1789310065.989500697] [navigation_pick_place_test]: Arm stage=lift_attached_object, progress=90%
+[INFO] [1789310066.976059200] [navigation_pick_place_test]: Arm stage=validate_lifted_attachment, progress=93%
+[INFO] [1789310067.250364918] [navigation_pick_place_test]: Arm stage=carry_hold, progress=97%
+[INFO] [1789310067.264801436] [navigation_pick_place_test]: Arm stage=pick_complete, progress=100%
+[INFO] [1789310067.281484614] [navigation_pick_place_test]: pick succeeded: pick completed for blue_cube_3.
+[INFO] [1789310067.284706885] [navigation_pick_place_test]: Dropoff RPP profile configured: carried_speed=1.05m/s, lookahead=1.10m, range=0.90..1.60m, time=1.00s
+[INFO] [1789310067.290981143] [navigation_pick_place_test]: C slot selection: selected=(-0.16,0.05), claim=2, reserved=[0, 1], occupied=[('blue_cube_4', 0.14, -0.081), ('blue_cube_5', -0.162, -0.023)]
+[INFO] [1789310067.291615222] [navigation_pick_place_test]: Nearest-side drop dock for zone_c: base=(6.840,-5.640), object_slot=(-0.160,0.050), yaw=-1.571, carried_offset=(0.310,-0.000)
+[INFO] [1789310067.292225317] [navigation_pick_place_test]: C route selected from moving_obstacle_2 y=-5.449: c_east_bypass_obstacle_lower, bypass_x=2.85
+[INFO] [1789310067.293099759] [navigation_pick_place_test]: Global costmap probe for C dynamic bypass 1: start_cost=23, goal_cost=66, goal=(2.850,-1.900)
+[INFO] [1789310067.294649734] [navigation_pick_place_test]: Navigating to C dynamic bypass 1: x=2.850, y=-1.900, yaw=-1.571, route_policy=replan_if_invalid
+[INFO] [1789310067.447967160] [navigation_pick_place_test]: Nav2 remaining=0.00m, recoveries=0
+[INFO] [1789310069.494668192] [navigation_pick_place_test]: Nav2 remaining=7.97m, recoveries=0
+[INFO] [1789310071.494760168] [navigation_pick_place_test]: Nav2 remaining=7.97m, recoveries=0
+[INFO] [1789310073.496075059] [navigation_pick_place_test]: Nav2 remaining=7.82m, recoveries=0
+[INFO] [1789310075.496641819] [navigation_pick_place_test]: Nav2 remaining=5.76m, recoveries=0
+[INFO] [1789310077.544732309] [navigation_pick_place_test]: Nav2 remaining=3.60m, recoveries=0
+[INFO] [1789310079.544842760] [navigation_pick_place_test]: Nav2 remaining=1.64m, recoveries=0
+[INFO] [1789310081.594447293] [navigation_pick_place_test]: Nav2 remaining=1.25m, recoveries=0
+[INFO] [1789310082.610779842] [navigation_pick_place_test]: Pickup handoff reached: distance=0.323m, threshold=0.340m; canceling Nav2
+[INFO] [1789310083.012144602] [navigation_pick_place_test]: Nav2 stopped; transferring base control to fine dock
+[INFO] [1789310083.013316025] [navigation_pick_place_test]: Global costmap probe for C dynamic bypass 2: start_cost=44, goal_cost=27, goal=(3.750,-6.650)
+[INFO] [1789310083.014430716] [navigation_pick_place_test]: Navigating to C dynamic bypass 2: x=3.750, y=-6.650, yaw=0.000, route_policy=replan_if_invalid
+[INFO] [1789310083.618496700] [navigation_pick_place_test]: Nav2 remaining=9.41m, recoveries=0
+[INFO] [1789310085.667966939] [navigation_pick_place_test]: Nav2 remaining=9.41m, recoveries=0
+[INFO] [1789310087.719461340] [navigation_pick_place_test]: Nav2 remaining=8.74m, recoveries=0
+[INFO] [1789310089.719903195] [navigation_pick_place_test]: Nav2 remaining=3.40m, recoveries=0
+[INFO] [1789310091.768001745] [navigation_pick_place_test]: Nav2 remaining=3.40m, recoveries=0
+[INFO] [1789310093.768506541] [navigation_pick_place_test]: Nav2 remaining=3.40m, recoveries=0
+[INFO] [1789310095.768214938] [navigation_pick_place_test]: Nav2 remaining=3.45m, recoveries=0
+[INFO] [1789310097.768274043] [navigation_pick_place_test]: Nav2 remaining=3.76m, recoveries=0
+[INFO] [1789310099.819066726] [navigation_pick_place_test]: Nav2 remaining=6.51m, recoveries=0
+[INFO] [1789310101.867878491] [navigation_pick_place_test]: Nav2 remaining=6.81m, recoveries=0
+[ERROR] [1789310107.650648431] [navigation_pick_place_test]: ACCEPTANCE FAILED: Base did not stop with fresh odometry; handoff refused (vx=6.7389, wz=-1.4026, age=0.000s)
+[ros2run]: Process exited with failure 1
