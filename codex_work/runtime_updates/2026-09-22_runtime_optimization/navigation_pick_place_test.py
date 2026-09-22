@@ -1163,8 +1163,16 @@ class PickPlaceTest(Node):
                     break
                 wait += 0.10
             after_distance = 6.50 if mode == 'north' else 3.55
-            total = arrival + wait + after_distance / effective_speed
-            return total, arrival, wait
+            # Distance alone made equal-length routes default to north even
+            # though north has two additional strict Nav2 handoffs (cross,
+            # turn south, turn east).  Successful 2026-09-22 regressions show
+            # each cancel/settle/reacquire boundary costs about 3--4 s.  Model
+            # only that measured orchestration cost; geometry, gate release
+            # conditions, and controller speeds remain unchanged.
+            handoff_overhead = 8.0 if mode == 'north' else 0.0
+            total = (arrival + wait + after_distance / effective_speed
+                     + handoff_overhead)
+            return total, arrival, wait, handoff_overhead
 
         north = estimate('north')
         south = estimate('south')
@@ -1172,8 +1180,10 @@ class PickPlaceTest(Node):
         self.get_logger().info(
             'C crossing ETA choice: '
             f'obstacle_y={obstacle_y:.3f}, obstacle_vy={obstacle_vy:.3f}, '
-            f'north_total={north[0]:.2f}s(wait={north[2]:.2f}s), '
-            f'south_total={south[0]:.2f}s(wait={south[2]:.2f}s), '
+            f'north_total={north[0]:.2f}s(wait={north[2]:.2f}s,'
+            f'handoff={north[3]:.2f}s), '
+            f'south_total={south[0]:.2f}s(wait={south[2]:.2f}s,'
+            f'handoff={south[3]:.2f}s), '
             f'selected={mode}')
         return mode, obstacle_y
 
@@ -1210,7 +1220,9 @@ class PickPlaceTest(Node):
                     break
                 wait += 0.10
             after_distance = 5.25 if mode == 'north' else 9.10
-            return arrival + wait + after_distance / effective_speed, wait
+            handoff_overhead = 8.0 if mode == 'north' else 0.0
+            return (arrival + wait + after_distance / effective_speed
+                    + handoff_overhead), wait, handoff_overhead
 
         north = estimate('north')
         south = estimate('south')
@@ -1218,8 +1230,10 @@ class PickPlaceTest(Node):
         self.get_logger().info(
             'C exit ETA choice: '
             f'obstacle_y={obstacle_y:.3f}, obstacle_vy={obstacle_vy:.3f}, '
-            f'north_total={north[0]:.2f}s(wait={north[1]:.2f}s), '
-            f'south_total={south[0]:.2f}s(wait={south[1]:.2f}s), '
+            f'north_total={north[0]:.2f}s(wait={north[1]:.2f}s,'
+            f'handoff={north[2]:.2f}s), '
+            f'south_total={south[0]:.2f}s(wait={south[1]:.2f}s,'
+            f'handoff={south[2]:.2f}s), '
             f'selected={mode}')
         return mode
 
