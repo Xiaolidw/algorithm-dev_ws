@@ -1,0 +1,845 @@
+[INFO] [launch]: All log files can be found below /home/ros/.ros/log/2026-09-22-12-51-31-057085-u22-91649
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [gazebo-1]: process started with pid [91651]
+[INFO] [robot_state_publisher-2]: process started with pid [91653]
+[INFO] [spawn_entity.py-3]: process started with pid [91655]
+[INFO] [cube_obstacle_map_node.py-4]: process started with pid [91657]
+[INFO] [lstm_predictor_node_v2.py-5]: process started with pid [91659]
+[INFO] [dynamic_obstacle_scan_filter.py-6]: process started with pid [91661]
+[INFO] [departure_heading_lock_node.py-7]: process started with pid [91671]
+[INFO] [sipp_decision_node.py-8]: process started with pid [91673]
+[INFO] [sipp_velocity_gate.py-9]: process started with pid [91675]
+[INFO] [static_transform_publisher-10]: process started with pid [91677]
+[INFO] [fixed_manipulation_server-11]: process started with pid [91679]
+[INFO] [deepseek_task_plan_node-12]: process started with pid [91681]
+[INFO] [costudio_mission_gateway-13]: process started with pid [91686]
+[INFO] [perception_node-14]: process started with pid [91691]
+[robot_state_publisher-2] [0m[INFO] [1790052691.284738020] [robot_state_publisher]: got segment arm_base_link[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284843529] [robot_state_publisher]: got segment back_caster_link[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284850422] [robot_state_publisher]: got segment base_footprint[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284854990] [robot_state_publisher]: got segment base_link[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284859113] [robot_state_publisher]: got segment camera_link[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284863246] [robot_state_publisher]: got segment camera_rgbd_frame_optical[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284867547] [robot_state_publisher]: got segment camera_rgbd_link[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284871648] [robot_state_publisher]: got segment grasping_frame[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284875752] [robot_state_publisher]: got segment gripper_finger_link1[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284879923] [robot_state_publisher]: got segment gripper_finger_link2[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284883925] [robot_state_publisher]: got segment laser_link[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284888034] [robot_state_publisher]: got segment left_wheel_link[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284892129] [robot_state_publisher]: got segment link1[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284896202] [robot_state_publisher]: got segment link2[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284900213] [robot_state_publisher]: got segment link3[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284904142] [robot_state_publisher]: got segment link4[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284908250] [robot_state_publisher]: got segment link5[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284912247] [robot_state_publisher]: got segment link6[0m
+[robot_state_publisher-2] [0m[INFO] [1790052691.284916211] [robot_state_publisher]: got segment right_wheel_link[0m
+[static_transform_publisher-10] [0m[INFO] [1790052691.325240617] [simulation_map_to_odom]: Spinning until stopped - publishing transform
+[static_transform_publisher-10] translation: ('0.000000', '0.000000', '0.000000')
+[static_transform_publisher-10] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-10] from 'map' to 'odom'[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052691.560758439] [dynamic_obstacle_scan_filter]: Dynamic scan filter ready: /scan -> /scan_costmap, radius=0.55 m, near-field passthrough=0.00 m[0m
+[deepseek_task_plan_node-12] [0m[INFO] [1790052691.607687999] [deepseek_task_plan_node]: 已加载任务提示词：/home/ros/dev_ws/install/moon_warehouse_semantic/share/moon_warehouse_semantic/config/task_plan_prompt.txt[0m
+[gazebo-1] Gazebo multi-robot simulator, version 11.10.2
+[gazebo-1] Copyright (C) 2012 Open Source Robotics Foundation.
+[gazebo-1] Released under the Apache 2 License.
+[gazebo-1] http://gazebosim.org
+[gazebo-1] 
+[deepseek_task_plan_node-12] [0m[INFO] [1790052691.634871885] [deepseek_task_plan_node]: DeepSeek多步骤任务解析节点已启动[0m
+[deepseek_task_plan_node-12] [0m[INFO] [1790052691.635142401] [deepseek_task_plan_node]: 正式题目输入接口：/llm/problem_text + /llm/mapping_rule；题目和规则收齐后等待/llm/solve，再解析并发布任务[0m
+[deepseek_task_plan_node-12] [0m[INFO] [1790052691.638463755] [deepseek_task_plan_node]: CoStudio长文本接口：/llm/problem_part_1..12 + /llm/mapping_part_1..6；第1段会清空上一题残留[0m
+[deepseek_task_plan_node-12] [0m[INFO] [1790052691.638744806] [deepseek_task_plan_node]: DeepSeek API密钥已从环境变量加载[0m
+[gazebo-1] Gazebo multi-robot simulator, version 11.10.2
+[gazebo-1] Copyright (C) 2012 Open Source Robotics Foundation.
+[gazebo-1] Released under the Apache 2 License.
+[gazebo-1] http://gazebosim.org
+[gazebo-1] 
+[departure_heading_lock_node.py-7] [0m[INFO] [1790052691.719607777] [departure_heading_lock]: Departure heading lock ready: /cmd_vel_nav_raw -> /cmd_vel_nav[0m
+[spawn_entity.py-3] [0m[INFO] [1790052691.753807218] [spawn_entity]: Spawn Entity started[0m
+[spawn_entity.py-3] [0m[INFO] [1790052691.754380932] [spawn_entity]: Loading entity published on topic robot_description[0m
+[spawn_entity.py-3] [0m[INFO] [1790052691.757118929] [spawn_entity]: Waiting for entity xml on robot_description[0m
+[costudio_mission_gateway-13] [0m[INFO] [1790052691.760507794] [costudio_mission_gateway]: CoStudio gateway ready on /costudio/mission_request[0m
+[spawn_entity.py-3] [0m[INFO] [1790052691.770293183] [spawn_entity]: Waiting for service /spawn_entity, timeout = 30[0m
+[spawn_entity.py-3] [0m[INFO] [1790052691.770577510] [spawn_entity]: Waiting for service /spawn_entity[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052691.774896944] [fixed_manipulation_server]: Fixed manipulation server ready on /manipulation/execute; dry_run=False, dynamic_ik=True.[0m
+[cube_obstacle_map_node.py-4] [0m[INFO] [1790052691.775076926] [cube_obstacle_map_node]: Obstacle map published for 10 cubes, 0 fixed stones and 0 placement zones[0m
+[gazebo-1] [1;33m[Wrn] [gazebo_ros_init.cpp:178] [0m[1;33m
+[gazebo-1] #     # ####### ####### ###  #####  #######
+[gazebo-1] ##    # #     #    #     #  #     # #
+[gazebo-1] # #   # #     #    #     #  #       #
+[gazebo-1] #  #  # #     #    #     #  #       #####
+[gazebo-1] #   # # #     #    #     #  #       #
+[gazebo-1] #    ## #     #    #     #  #     # #
+[gazebo-1] #     # #######    #    ###  #####  #######
+[gazebo-1] 
+[gazebo-1] This version of Gazebo, now called Gazebo classic, reaches end-of-life
+[gazebo-1] in January 2025. Users are highly encouraged to migrate to the new Gazebo
+[gazebo-1] using our migration guides (https://gazebosim.org/docs/latest/gazebo_classic_migration?utm_source=gazebo_ros_pkgs&utm_medium=cli)
+[gazebo-1] 
+[gazebo-1] [0m[1;33m
+[lstm_predictor_node_v2.py-5] [0m[INFO] [1790052691.823561280] [dynamic_obstacle_predictor_node]: Dynamic obstacle predictor ready: mode=route_reflection_fallback, history=16, horizon=3.0s, dt=0.10s, device=cpu-no-torch[0m
+[lstm_predictor_node_v2.py-5] [0m[INFO] [1790052691.824430570] [dynamic_obstacle_predictor_node]: Publishing predictions to: /moon_warehouse/dynamic_obstacle_trajectories[0m
+[sipp_decision_node.py-8] [0m[INFO] [1790052691.850901558] [sipp_decision_node]: Deterministic SIPP ready: shadow=False soft_radius=0.78 hard_radius=0.65 confirm=3[0m
+[sipp_velocity_gate.py-9] [0m[INFO] [1790052691.852036783] [sipp_velocity_gate]: SIPP gate ready: /cmd_vel_nav -> /cmd_vel_sipp (fail-open, context-aware cruise guard)[0m
+[perception_node-14] [0m[INFO] [1790052691.875857087] [perception_node]: Perception ready: camera-only HSV detection with structured 2D output.[0m
+[gazebo-1] [0m[1;33m[0m[1;33m[0m[0m[INFO] [1790052692.537864621] [gazebo.gazebo_ros_state]: Publishing states of gazebo models at [/gazebo/model_states][0m
+[gazebo-1] [0m[INFO] [1790052692.538544955] [gazebo.gazebo_ros_state]: Publishing states of gazebo links at [/gazebo/link_states][0m
+[spawn_entity.py-3] [0m[INFO] [1790052692.540193603] [spawn_entity]: Calling service /spawn_entity[0m
+[gazebo-1] [1;32m[Msg] [0m[1;32mWaiting for master.[0m[1;32m
+[gazebo-1] [0m[1;32m[0m[1;32m[0m[1;32m[Msg] [0m[1;32mConnected to gazebo master @ [0m[1;32mhttp://127.0.0.1:11345[0m[1;32m
+[gazebo-1] [0m[1;32m[0m[1;32m[0m[1;32m[Msg] [0m[1;32mPublicized address: [0m[1;32m192.168.64.128[0m[1;32m
+[gazebo-1] [0m[1;32m[0m[1;32m[0m[1;32m[Msg] [0m[1;32mLoading world file [[0m[1;32m/home/ros/dev_ws/install/mybot_description/share/mybot_description/worlds/competition_v2_scoring.world[0m[1;32m][0m[1;32m
+[gazebo-1] [0m[1;32m[0m[1;32m[0m[moving_obstacle_1] SimpleMovePlugin loading...
+[gazebo-1] [moving_obstacle_1] Parameters:
+[gazebo-1] [moving_obstacle_1]   Speed: 0.25 m/s
+[gazebo-1] [moving_obstacle_1]   Force: 15 N
+[gazebo-1] [moving_obstacle_1]   Pose publish rate: 10 Hz
+[gazebo-1] [moving_obstacle_1]   Path: (-2,2.8) -> (1,2.8)
+[gazebo-1] [0m[INFO] [1790052692.553092689] [simple_move_plugin_moving_obstacle_1]: Publishing pose to: /moving_obstacle_1/current_pose[0m
+[gazebo-1] [moving_obstacle_1] Plugin loaded successfully!
+[gazebo-1] [moving_obstacle_2] SimpleMovePlugin loading...
+[gazebo-1] [moving_obstacle_2] Parameters:
+[gazebo-1] [moving_obstacle_2]   Speed: 0.25 m/s
+[gazebo-1] [moving_obstacle_2]   Force: 15 N
+[gazebo-1] [moving_obstacle_2]   Pose publish rate: 10 Hz
+[gazebo-1] [moving_obstacle_2]   Path: (2,-3) -> (2,-6)
+[gazebo-1] [0m[INFO] [1790052692.564133130] [simple_move_plugin_moving_obstacle_2]: Publishing pose to: /moving_obstacle_2/current_pose[0m
+[gazebo-1] [moving_obstacle_2] Plugin loaded successfully!
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_1] Time: 234.149s | Pos: (-2,2.8) | Vel: 0.25m/s | ToSTART: 0m
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to END
+[gazebo-1] [1;32m[Msg] [0m[1;32mWaiting for master.[0m[1;32m
+[gazebo-1] [0m[1;32m[0m[1;32m[0m[1;32m[Msg] [0m[1;32mConnected to gazebo master @ [0m[1;32mhttp://127.0.0.1:11345[0m[1;32m
+[gazebo-1] [0m[1;32m[0m[1;32m[0m[1;32m[Msg] [0m[1;32mPublicized address: [0m[1;32m192.168.64.128[0m[1;32m
+[gazebo-1] [0m[1;32m[0m[1;32m[0m[1;32m[Msg] [0m[1;32mWarning: Ignoring XDG_SESSION_TYPE=wayland on Gnome. Use QT_QPA_PLATFORM=wayland to run on Wayland anyway.[0m[1;32m
+[gazebo-1] [1;33m[Wrn] [Event.cc:61] [0m[1;33mWarning: Deleting a connection right after creation. [0m[1;33mMake sure to save the ConnectionPtr from a Connect call
+[gazebo-1] [0m[1;33m[Wrn] [Event.cc:61] [0m[1;33mWarning: Deleting a connection right after creation. [0m[1;33mMake sure to save the ConnectionPtr from a Connect call
+[gazebo-1] [0m[0m[INFO] [1790052693.149331058] [gazebo_camera]: Publishing camera info to [/camera/camera_info][0m
+[spawn_entity.py-3] [0m[INFO] [1790052693.175932293] [spawn_entity]: Spawn status: SpawnEntity: Successfully spawned entity [six_arm][0m
+[INFO] [spawn_entity.py-3]: process has finished cleanly [pid 91655]
+[INFO] [spawner-15]: process started with pid [91881]
+[gazebo-1] [0m[INFO] [1790052693.335432685] [camera_rgbd.camera_rgbd_controller]: Publishing camera info to [/camera_rgbd/camera_rgbd/camera_info][0m
+[gazebo-1] [0m[INFO] [1790052693.337979334] [camera_rgbd.camera_rgbd_controller]: Publishing depth camera info to [/camera_rgbd/camera_rgbd/depth/camera_info][0m
+[gazebo-1] [0m[INFO] [1790052693.338669586] [camera_rgbd.camera_rgbd_controller]: Publishing pointcloud to [/camera_rgbd/camera_rgbd/points][0m
+[gazebo-1] [0m[INFO] [1790052693.393362997] [differential_drive_controller]: Wheel pair 1 separation set to [0.370000m][0m
+[gazebo-1] [0m[INFO] [1790052693.393396146] [differential_drive_controller]: Wheel pair 1 diameter set to [0.130000m][0m
+[gazebo-1] [0m[INFO] [1790052693.394926333] [differential_drive_controller]: Subscribed to [/cmd_vel][0m
+[gazebo-1] [0m[INFO] [1790052693.396921548] [differential_drive_controller]: Advertise odometry on [/odom][0m
+[gazebo-1] [0m[INFO] [1790052693.400854194] [differential_drive_controller]: Publishing odom transforms between [odom] and [base_footprint][0m
+[gazebo-1] [0m[INFO] [1790052693.401256044] [differential_drive_controller]: Publishing wheel transforms between [base_footprint], [left_wheel_joint] and [right_wheel_joint][0m
+[gazebo-1] [0m[INFO] [1790052693.410676661] [gazebo_ros2_control]: Loading gazebo_ros2_control plugin[0m
+[gazebo-1] [0m[INFO] [1790052693.417664687] [gazebo_ros2_control]: Starting gazebo_ros2_control plugin in namespace: /[0m
+[gazebo-1] [0m[INFO] [1790052693.417718658] [gazebo_ros2_control]: Starting gazebo_ros2_control plugin in ros 2 node: gazebo_ros2_control[0m
+[gazebo-1] [0m[INFO] [1790052693.423623902] [gazebo_ros2_control]: connected to service!! robot_state_publisher[0m
+[gazebo-1] [0m[INFO] [1790052693.424558091] [gazebo_ros2_control]: Received urdf from param server, parsing...[0m
+[gazebo-1] [0m[INFO] [1790052693.426292234] [gazebo_ros2_control]: Loading parameter files /home/ros/dev_ws/install/mybot/share/mybot/config/ros2_controllers.yaml[0m
+[gazebo-1] [0m[INFO] [1790052693.432934730] [gazebo_ros2_control]: Loading joint: joint1[0m
+[gazebo-1] [0m[INFO] [1790052693.432960343] [gazebo_ros2_control]: 	State:[0m
+[gazebo-1] [0m[INFO] [1790052693.432967718] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.432975027] [gazebo_ros2_control]: 			 found initial value: 0.000000[0m
+[gazebo-1] [0m[INFO] [1790052693.432984032] [gazebo_ros2_control]: 		 velocity[0m
+[gazebo-1] [0m[INFO] [1790052693.432989759] [gazebo_ros2_control]: 	Command:[0m
+[gazebo-1] [0m[INFO] [1790052693.432994894] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.433686964] [gazebo_ros2_control]: Loading joint: joint2[0m
+[gazebo-1] [0m[INFO] [1790052693.433703346] [gazebo_ros2_control]: 	State:[0m
+[gazebo-1] [0m[INFO] [1790052693.433709533] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.433715928] [gazebo_ros2_control]: 			 found initial value: 0.000000[0m
+[gazebo-1] [0m[INFO] [1790052693.433723207] [gazebo_ros2_control]: 		 velocity[0m
+[gazebo-1] [0m[INFO] [1790052693.433728520] [gazebo_ros2_control]: 	Command:[0m
+[gazebo-1] [0m[INFO] [1790052693.433733679] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.434079675] [gazebo_ros2_control]: Loading joint: joint3[0m
+[gazebo-1] [0m[INFO] [1790052693.434094667] [gazebo_ros2_control]: 	State:[0m
+[gazebo-1] [0m[INFO] [1790052693.434100822] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.434106497] [gazebo_ros2_control]: 			 found initial value: 0.000000[0m
+[gazebo-1] [0m[INFO] [1790052693.434114018] [gazebo_ros2_control]: 		 velocity[0m
+[gazebo-1] [0m[INFO] [1790052693.434119401] [gazebo_ros2_control]: 	Command:[0m
+[gazebo-1] [0m[INFO] [1790052693.434124737] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.434474425] [gazebo_ros2_control]: Loading joint: joint4[0m
+[gazebo-1] [0m[INFO] [1790052693.434489721] [gazebo_ros2_control]: 	State:[0m
+[gazebo-1] [0m[INFO] [1790052693.434495712] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.434501072] [gazebo_ros2_control]: 			 found initial value: 0.000000[0m
+[gazebo-1] [0m[INFO] [1790052693.434508040] [gazebo_ros2_control]: 		 velocity[0m
+[gazebo-1] [0m[INFO] [1790052693.434528949] [gazebo_ros2_control]: 	Command:[0m
+[gazebo-1] [0m[INFO] [1790052693.434535389] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.434844753] [gazebo_ros2_control]: Loading joint: joint5[0m
+[gazebo-1] [0m[INFO] [1790052693.434857697] [gazebo_ros2_control]: 	State:[0m
+[gazebo-1] [0m[INFO] [1790052693.434863676] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.434874930] [gazebo_ros2_control]: 			 found initial value: 0.000000[0m
+[gazebo-1] [0m[INFO] [1790052693.434882082] [gazebo_ros2_control]: 		 velocity[0m
+[gazebo-1] [0m[INFO] [1790052693.434887427] [gazebo_ros2_control]: 	Command:[0m
+[gazebo-1] [0m[INFO] [1790052693.434892781] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.435286759] [gazebo_ros2_control]: Loading joint: joint6[0m
+[gazebo-1] [0m[INFO] [1790052693.435301758] [gazebo_ros2_control]: 	State:[0m
+[gazebo-1] [0m[INFO] [1790052693.435318193] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.435324787] [gazebo_ros2_control]: 			 found initial value: 0.000000[0m
+[gazebo-1] [0m[INFO] [1790052693.435331965] [gazebo_ros2_control]: 		 velocity[0m
+[gazebo-1] [0m[INFO] [1790052693.435337292] [gazebo_ros2_control]: 	Command:[0m
+[gazebo-1] [0m[INFO] [1790052693.435342480] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.435795650] [gazebo_ros2_control]: Loading joint: finger_joint1[0m
+[gazebo-1] [0m[INFO] [1790052693.435810595] [gazebo_ros2_control]: 	State:[0m
+[gazebo-1] [0m[INFO] [1790052693.435817111] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.435822566] [gazebo_ros2_control]: 			 found initial value: 0.000000[0m
+[gazebo-1] [0m[INFO] [1790052693.435829459] [gazebo_ros2_control]: 		 velocity[0m
+[gazebo-1] [0m[INFO] [1790052693.435835040] [gazebo_ros2_control]: 	Command:[0m
+[gazebo-1] [0m[INFO] [1790052693.435840629] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.436202106] [gazebo_ros2_control]: Loading joint: finger_joint2[0m
+[gazebo-1] [0m[INFO] [1790052693.436216172] [gazebo_ros2_control]: 	State:[0m
+[gazebo-1] [0m[INFO] [1790052693.436227948] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.436233724] [gazebo_ros2_control]: 			 found initial value: 0.000000[0m
+[gazebo-1] [0m[INFO] [1790052693.436241376] [gazebo_ros2_control]: 		 velocity[0m
+[gazebo-1] [0m[INFO] [1790052693.436246755] [gazebo_ros2_control]: 	Command:[0m
+[gazebo-1] [0m[INFO] [1790052693.436251943] [gazebo_ros2_control]: 		 position[0m
+[gazebo-1] [0m[INFO] [1790052693.436411243] [resource_manager]: Initialize hardware 'GazeboSystem' [0m
+[gazebo-1] [0m[INFO] [1790052693.436510256] [resource_manager]: Successful initialization of hardware 'GazeboSystem'[0m
+[gazebo-1] [0m[INFO] [1790052693.436565284] [resource_manager]: 'configure' hardware 'GazeboSystem' [0m
+[gazebo-1] [0m[INFO] [1790052693.436572068] [resource_manager]: Successful 'configure' of hardware 'GazeboSystem'[0m
+[gazebo-1] [0m[INFO] [1790052693.436577496] [resource_manager]: 'activate' hardware 'GazeboSystem' [0m
+[gazebo-1] [0m[INFO] [1790052693.436581822] [resource_manager]: Successful 'activate' of hardware 'GazeboSystem'[0m
+[gazebo-1] [0m[INFO] [1790052693.436627345] [gazebo_ros2_control]: Loading controller_manager[0m
+[gazebo-1] [33m[WARN] [1790052693.457837152] [gazebo_ros2_control]:  Desired controller update period (0.01 s) is slower than the gazebo simulation period (0.001 s).[0m
+[gazebo-1] [0m[INFO] [1790052693.458090523] [gazebo_ros2_control]: Loaded gazebo_ros2_control.[0m
+[spawner-15] [0m[INFO] [1790052693.560376985] [spawner_joint_state_broadcaster]: waiting for service /controller_manager/list_controllers to become available...[0m
+[gazebo-1] context mismatch in svga_surface_destroy
+[gazebo-1] context mismatch in svga_surface_destroy
+[gazebo-1] [0m[INFO] [1790052693.813757466] [controller_manager]: Loading controller 'joint_state_broadcaster'[0m
+[spawner-15] [0m[INFO] [1790052693.831031162] [spawner_joint_state_broadcaster]: [94mLoaded [1mjoint_state_broadcaster[0m[0m
+[gazebo-1] [0m[INFO] [1790052693.832423921] [controller_manager]: Configuring controller 'joint_state_broadcaster'[0m
+[gazebo-1] [0m[INFO] [1790052693.832593895] [joint_state_broadcaster]: 'joints' or 'interfaces' parameter is empty. All available state interfaces will be published[0m
+[spawner-15] [0m[INFO] [1790052693.860599887] [spawner_joint_state_broadcaster]: [92mConfigured and activated [1mjoint_state_broadcaster[0m[0m
+[INFO] [spawner-15]: process has finished cleanly [pid 91881]
+[INFO] [spawner-16]: process started with pid [91901]
+[gazebo-1] [0m[INFO] [1790052694.894789680] [controller_manager]: Loading controller 'arm_controller'[0m
+[gazebo-1] [33m[WARN] [1790052694.914716193] [arm_controller]: [Deprecated]: "allow_nonzero_velocity_at_trajectory_end" is set to true. The default behavior will change to false.[0m
+[spawner-16] [0m[INFO] [1790052694.931531284] [spawner_arm_controller]: [94mLoaded [1marm_controller[0m[0m
+[gazebo-1] [0m[INFO] [1790052694.932746300] [controller_manager]: Configuring controller 'arm_controller'[0m
+[gazebo-1] [0m[INFO] [1790052694.933202011] [arm_controller]: No specific joint names are used for command interfaces. Using 'joints' parameter.[0m
+[gazebo-1] [0m[INFO] [1790052694.933233190] [arm_controller]: Command interfaces are [position] and state interfaces are [position velocity].[0m
+[gazebo-1] [0m[INFO] [1790052694.933320826] [arm_controller]: Using 'splines' interpolation method.[0m
+[gazebo-1] [0m[INFO] [1790052694.934603735] [arm_controller]: Controller state will be published at 50.00 Hz.[0m
+[gazebo-1] [0m[INFO] [1790052694.936759016] [arm_controller]: Action status changes will be monitored at 20.00 Hz.[0m
+[spawner-16] [0m[INFO] [1790052694.969806663] [spawner_arm_controller]: [92mConfigured and activated [1marm_controller[0m[0m
+[INFO] [spawner-16]: process has finished cleanly [pid 91901]
+[INFO] [spawner-17]: process started with pid [91926]
+[spawner-17] [0m[INFO] [1790052695.320809779] [spawner_gripper_controller]: waiting for service /controller_manager/list_controllers to become available...[0m
+[gazebo-1] [0m[INFO] [1790052695.573636832] [controller_manager]: Loading controller 'gripper_controller'[0m
+[gazebo-1] [33m[WARN] [1790052695.588620248] [gripper_controller]: [Deprecated]: "allow_nonzero_velocity_at_trajectory_end" is set to true. The default behavior will change to false.[0m
+[spawner-17] [0m[INFO] [1790052695.595547044] [spawner_gripper_controller]: [94mLoaded [1mgripper_controller[0m[0m
+[gazebo-1] [0m[INFO] [1790052695.596777534] [controller_manager]: Configuring controller 'gripper_controller'[0m
+[gazebo-1] [0m[INFO] [1790052695.596854452] [gripper_controller]: No specific joint names are used for command interfaces. Using 'joints' parameter.[0m
+[gazebo-1] [0m[INFO] [1790052695.596865892] [gripper_controller]: Command interfaces are [position] and state interfaces are [position velocity].[0m
+[gazebo-1] [0m[INFO] [1790052695.596874240] [gripper_controller]: Using 'splines' interpolation method.[0m
+[gazebo-1] [0m[INFO] [1790052695.597394210] [gripper_controller]: Controller state will be published at 50.00 Hz.[0m
+[gazebo-1] [0m[INFO] [1790052695.599473590] [gripper_controller]: Action status changes will be monitored at 20.00 Hz.[0m
+[spawner-17] [0m[INFO] [1790052695.625721847] [spawner_gripper_controller]: [92mConfigured and activated [1mgripper_controller[0m[0m
+[INFO] [spawner-17]: process has finished cleanly [pid 91926]
+[INFO] [map_server-18]: process started with pid [91943]
+[INFO] [amcl-19]: process started with pid [91945]
+[INFO] [lifecycle_manager-20]: process started with pid [91947]
+[INFO] [controller_server-21]: process started with pid [91949]
+[INFO] [smoother_server-22]: process started with pid [91951]
+[INFO] [planner_server-23]: process started with pid [91953]
+[INFO] [behavior_server-24]: process started with pid [91955]
+[INFO] [bt_navigator-25]: process started with pid [91957]
+[INFO] [waypoint_follower-26]: process started with pid [91959]
+[INFO] [velocity_smoother-27]: process started with pid [91962]
+[INFO] [collision_monitor-28]: process started with pid [91969]
+[INFO] [lifecycle_manager-29]: process started with pid [91971]
+[amcl-19] [0m[INFO] [1790052696.521420480] [amcl]: 
+[amcl-19] 	amcl lifecycle node launched. 
+[amcl-19] 	Waiting on external lifecycle transitions to activate
+[amcl-19] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.[0m
+[amcl-19] [0m[INFO] [1790052696.521831461] [amcl]: Creating[0m
+[map_server-18] [0m[INFO] [1790052696.531555301] [map_server]: 
+[map_server-18] 	map_server lifecycle node launched. 
+[map_server-18] 	Waiting on external lifecycle transitions to activate
+[map_server-18] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.[0m
+[map_server-18] [0m[INFO] [1790052696.531648030] [map_server]: Creating[0m
+[planner_server-23] [0m[INFO] [1790052696.558049341] [planner_server]: 
+[planner_server-23] 	planner_server lifecycle node launched. 
+[planner_server-23] 	Waiting on external lifecycle transitions to activate
+[planner_server-23] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052696.560436909] [lifecycle_manager_navigation]: Creating[0m
+[lifecycle_manager-29] [0m[INFO] [1790052696.563296931] [lifecycle_manager_navigation]: [34m[1mCreating and initializing lifecycle service clients[0m[0m[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052696.581502086] [dynamic_obstacle_scan_filter]: Filtered 1599 dynamic scan beams in 5 s[0m
+[lifecycle_manager-20] [0m[INFO] [1790052696.582348883] [lifecycle_manager_localization]: Creating[0m
+[planner_server-23] [0m[INFO] [1790052696.592211036] [planner_server]: Creating[0m
+[controller_server-21] [0m[INFO] [1790052696.605485342] [controller_server]: 
+[controller_server-21] 	controller_server lifecycle node launched. 
+[controller_server-21] 	Waiting on external lifecycle transitions to activate
+[controller_server-21] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.[0m
+[collision_monitor-28] [0m[INFO] [1790052696.608145844] [collision_monitor]: 
+[collision_monitor-28] 	collision_monitor lifecycle node launched. 
+[collision_monitor-28] 	Waiting on external lifecycle transitions to activate
+[collision_monitor-28] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.[0m
+[smoother_server-22] [0m[INFO] [1790052696.613702564] [smoother_server]: 
+[smoother_server-22] 	smoother_server lifecycle node launched. 
+[smoother_server-22] 	Waiting on external lifecycle transitions to activate
+[smoother_server-22] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.[0m
+[lifecycle_manager-20] [0m[INFO] [1790052696.618831524] [lifecycle_manager_localization]: [34m[1mCreating and initializing lifecycle service clients[0m[0m[0m
+[behavior_server-24] [0m[INFO] [1790052696.619235836] [behavior_server]: 
+[behavior_server-24] 	behavior_server lifecycle node launched. 
+[behavior_server-24] 	Waiting on external lifecycle transitions to activate
+[behavior_server-24] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.[0m
+[smoother_server-22] [0m[INFO] [1790052696.621501562] [smoother_server]: Creating smoother server[0m
+[waypoint_follower-26] [0m[INFO] [1790052696.631457048] [waypoint_follower]: 
+[waypoint_follower-26] 	waypoint_follower lifecycle node launched. 
+[waypoint_follower-26] 	Waiting on external lifecycle transitions to activate
+[waypoint_follower-26] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.[0m
+[waypoint_follower-26] [0m[INFO] [1790052696.631896774] [waypoint_follower]: Creating[0m
+[bt_navigator-25] [0m[INFO] [1790052696.634988973] [bt_navigator]: 
+[bt_navigator-25] 	bt_navigator lifecycle node launched. 
+[bt_navigator-25] 	Waiting on external lifecycle transitions to activate
+[bt_navigator-25] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.[0m
+[bt_navigator-25] [0m[INFO] [1790052696.635082325] [bt_navigator]: Creating[0m
+[controller_server-21] [0m[INFO] [1790052696.705357048] [controller_server]: Creating controller server[0m
+[velocity_smoother-27] [0m[INFO] [1790052696.726242307] [velocity_smoother]: 
+[velocity_smoother-27] 	velocity_smoother lifecycle node launched. 
+[velocity_smoother-27] 	Waiting on external lifecycle transitions to activate
+[velocity_smoother-27] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.[0m
+[planner_server-23] [0m[INFO] [1790052696.786127780] [global_costmap.global_costmap]: 
+[planner_server-23] 	global_costmap lifecycle node launched. 
+[planner_server-23] 	Waiting on external lifecycle transitions to activate
+[planner_server-23] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.[0m
+[planner_server-23] [0m[INFO] [1790052696.786598424] [global_costmap.global_costmap]: Creating Costmap[0m
+[lifecycle_manager-20] [0m[INFO] [1790052696.834134146] [lifecycle_manager_localization]: [34m[1mStarting managed nodes bringup...[0m[0m[0m
+[lifecycle_manager-20] [0m[INFO] [1790052696.834172882] [lifecycle_manager_localization]: [34m[1mConfiguring map_server[0m[0m[0m
+[lifecycle_manager-29] [0m[INFO] [1790052696.901986751] [lifecycle_manager_navigation]: [34m[1mStarting managed nodes bringup...[0m[0m[0m
+[lifecycle_manager-29] [0m[INFO] [1790052696.902485815] [lifecycle_manager_navigation]: [34m[1mConfiguring controller_server[0m[0m[0m
+[map_server-18] [0m[INFO] [1790052696.924741015] [map_server]: Configuring[0m
+[map_server-18] [0m[INFO] [1790052696.924858994] [map_io]: Loading yaml file: /home/ros/dev_ws/install/moon_warehouse_bringup/share/moon_warehouse_bringup/maps/competition_v2_map.yaml[0m
+[map_server-18] [0m[INFO] [1790052696.925253887] [map_io]: resolution: 0.05[0m
+[map_server-18] [0m[INFO] [1790052696.925272152] [map_io]: origin[0]: -15.6[0m
+[map_server-18] [0m[INFO] [1790052696.925322570] [map_io]: origin[1]: -33.4[0m
+[map_server-18] [0m[INFO] [1790052696.925326373] [map_io]: origin[2]: 0[0m
+[map_server-18] [0m[INFO] [1790052696.925330000] [map_io]: free_thresh: 0.25[0m
+[map_server-18] [0m[INFO] [1790052696.925333639] [map_io]: occupied_thresh: 0.65[0m
+[map_server-18] [0m[INFO] [1790052696.925337468] [map_io]: mode: trinary[0m
+[map_server-18] [0m[INFO] [1790052696.925429438] [map_io]: negate: 0[0m
+[map_server-18] [0m[INFO] [1790052696.926793598] [map_io]: Loading image_file: /home/ros/dev_ws/install/moon_warehouse_bringup/share/moon_warehouse_bringup/maps/competition_v2_map.pgm[0m
+[controller_server-21] [0m[INFO] [1790052696.927422618] [local_costmap.local_costmap]: 
+[controller_server-21] 	local_costmap lifecycle node launched. 
+[controller_server-21] 	Waiting on external lifecycle transitions to activate
+[controller_server-21] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.[0m
+[controller_server-21] [0m[INFO] [1790052696.927852375] [local_costmap.local_costmap]: Creating Costmap[0m
+[controller_server-21] [0m[INFO] [1790052696.929787964] [controller_server]: Configuring controller interface[0m
+[controller_server-21] [0m[INFO] [1790052696.930097291] [controller_server]: getting goal checker plugins..[0m
+[controller_server-21] [0m[INFO] [1790052696.930174223] [controller_server]: Controller frequency set to 20.0000Hz[0m
+[controller_server-21] [0m[INFO] [1790052696.930190847] [local_costmap.local_costmap]: Configuring[0m
+[controller_server-21] [0m[INFO] [1790052696.936934421] [local_costmap.local_costmap]: Using plugin "cube_layer"[0m
+[controller_server-21] [0m[INFO] [1790052696.941264375] [local_costmap.local_costmap]: Subscribing to the map topic (/cube_obstacle_map) with transient local durability[0m
+[controller_server-21] [0m[INFO] [1790052696.945155036] [local_costmap.local_costmap]: Initialized plugin "cube_layer"[0m
+[controller_server-21] [0m[INFO] [1790052696.946385239] [local_costmap.local_costmap]: Using plugin "obstacle_layer"[0m
+[controller_server-21] [0m[INFO] [1790052696.947665936] [local_costmap.local_costmap]: Subscribed to Topics: scan[0m
+[controller_server-21] [0m[INFO] [1790052696.953843084] [local_costmap.local_costmap]: Initialized plugin "obstacle_layer"[0m
+[controller_server-21] [0m[INFO] [1790052696.953899110] [local_costmap.local_costmap]: Using plugin "inflation_layer"[0m
+[controller_server-21] [0m[INFO] [1790052696.955051108] [local_costmap.local_costmap]: Initialized plugin "inflation_layer"[0m
+[controller_server-21] [0m[INFO] [1790052696.974660030] [controller_server]: Created progress_checker : progress_checker of type nav2_controller::SimpleProgressChecker[0m
+[controller_server-21] [0m[INFO] [1790052696.975419056] [controller_server]: Created goal checker : general_goal_checker of type nav2_controller::SimpleGoalChecker[0m
+[controller_server-21] [0m[INFO] [1790052696.975482790] [local_costmap.local_costmap]: StaticLayer: Resizing static layer to 658 X 822 at 0.050000 m/pix[0m
+[controller_server-21] [0m[INFO] [1790052696.975746587] [controller_server]: Controller Server has general_goal_checker  goal checkers available.[0m
+[controller_server-21] [0m[INFO] [1790052696.976748501] [controller_server]: Created controller : FollowPath of type nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController[0m
+[controller_server-21] [0m[INFO] [1790052696.981706457] [controller_server]: Controller Server has FollowPath  controllers available.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052696.991409946] [lifecycle_manager_navigation]: [34m[1mConfiguring smoother_server[0m[0m[0m
+[smoother_server-22] [0m[INFO] [1790052696.991688400] [smoother_server]: Configuring smoother server[0m
+[map_server-18] [0m[INFO] [1790052697.000478581] [map_io]: Read map /home/ros/dev_ws/install/moon_warehouse_bringup/share/moon_warehouse_bringup/maps/competition_v2_map.pgm: 658 X 822 map @ 0.05 m/cell[0m
+[lifecycle_manager-20] [0m[INFO] [1790052697.016769357] [lifecycle_manager_localization]: [34m[1mConfiguring amcl[0m[0m[0m
+[amcl-19] [0m[INFO] [1790052697.018398997] [amcl]: Configuring[0m
+[amcl-19] [0m[INFO] [1790052697.018623184] [amcl]: initTransforms[0m
+[smoother_server-22] [0m[INFO] [1790052697.025559294] [smoother_server]: Created smoother : simple_smoother of type nav2_smoother::SimpleSmoother[0m
+[smoother_server-22] [0m[INFO] [1790052697.027169442] [smoother_server]: Smoother Server has simple_smoother  smoothers available.[0m
+[amcl-19] [0m[INFO] [1790052697.051212086] [amcl]: initPubSub[0m
+[amcl-19] [0m[INFO] [1790052697.064156356] [amcl]: Subscribed to map topic.[0m
+[lifecycle_manager-20] [0m[INFO] [1790052697.080906349] [lifecycle_manager_localization]: [34m[1mActivating map_server[0m[0m[0m
+[map_server-18] [0m[INFO] [1790052697.081097529] [map_server]: Activating[0m
+[map_server-18] [0m[INFO] [1790052697.081896001] [map_server]: Creating bond (map_server) to lifecycle manager.[0m
+[amcl-19] [0m[INFO] [1790052697.095470967] [amcl]: Received a 658 X 822 map @ 0.050 m/pix[0m
+[lifecycle_manager-20] [0m[INFO] [1790052697.199599899] [lifecycle_manager_localization]: Server map_server connected with bond.[0m
+[lifecycle_manager-20] [0m[INFO] [1790052697.199648562] [lifecycle_manager_localization]: [34m[1mActivating amcl[0m[0m[0m
+[amcl-19] [0m[INFO] [1790052697.199935950] [amcl]: Activating[0m
+[amcl-19] [0m[INFO] [1790052697.199962868] [amcl]: Creating bond (amcl) to lifecycle manager.[0m
+[lifecycle_manager-20] [0m[INFO] [1790052697.307847082] [lifecycle_manager_localization]: Server amcl connected with bond.[0m
+[lifecycle_manager-20] [0m[INFO] [1790052697.307963129] [lifecycle_manager_localization]: [34m[1mManaged nodes are active[0m[0m[0m
+[lifecycle_manager-20] [0m[INFO] [1790052697.307983397] [lifecycle_manager_localization]: [34m[1mCreating bond timer...[0m[0m[0m
+[amcl-19] [0m[INFO] [1790052697.584613743] [amcl]: createLaserObject[0m
+[lifecycle_manager-29] [0m[INFO] [1790052697.638351826] [lifecycle_manager_navigation]: [34m[1mConfiguring planner_server[0m[0m[0m
+[planner_server-23] [0m[INFO] [1790052697.639665223] [planner_server]: Configuring[0m
+[planner_server-23] [0m[INFO] [1790052697.639695132] [global_costmap.global_costmap]: Configuring[0m
+[planner_server-23] [0m[INFO] [1790052697.652203401] [global_costmap.global_costmap]: Using plugin "static_layer"[0m
+[planner_server-23] [0m[INFO] [1790052697.654719995] [global_costmap.global_costmap]: Subscribing to the map topic (/map) with transient local durability[0m
+[planner_server-23] [0m[INFO] [1790052697.656977366] [global_costmap.global_costmap]: Initialized plugin "static_layer"[0m
+[planner_server-23] [0m[INFO] [1790052697.656998238] [global_costmap.global_costmap]: Using plugin "cube_layer"[0m
+[planner_server-23] [0m[INFO] [1790052697.658227661] [global_costmap.global_costmap]: Subscribing to the map topic (/cube_obstacle_map) with transient local durability[0m
+[planner_server-23] [0m[INFO] [1790052697.659721967] [global_costmap.global_costmap]: Initialized plugin "cube_layer"[0m
+[planner_server-23] [0m[INFO] [1790052697.659753382] [global_costmap.global_costmap]: Using plugin "obstacle_layer"[0m
+[planner_server-23] [0m[INFO] [1790052697.660174318] [global_costmap.global_costmap]: Subscribed to Topics: scan[0m
+[planner_server-23] [0m[INFO] [1790052697.663762570] [global_costmap.global_costmap]: Initialized plugin "obstacle_layer"[0m
+[planner_server-23] [0m[INFO] [1790052697.663791596] [global_costmap.global_costmap]: Using plugin "inflation_layer"[0m
+[planner_server-23] [0m[INFO] [1790052697.664406794] [global_costmap.global_costmap]: Initialized plugin "inflation_layer"[0m
+[planner_server-23] [0m[INFO] [1790052697.680920209] [planner_server]: Created global planner plugin GridBased of type nav2_smac_planner/SmacPlanner2D[0m
+[planner_server-23] [0m[INFO] [1790052697.680960059] [planner_server]: Configuring GridBased of type SmacPlanner2D[0m
+[planner_server-23] [0m[INFO] [1790052697.683177172] [global_costmap.global_costmap]: StaticLayer: Resizing costmap to 658 X 822 at 0.050000 m/pix[0m
+[planner_server-23] [0m[INFO] [1790052697.683604055] [planner_server]: Configured plugin GridBased of type SmacPlanner2D with tolerance 0.30, maximum iterations 100000, max on approach iterations 1000, and allowing unknown traversal.[0m
+[planner_server-23] [0m[INFO] [1790052697.683626046] [planner_server]: Planner Server has GridBased  planners available.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052697.695131836] [lifecycle_manager_navigation]: [34m[1mConfiguring behavior_server[0m[0m[0m
+[behavior_server-24] [0m[INFO] [1790052697.695574746] [behavior_server]: Configuring[0m
+[behavior_server-24] [0m[INFO] [1790052697.709997938] [behavior_server]: Creating behavior plugin spin of type nav2_behaviors/Spin[0m
+[behavior_server-24] [0m[INFO] [1790052697.710530168] [behavior_server]: Configuring spin[0m
+[behavior_server-24] [0m[INFO] [1790052697.722159100] [behavior_server]: Creating behavior plugin backup of type nav2_behaviors/BackUp[0m
+[behavior_server-24] [0m[INFO] [1790052697.722675665] [behavior_server]: Configuring backup[0m
+[behavior_server-24] [0m[INFO] [1790052697.732597745] [behavior_server]: Creating behavior plugin drive_on_heading of type nav2_behaviors/DriveOnHeading[0m
+[behavior_server-24] [0m[INFO] [1790052697.733101409] [behavior_server]: Configuring drive_on_heading[0m
+[behavior_server-24] [0m[INFO] [1790052697.741427323] [behavior_server]: Creating behavior plugin assisted_teleop of type nav2_behaviors/AssistedTeleop[0m
+[behavior_server-24] [0m[INFO] [1790052697.742427995] [behavior_server]: Configuring assisted_teleop[0m
+[behavior_server-24] [0m[INFO] [1790052697.752503716] [behavior_server]: Creating behavior plugin wait of type nav2_behaviors/Wait[0m
+[behavior_server-24] [0m[INFO] [1790052697.753160507] [behavior_server]: Configuring wait[0m
+[lifecycle_manager-29] [0m[INFO] [1790052697.759400022] [lifecycle_manager_navigation]: [34m[1mConfiguring bt_navigator[0m[0m[0m
+[bt_navigator-25] [0m[INFO] [1790052697.759665586] [bt_navigator]: Configuring[0m
+[lifecycle_manager-29] [0m[INFO] [1790052697.849998008] [lifecycle_manager_navigation]: [34m[1mConfiguring waypoint_follower[0m[0m[0m
+[waypoint_follower-26] [0m[INFO] [1790052697.850242939] [waypoint_follower]: Configuring[0m
+[waypoint_follower-26] [0m[INFO] [1790052697.871131928] [waypoint_follower]: Created waypoint_task_executor : wait_at_waypoint of type nav2_waypoint_follower::WaitAtWaypoint[0m
+[lifecycle_manager-29] [0m[INFO] [1790052697.872561674] [lifecycle_manager_navigation]: [34m[1mConfiguring velocity_smoother[0m[0m[0m
+[velocity_smoother-27] [0m[INFO] [1790052697.872824798] [velocity_smoother]: Configuring velocity smoother[0m
+[lifecycle_manager-29] [0m[INFO] [1790052697.876516368] [lifecycle_manager_navigation]: [34m[1mConfiguring collision_monitor[0m[0m[0m
+[collision_monitor-28] [0m[INFO] [1790052697.876750287] [collision_monitor]: Configuring[0m
+[collision_monitor-28] [0m[INFO] [1790052697.887705676] [collision_monitor]: [FootprintApproach]: Creating Polygon[0m
+[collision_monitor-28] [0m[INFO] [1790052697.892621265] [collision_monitor]: [scan]: Creating Scan[0m
+[lifecycle_manager-29] [0m[INFO] [1790052697.900741032] [lifecycle_manager_navigation]: [34m[1mActivating controller_server[0m[0m[0m
+[controller_server-21] [0m[INFO] [1790052697.900947789] [controller_server]: Activating[0m
+[controller_server-21] [0m[INFO] [1790052697.900980502] [local_costmap.local_costmap]: Activating[0m
+[controller_server-21] [0m[INFO] [1790052697.900993526] [local_costmap.local_costmap]: Checking transform[0m
+[controller_server-21] [0m[INFO] [1790052697.901013735] [local_costmap.local_costmap]: Timed out waiting for transform from base_footprint to odom to become available, tf error: Could not find a connection between 'odom' and 'base_footprint' because they are not part of the same tree.Tf has two or more unconnected trees.[0m
+[controller_server-21] [0m[INFO] [1790052698.401165016] [local_costmap.local_costmap]: start[0m
+[gazebo-1] [0m[1;32m[0m[1;32m[0m[moving_obstacle_1] Time: 239.149s | Pos: (-0.75025,2.8) | Vel: 0.25m/s | ToEND: 1.75025m
+[controller_server-21] [0m[INFO] [1790052698.602522051] [controller_server]: Activating controller: FollowPath of type regulated_pure_pursuit_controller::RegulatedPurePursuitController[0m
+[controller_server-21] [0m[INFO] [1790052698.602565267] [controller_server]: Creating bond (controller_server) to lifecycle manager.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052698.709034215] [lifecycle_manager_navigation]: Server controller_server connected with bond.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052698.709084262] [lifecycle_manager_navigation]: [34m[1mActivating smoother_server[0m[0m[0m
+[smoother_server-22] [0m[INFO] [1790052698.709419545] [smoother_server]: Activating[0m
+[smoother_server-22] [0m[INFO] [1790052698.709446875] [smoother_server]: Creating bond (smoother_server) to lifecycle manager.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052698.817125715] [lifecycle_manager_navigation]: Server smoother_server connected with bond.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052698.817168382] [lifecycle_manager_navigation]: [34m[1mActivating planner_server[0m[0m[0m
+[planner_server-23] [0m[INFO] [1790052698.817553259] [planner_server]: Activating[0m
+[planner_server-23] [0m[INFO] [1790052698.817585606] [global_costmap.global_costmap]: Activating[0m
+[planner_server-23] [0m[INFO] [1790052698.817594504] [global_costmap.global_costmap]: Checking transform[0m
+[planner_server-23] [0m[INFO] [1790052698.817683047] [global_costmap.global_costmap]: start[0m
+[amcl-19] [33m[WARN] [1790052699.194848799] [amcl]: AMCL cannot publish a pose or update the transform. Please set the initial pose...[0m
+[planner_server-23] [0m[INFO] [1790052699.868825795] [planner_server]: Activating plugin GridBased of type SmacPlanner2D[0m
+[planner_server-23] [0m[INFO] [1790052699.870519163] [planner_server]: Creating bond (planner_server) to lifecycle manager.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052699.975481342] [lifecycle_manager_navigation]: Server planner_server connected with bond.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052699.975547023] [lifecycle_manager_navigation]: [34m[1mActivating behavior_server[0m[0m[0m
+[behavior_server-24] [0m[INFO] [1790052699.975951821] [behavior_server]: Activating[0m
+[behavior_server-24] [0m[INFO] [1790052699.975979682] [behavior_server]: Activating spin[0m
+[behavior_server-24] [0m[INFO] [1790052699.975992790] [behavior_server]: Activating backup[0m
+[behavior_server-24] [0m[INFO] [1790052699.976002956] [behavior_server]: Activating drive_on_heading[0m
+[behavior_server-24] [0m[INFO] [1790052699.976034747] [behavior_server]: Activating assisted_teleop[0m
+[behavior_server-24] [0m[INFO] [1790052699.976044879] [behavior_server]: Activating wait[0m
+[behavior_server-24] [0m[INFO] [1790052699.976058430] [behavior_server]: Creating bond (behavior_server) to lifecycle manager.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052700.082980016] [lifecycle_manager_navigation]: Server behavior_server connected with bond.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052700.083024800] [lifecycle_manager_navigation]: [34m[1mActivating bt_navigator[0m[0m[0m
+[bt_navigator-25] [0m[INFO] [1790052700.083533406] [bt_navigator]: Activating[0m
+[bt_navigator-25] [0m[INFO] [1790052700.162257785] [bt_navigator]: Creating bond (bt_navigator) to lifecycle manager.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052700.268367231] [lifecycle_manager_navigation]: Server bt_navigator connected with bond.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052700.268407838] [lifecycle_manager_navigation]: [34m[1mActivating waypoint_follower[0m[0m[0m
+[waypoint_follower-26] [0m[INFO] [1790052700.268718202] [waypoint_follower]: Activating[0m
+[waypoint_follower-26] [0m[INFO] [1790052700.268747449] [waypoint_follower]: Creating bond (waypoint_follower) to lifecycle manager.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052700.375347893] [lifecycle_manager_navigation]: Server waypoint_follower connected with bond.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052700.375403455] [lifecycle_manager_navigation]: [34m[1mActivating velocity_smoother[0m[0m[0m
+[velocity_smoother-27] [0m[INFO] [1790052700.375908171] [velocity_smoother]: Activating[0m
+[velocity_smoother-27] [0m[INFO] [1790052700.375974631] [velocity_smoother]: Creating bond (velocity_smoother) to lifecycle manager.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052700.485141904] [lifecycle_manager_navigation]: Server velocity_smoother connected with bond.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052700.485172367] [lifecycle_manager_navigation]: [34m[1mActivating collision_monitor[0m[0m[0m
+[collision_monitor-28] [0m[INFO] [1790052700.485583359] [collision_monitor]: Activating[0m
+[collision_monitor-28] [0m[INFO] [1790052700.485613074] [collision_monitor]: Creating bond (collision_monitor) to lifecycle manager.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052700.593061160] [lifecycle_manager_navigation]: Server collision_monitor connected with bond.[0m
+[lifecycle_manager-29] [0m[INFO] [1790052700.593104243] [lifecycle_manager_navigation]: [34m[1mManaged nodes are active[0m[0m[0m
+[lifecycle_manager-29] [0m[INFO] [1790052700.593113169] [lifecycle_manager_navigation]: [34m[1mCreating bond timer...[0m[0m[0m
+[amcl-19] [33m[WARN] [1790052701.256837583] [amcl]: AMCL cannot publish a pose or update the transform. Please set the initial pose...[0m
+[INFO] [initial_pose_publisher.py-30]: process started with pid [92174]
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052701.608648268] [dynamic_obstacle_scan_filter]: Filtered 2309 dynamic scan beams in 5 s[0m
+[amcl-19] [0m[INFO] [1790052702.563892745] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052702.563959915] [amcl]: Setting pose (243.149000): -0.000 0.000 -0.000[0m
+[INFO] [rviz2-31]: process started with pid [92202]
+[rviz2-31] Warning: Ignoring XDG_SESSION_TYPE=wayland on Gnome. Use QT_QPA_PLATFORM=wayland to run on Wayland anyway.
+[gazebo-1] [moving_obstacle_1] Time: 244.149s | Pos: (0.49975,2.8) | Vel: 0.25m/s | ToEND: 0.50025m
+[amcl-19] [0m[INFO] [1790052703.563807357] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052703.563860494] [amcl]: Setting pose (244.149000): -0.000 0.000 -0.000[0m
+[rviz2-31] [0m[INFO] [1790052703.627723571] [rviz2]: Stereo is NOT SUPPORTED[0m
+[rviz2-31] [0m[INFO] [1790052703.627863437] [rviz2]: OpenGl version: 4.3 (GLSL 4.3)[0m
+[rviz2-31] [0m[INFO] [1790052703.646326087] [rviz2]: Stereo is NOT SUPPORTED[0m
+[amcl-19] [33m[WARN] [1790052703.822318939] [amcl]: New subscription discovered on topic '/particle_cloud', requesting incompatible QoS. No messages will be sent to it. Last incompatible policy: RELIABILITY_QOS_POLICY[0m
+[rviz2-31] [0m[INFO] [1790052703.882069331] [rviz2]: Trying to create a map of size 658 x 822 using 1 swatches[0m
+[rviz2-31] [31m[ERROR] [1790052703.887714637] [rviz2]: Vertex Program:rviz/glsl120/indexed_8bit_image.vert Fragment Program:rviz/glsl120/indexed_8bit_image.frag GLSL link result : 
+[rviz2-31] active samplers with a different type refer to the same texture image unit[0m
+[rviz2-31] [0m[INFO] [1790052704.562847109] [rviz2]: Trying to create a map of size 120 x 120 using 1 swatches[0m
+[amcl-19] [0m[INFO] [1790052704.564163520] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052704.564237971] [amcl]: Setting pose (245.149000): -0.000 0.000 -0.000[0m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to START
+[amcl-19] [0m[INFO] [1790052705.563910192] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052705.563963900] [amcl]: Setting pose (246.149000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052706.564254081] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052706.564350074] [amcl]: Setting pose (247.149000): -0.000 0.000 -0.000[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052706.648384328] [dynamic_obstacle_scan_filter]: Filtered 2132 dynamic scan beams in 5 s[0m
+[amcl-19] [0m[INFO] [1790052707.563902643] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052707.564011262] [amcl]: Setting pose (248.149000): 0.000 0.000 0.000[0m
+[amcl-19] [0m[INFO] [1790052708.564054076] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052708.564108675] [amcl]: Setting pose (249.049000): -0.000 0.000 -0.000[0m
+[gazebo-1] [moving_obstacle_1] Time: 249.149s | Pos: (0.25025,2.8) | Vel: 0.25m/s | ToSTART: 2.25025m
+[amcl-19] [0m[INFO] [1790052709.563829166] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052709.563877948] [amcl]: Setting pose (250.049000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052710.563874195] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052710.563935669] [amcl]: Setting pose (251.049000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052711.563819857] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052711.563864995] [amcl]: Setting pose (252.049000): -0.000 0.000 -0.000[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052711.649693106] [dynamic_obstacle_scan_filter]: Filtered 2172 dynamic scan beams in 5 s[0m
+[amcl-19] [0m[INFO] [1790052712.563823849] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052712.563866799] [amcl]: Setting pose (253.049000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052713.564019723] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052713.564169864] [amcl]: Setting pose (254.049000): -0.000 0.000 -0.000[0m
+[gazebo-1] [moving_obstacle_1] Time: 254.149s | Pos: (-0.99975,2.8) | Vel: 0.25m/s | ToSTART: 1.00025m
+[amcl-19] [0m[INFO] [1790052714.563905863] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052714.563979357] [amcl]: Setting pose (255.049000): 0.000 0.000 0.000[0m
+[amcl-19] [0m[INFO] [1790052715.563834347] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052715.563909310] [amcl]: Setting pose (256.049000): 0.000 0.000 0.000[0m
+[amcl-19] [0m[INFO] [1790052716.563858811] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052716.563941276] [amcl]: Setting pose (256.949000): -0.000 0.000 -0.000[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052716.665440403] [dynamic_obstacle_scan_filter]: Filtered 2494 dynamic scan beams in 5 s[0m
+[amcl-19] [0m[INFO] [1790052717.563962281] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052717.564032843] [amcl]: Setting pose (257.949000): -0.000 0.000 -0.000[0m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to END
+[amcl-19] [0m[INFO] [1790052718.563883221] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052718.563940539] [amcl]: Setting pose (258.949000): -0.000 0.000 -0.000[0m
+[gazebo-1] [moving_obstacle_1] Time: 259.149s | Pos: (-1.7505,2.8) | Vel: 0.25m/s | ToEND: 2.7505m
+[amcl-19] [0m[INFO] [1790052719.563772963] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052719.563817790] [amcl]: Setting pose (259.949000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052720.563767069] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052720.563820547] [amcl]: Setting pose (260.949000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052721.563911009] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052721.563963579] [amcl]: Setting pose (261.949000): -0.000 0.000 -0.000[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052721.680131257] [dynamic_obstacle_scan_filter]: Filtered 2595 dynamic scan beams in 5 s[0m
+[amcl-19] [0m[INFO] [1790052722.563869105] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052722.563924645] [amcl]: Setting pose (262.949000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052723.563832524] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052723.563885813] [amcl]: Setting pose (263.949000): 0.000 0.000 0.000[0m
+[gazebo-1] [moving_obstacle_1] Time: 264.149s | Pos: (-0.5005,2.8) | Vel: 0.25m/s | ToEND: 1.5005m
+[amcl-19] [0m[INFO] [1790052724.564083859] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052724.564166624] [amcl]: Setting pose (264.949000): 0.000 0.000 0.000[0m
+[amcl-19] [0m[INFO] [1790052725.563782284] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052725.563840863] [amcl]: Setting pose (265.849000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052726.563859870] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052726.563915445] [amcl]: Setting pose (266.849000): -0.000 0.000 -0.000[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052726.728314646] [dynamic_obstacle_scan_filter]: Filtered 2280 dynamic scan beams in 5 s[0m
+[amcl-19] [0m[INFO] [1790052727.563886538] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052727.563940829] [amcl]: Setting pose (267.849000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052728.564109043] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052728.564199725] [amcl]: Setting pose (268.749000): -0.000 0.000 -0.000[0m
+[gazebo-1] [moving_obstacle_1] Time: 269.149s | Pos: (0.7495,2.8) | Vel: 0.25m/s | ToEND: 0.2505m
+[amcl-19] [0m[INFO] [1790052729.563849756] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052729.563916208] [amcl]: Setting pose (269.749000): -0.000 0.000 -0.000[0m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to START
+[amcl-19] [0m[INFO] [1790052730.563976265] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052730.564037083] [amcl]: Setting pose (270.649000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052731.564148615] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052731.564210354] [amcl]: Setting pose (271.649000): -0.000 0.000 -0.000[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052731.750647653] [dynamic_obstacle_scan_filter]: Filtered 2087 dynamic scan beams in 5 s[0m
+[amcl-19] [0m[INFO] [1790052732.563814547] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052732.563865228] [amcl]: Setting pose (272.649000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052733.563829375] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052733.563907553] [amcl]: Setting pose (273.649000): 0.000 0.000 0.000[0m
+[gazebo-1] [moving_obstacle_1] Time: 274.149s | Pos: (0.0005,2.8) | Vel: 0.25m/s | ToSTART: 2.0005m
+[amcl-19] [0m[INFO] [1790052734.563832727] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052734.563873880] [amcl]: Setting pose (274.649000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052735.563912912] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052735.564123221] [amcl]: Setting pose (275.549000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052736.563987565] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052736.564045425] [amcl]: Setting pose (276.549000): -0.000 0.000 -0.000[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052736.789574438] [dynamic_obstacle_scan_filter]: Filtered 2151 dynamic scan beams in 5 s[0m
+[amcl-19] [0m[INFO] [1790052737.563804308] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052737.563860398] [amcl]: Setting pose (277.449000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052738.564143753] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052738.564302036] [amcl]: Setting pose (278.449000): -0.000 0.000 -0.000[0m
+[gazebo-1] [moving_obstacle_1] Time: 279.149s | Pos: (-1.2495,2.8) | Vel: 0.25m/s | ToSTART: 0.7505m
+[amcl-19] [0m[INFO] [1790052739.564368020] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052739.564453295] [amcl]: Setting pose (279.349000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052740.564231654] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052740.564385533] [amcl]: Setting pose (280.349000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052741.563879684] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052741.563931945] [amcl]: Setting pose (281.349000): -0.000 0.000 -0.000[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052741.822106206] [dynamic_obstacle_scan_filter]: Filtered 2501 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to END
+[amcl-19] [0m[INFO] [1790052742.563951430] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052742.564031101] [amcl]: Setting pose (282.349000): -0.000 0.000 -0.000[0m
+[amcl-19] [0m[INFO] [1790052743.563840006] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052743.563892723] [amcl]: Setting pose (283.249000): -0.000 0.000 -0.000[0m
+[gazebo-1] [moving_obstacle_1] Time: 284.149s | Pos: (-1.5005,2.8) | Vel: 0.25m/s | ToEND: 2.5005m
+[amcl-19] [0m[INFO] [1790052744.563830510] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052744.563885192] [amcl]: Setting pose (284.249000): -0.000 0.000 -0.000[0m
+[planner_server-23] [0m[INFO] [1790052745.291639765] [global_costmap.global_costmap]: Message Filter dropping message: frame 'laser_link' at time 284.756 for reason 'the timestamp on the message is earlier than all the data in the transform cache'[0m
+[amcl-19] [0m[INFO] [1790052745.563822434] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052745.563872405] [amcl]: Setting pose (285.249000): -0.000 0.000 -0.000[0m
+[controller_server-21] [0m[INFO] [1790052746.502615917] [local_costmap.local_costmap]: Message Filter dropping message: frame 'laser_link' at time 286.005 for reason 'the timestamp on the message is earlier than all the data in the transform cache'[0m
+[amcl-19] [0m[INFO] [1790052746.564086769] [amcl]: initialPoseReceived[0m
+[amcl-19] [0m[INFO] [1790052746.564128418] [amcl]: Setting pose (286.249000): -0.000 0.000 -0.000[0m
+[initial_pose_publisher.py-30] [0m[INFO] [1790052746.578967497] [simulation_initial_pose_publisher]: Initial pose burst completed.[0m
+[INFO] [initial_pose_publisher.py-30]: process has finished cleanly [pid 92174]
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052746.861682669] [dynamic_obstacle_scan_filter]: Filtered 2573 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 289.149s | Pos: (-0.2505,2.8) | Vel: 0.25m/s | ToEND: 1.2505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052751.904852229] [dynamic_obstacle_scan_filter]: Filtered 2268 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 294.149s | Pos: (0.9995,2.8) | Vel: 0.25m/s | ToEND: 0.0005m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to START
+[bt_navigator-25] [0m[INFO] [1790052755.837208937] [bt_navigator]: Begin navigating from current location (0.06, -0.00) to (0.45, 1.32)[0m
+[controller_server-21] [0m[INFO] [1790052755.889942876] [controller_server]: Received a goal, begin computing control effort.[0m
+[controller_server-21] [33m[WARN] [1790052755.890775325] [controller_server]: No goal checker was specified in parameter 'current_goal_checker'. Server will use only plugin loaded general_goal_checker . This warning will appear once.[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052756.905007258] [dynamic_obstacle_scan_filter]: Filtered 2071 dynamic scan beams in 5 s[0m
+[controller_server-21] [0m[INFO] [1790052759.291071439] [controller_server]: Goal was canceled. Stopping the robot.[0m
+[controller_server-21] [0m[INFO] [1790052759.291135083] [controller_server]: [follow_path] [ActionServer] Client requested to cancel the goal. Cancelling.[0m
+[bt_navigator-25] [0m[INFO] [1790052759.291663107] [bt_navigator]: [navigate_to_pose] [ActionServer] Client requested to cancel the goal. Cancelling.[0m
+[bt_navigator-25] [0m[INFO] [1790052759.291874085] [bt_navigator]: Goal canceled[0m
+[gazebo-1] [moving_obstacle_1] Time: 299.149s | Pos: (-0.2495,2.8) | Vel: 0.25m/s | ToSTART: 1.7505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052761.909216480] [dynamic_obstacle_scan_filter]: Filtered 2469 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 304.149s | Pos: (-1.4995,2.8) | Vel: 0.25m/s | ToSTART: 0.5005m
+[fixed_manipulation_server-11] [0m[INFO] [1790052765.087140399] [fixed_manipulation_server]: Stage: open_gripper (0%)[0m
+[gazebo-1] [0m[INFO] [1790052765.103111270] [gripper_controller]: Received new action goal[0m
+[gazebo-1] [0m[INFO] [1790052765.103208061] [gripper_controller]: Accepted new action goal[0m
+[gazebo-1] [0m[INFO] [1790052765.361227765] [gripper_controller]: Goal reached, success![0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052765.406439364] [fixed_manipulation_server]:   [open] 319ms[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052765.414441340] [fixed_manipulation_server]: Dynamic IK blue_cube_5: target=(0.391,0.004,-0.122), yaw_height_comp=0.0017m, pick_error=0.0013m, pre_error=0.0007m.[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052765.415001617] [fixed_manipulation_server]: Stage: move_to_pregrasp (10%)[0m
+[gazebo-1] [0m[INFO] [1790052765.430672239] [arm_controller]: Received new action goal[0m
+[gazebo-1] [0m[INFO] [1790052765.430729167] [arm_controller]: Accepted new action goal[0m
+[gazebo-1] [0m[INFO] [1790052766.391662240] [arm_controller]: Goal reached, success![0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052766.433099042] [fixed_manipulation_server]:   [move_to_pregrasp] 1025ms[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052766.433685467] [fixed_manipulation_server]: Stage: descend_to_pick_pose (25%)[0m
+[gazebo-1] [0m[INFO] [1790052766.449289119] [arm_controller]: Received new action goal[0m
+[gazebo-1] [0m[INFO] [1790052766.449333477] [arm_controller]: Accepted new action goal[0m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to END
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052766.914358805] [dynamic_obstacle_scan_filter]: Filtered 2783 dynamic scan beams in 5 s[0m
+[gazebo-1] [0m[INFO] [1790052767.567229851] [arm_controller]: Goal reached, success![0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052767.601474372] [fixed_manipulation_server]:   [descend_to_pick_pose] 1167ms[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052767.601990113] [fixed_manipulation_server]: Stage: stabilize_before_close (35%)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052767.722732305] [fixed_manipulation_server]: Stage: close_gripper (40%)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052767.740036187] [fixed_manipulation_server]: Yaw-aware gripper close for blue_cube_5: yaw=-1.614rad, projected_width=0.031m, target_gap=0.030m, travel=0.0174m.[0m
+[gazebo-1] [0m[INFO] [1790052767.740524509] [gripper_controller]: Received new action goal[0m
+[gazebo-1] [0m[INFO] [1790052767.740579366] [gripper_controller]: Accepted new action goal[0m
+[gazebo-1] [0m[INFO] [1790052768.049982571] [gripper_controller]: Goal reached, success![0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.093184507] [fixed_manipulation_server]:   [close] 369ms[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.093682805] [fixed_manipulation_server]: Stage: validate_grasp_window (50%)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.095960621] [fixed_manipulation_server]: blue_cube_5 relative to link6: x=0.0193, y=-0.0004, z=0.0565, in_grasp_window=True[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.096572614] [fixed_manipulation_server]: Stage: establish_floor_clearance (58%)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.100692417] [fixed_manipulation_server]: blue_cube_5 relative to link6: x=0.0187, y=-0.0004, z=0.0536, in_grasp_window=True[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.102283477] [fixed_manipulation_server]: Stage: attach_object (65%)[0m
+[gazebo-1] [1;31m[Err] [ODEJoint.cc:1007] [0m[1;31mODEJoint::SetDamping: index[[0m[1;31m1[0m[1;31m] is out of bounds (DOF() = [0m[1;31m1[0m[1;31m).
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.108300051] [fixed_manipulation_server]: Stage: settling_for_attachment (72%)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.125445097] [fixed_manipulation_server]: Stage: validate_attachment (85%)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.141133230] [fixed_manipulation_server]: Starting static attachment validation: 3 samples @ 0.08s interval.[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.224448761] [fixed_manipulation_server]:   sample 1/3: x=0.019074, y=-0.000344, z=0.052801[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.306952219] [fixed_manipulation_server]:   sample 2/3: x=0.019074, y=-0.000359, z=0.052796[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.390446632] [fixed_manipulation_server]:   sample 3/3: x=0.019072, y=-0.000359, z=0.052797[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.390933736] [fixed_manipulation_server]: Static attachment validation: max drift=0.000015 m (tolerance=0.010000 m)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052768.391587837] [fixed_manipulation_server]: Stage: lift_attached_object (90%)[0m
+[gazebo-1] [0m[0m[INFO] [1790052768.407533477] [arm_controller]: Received new action goal[0m
+[gazebo-1] [0m[INFO] [1790052768.407603687] [arm_controller]: Accepted new action goal[0m
+[gazebo-1] [0m[INFO] [1790052769.324605464] [arm_controller]: Goal reached, success![0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052769.375206135] [fixed_manipulation_server]: Stage: validate_lifted_attachment (93%)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052769.390825546] [fixed_manipulation_server]: Starting static attachment validation: 3 samples @ 0.08s interval.[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052769.474647072] [fixed_manipulation_server]:   sample 1/3: x=0.018957, y=-0.000358, z=0.052597[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052769.556925803] [fixed_manipulation_server]:   sample 2/3: x=0.018957, y=-0.000358, z=0.052597[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052769.638460019] [fixed_manipulation_server]:   sample 3/3: x=0.018957, y=-0.000358, z=0.052597[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052769.638757137] [fixed_manipulation_server]: Static attachment validation: max drift=0.000000 m (tolerance=0.010000 m)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052769.639213014] [fixed_manipulation_server]: Stage: carry_hold (97%)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052769.655028876] [fixed_manipulation_server]: Stage: pick_complete (100%)[0m
+[gazebo-1] [moving_obstacle_1] Time: 309.149s | Pos: (-1.2505,2.8) | Vel: 0.25m/s | ToEND: 2.2505m
+[bt_navigator-25] [0m[INFO] [1790052769.762916695] [bt_navigator]: Begin navigating from current location (0.43, 1.31) to (-1.45, -2.40)[0m
+[controller_server-21] [0m[INFO] [1790052769.863575768] [controller_server]: Received a goal, begin computing control effort.[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052771.918460683] [dynamic_obstacle_scan_filter]: Filtered 2879 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 314.149s | Pos: (-0.0005,2.8) | Vel: 0.25m/s | ToEND: 1.0005m
+[sipp_velocity_gate.py-9] [0m[INFO] [1790052775.965591328] [sipp_velocity_gate]: Cruise guard enter[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052776.936942338] [dynamic_obstacle_scan_filter]: Filtered 2891 dynamic scan beams in 5 s[0m
+[sipp_velocity_gate.py-9] [0m[INFO] [1790052777.266796947] [sipp_velocity_gate]: Cruise guard exit: near_goal[0m
+[controller_server-21] [0m[INFO] [1790052777.363752390] [controller_server]: Goal was canceled. Stopping the robot.[0m
+[controller_server-21] [0m[INFO] [1790052777.363804741] [controller_server]: [follow_path] [ActionServer] Client requested to cancel the goal. Cancelling.[0m
+[bt_navigator-25] [0m[INFO] [1790052777.363982583] [bt_navigator]: [navigate_to_pose] [ActionServer] Client requested to cancel the goal. Cancelling.[0m
+[bt_navigator-25] [0m[INFO] [1790052777.364193570] [bt_navigator]: Goal canceled[0m
+[bt_navigator-25] [0m[INFO] [1790052777.910761093] [bt_navigator]: Begin navigating from current location (-1.29, -2.10) to (-1.57, -4.95)[0m
+[controller_server-21] [0m[INFO] [1790052778.012299364] [controller_server]: Received a goal, begin computing control effort.[0m
+[sipp_velocity_gate.py-9] [0m[INFO] [1790052778.763565764] [sipp_velocity_gate]: Cruise guard enter[0m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_1] Time: 319.149s | Pos: (0.7505,2.8) | Vel: 0.25m/s | ToSTART: 2.7505m
+[sipp_velocity_gate.py-9] [0m[INFO] [1790052780.163564211] [sipp_velocity_gate]: Cruise guard exit: near_goal[0m
+[controller_server-21] [0m[INFO] [1790052780.662787068] [controller_server]: Goal was canceled. Stopping the robot.[0m
+[controller_server-21] [0m[INFO] [1790052780.662867278] [controller_server]: [follow_path] [ActionServer] Client requested to cancel the goal. Cancelling.[0m
+[bt_navigator-25] [0m[INFO] [1790052780.664507034] [bt_navigator]: [navigate_to_pose] [ActionServer] Client requested to cancel the goal. Cancelling.[0m
+[bt_navigator-25] [0m[INFO] [1790052780.665851894] [bt_navigator]: Goal canceled[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052781.944006168] [dynamic_obstacle_scan_filter]: Filtered 1773 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 324.149s | Pos: (-0.4995,2.8) | Vel: 0.25m/s | ToSTART: 1.5005m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052786.958555319] [dynamic_obstacle_scan_filter]: Filtered 1604 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 329.149s | Pos: (-1.7495,2.8) | Vel: 0.25m/s | ToSTART: 0.2505m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to END
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052791.976081046] [dynamic_obstacle_scan_filter]: Filtered 1514 dynamic scan beams in 5 s[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052792.733263855] [fixed_manipulation_server]: Stage: validate_carried_object (5%)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052792.749037312] [fixed_manipulation_server]: Stage: move_to_preplace_pose (15%)[0m
+[gazebo-1] [0m[INFO] [1790052792.764600084] [arm_controller]: Received new action goal[0m
+[gazebo-1] [0m[INFO] [1790052792.764657790] [arm_controller]: Accepted new action goal[0m
+[gazebo-1] [0m[INFO] [1790052793.728343665] [arm_controller]: Goal reached, success![0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052793.886384298] [fixed_manipulation_server]: Starting static attachment validation: 3 samples @ 0.08s interval.[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052793.968457652] [fixed_manipulation_server]:   sample 1/3: x=0.018957, y=-0.000357, z=0.052597[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052794.051386226] [fixed_manipulation_server]:   sample 2/3: x=0.018957, y=-0.000357, z=0.052597[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052794.134069263] [fixed_manipulation_server]:   sample 3/3: x=0.018957, y=-0.000357, z=0.052597[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052794.134427514] [fixed_manipulation_server]: Static attachment validation: max drift=0.000000 m (tolerance=0.010000 m)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052794.147086083] [fixed_manipulation_server]: Dynamic placement IK blue_cube_5: link6_object=(0.0190,-0.0004,0.0526)m, measured_arm_base=(0.3611,-0.0004,-0.0595)m, object_target_z=0.0215m, current_world_z=0.0978m, height_delta=-0.0763m, residual=0.0012m.[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052794.147664110] [fixed_manipulation_server]: Stage: descend_to_place_pose (35%)[0m
+[gazebo-1] [0m[INFO] [1790052794.163744921] [arm_controller]: Received new action goal[0m
+[gazebo-1] [0m[INFO] [1790052794.163798901] [arm_controller]: Accepted new action goal[0m
+[gazebo-1] [moving_obstacle_1] Time: 334.149s | Pos: (-1.0005,2.8) | Vel: 0.25m/s | ToEND: 2.0005m
+[gazebo-1] [0m[INFO] [1790052795.281392318] [arm_controller]: Goal reached, success![0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052795.516179184] [fixed_manipulation_server]: Starting static attachment validation: 3 samples @ 0.08s interval.[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052795.598370186] [fixed_manipulation_server]:   sample 1/3: x=0.019072, y=-0.000400, z=0.052619[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052795.681179863] [fixed_manipulation_server]:   sample 2/3: x=0.019064, y=-0.000440, z=0.052615[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052795.763554648] [fixed_manipulation_server]:   sample 3/3: x=0.019065, y=-0.000464, z=0.052618[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052795.763867864] [fixed_manipulation_server]: Static attachment validation: max drift=0.000064 m (tolerance=0.010000 m)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052795.764392775] [fixed_manipulation_server]: Stage: validate_placement_zone (45%)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052795.780044639] [fixed_manipulation_server]: Pre-release 3D geometry for blue_cube_5: object_z=0.0222m, object_tilt=0.0056rad, robot_z=-0.0017m, robot_tilt=0.0121rad, safe=True[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052795.780730195] [fixed_manipulation_server]: Stage: prepare_release (48%)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052795.796643379] [fixed_manipulation_server]: Stage: detach_object (50%)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052795.817762193] [fixed_manipulation_server]:   [detach_object] 22ms[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052795.818198333] [fixed_manipulation_server]: Stage: open_gripper (70%)[0m
+[gazebo-1] [0m[INFO] [1790052795.834007397] [gripper_controller]: Received new action goal[0m
+[gazebo-1] [0m[INFO] [1790052795.834087371] [gripper_controller]: Accepted new action goal[0m
+[gazebo-1] [0m[INFO] [1790052796.089632478] [gripper_controller]: Goal reached, success![0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052796.136038951] [fixed_manipulation_server]:   [open_gripper] 317ms[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052796.136534430] [fixed_manipulation_server]: Stage: settle_object (90%)[0m
+[fixed_manipulation_server-11] [0m[INFO] [1790052796.502878118] [fixed_manipulation_server]: Stage: validate_placement (95%)[0m
+[fixed_manipulation_server-11] [33m[WARN] [1790052796.518459237] [fixed_manipulation_server]: Placement sample 1/3 invalid: in_zone=True, surface_ok=True, z=0.0150m, tilt=0.0055rad, speed=0.179m/s.[0m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052796.988107994] [dynamic_obstacle_scan_filter]: Filtered 1476 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 339.149s | Pos: (0.2495,2.8) | Vel: 0.25m/s | ToEND: 0.7505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052801.994525785] [dynamic_obstacle_scan_filter]: Filtered 1489 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_1] Time: 344.149s | Pos: (0.5005,2.8) | Vel: 0.25m/s | ToSTART: 2.5005m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052807.002546460] [dynamic_obstacle_scan_filter]: Filtered 1491 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 349.149s | Pos: (-0.7495,2.8) | Vel: 0.25m/s | ToSTART: 1.2505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052812.010215237] [dynamic_obstacle_scan_filter]: Filtered 1490 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 354.149s | Pos: (-1.9995,2.8) | Vel: 0.25m/s | ToSTART: 0.0005m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to END
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052817.018576169] [dynamic_obstacle_scan_filter]: Filtered 1488 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 359.149s | Pos: (-0.7505,2.8) | Vel: 0.25m/s | ToEND: 1.7505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052822.026225510] [dynamic_obstacle_scan_filter]: Filtered 1478 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 364.149s | Pos: (0.4995,2.8) | Vel: 0.25m/s | ToEND: 0.5005m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052827.074332102] [dynamic_obstacle_scan_filter]: Filtered 1511 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_1] Time: 369.149s | Pos: (0.2505,2.8) | Vel: 0.25m/s | ToSTART: 2.2505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052832.076516418] [dynamic_obstacle_scan_filter]: Filtered 1488 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 374.149s | Pos: (-0.9995,2.8) | Vel: 0.25m/s | ToSTART: 1.0005m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052837.122576855] [dynamic_obstacle_scan_filter]: Filtered 1503 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_1] Time: 379.149s | Pos: (-1.7505,2.8) | Vel: 0.25m/s | ToEND: 2.7505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052842.172208208] [dynamic_obstacle_scan_filter]: Filtered 1500 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 384.149s | Pos: (-0.5005,2.8) | Vel: 0.25m/s | ToEND: 1.5005m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052847.220992419] [dynamic_obstacle_scan_filter]: Filtered 1499 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 389.149s | Pos: (0.7495,2.8) | Vel: 0.25m/s | ToEND: 0.2505m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to START
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052852.261098198] [dynamic_obstacle_scan_filter]: Filtered 1513 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 394.149s | Pos: (0.0005,2.8) | Vel: 0.25m/s | ToSTART: 2.0005m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052857.263031590] [dynamic_obstacle_scan_filter]: Filtered 1486 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 399.149s | Pos: (-1.2495,2.8) | Vel: 0.25m/s | ToSTART: 0.7505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052862.264870238] [dynamic_obstacle_scan_filter]: Filtered 1485 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_1] Time: 404.149s | Pos: (-1.5005,2.8) | Vel: 0.25m/s | ToEND: 2.5005m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052867.316566382] [dynamic_obstacle_scan_filter]: Filtered 1499 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 409.149s | Pos: (-0.2505,2.8) | Vel: 0.25m/s | ToEND: 1.2505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052872.358405843] [dynamic_obstacle_scan_filter]: Filtered 1506 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 414.149s | Pos: (0.9995,2.8) | Vel: 0.25m/s | ToEND: 0.0005m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to START
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052877.403017847] [dynamic_obstacle_scan_filter]: Filtered 1510 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 419.149s | Pos: (-0.2495,2.8) | Vel: 0.25m/s | ToSTART: 1.7505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052882.403436116] [dynamic_obstacle_scan_filter]: Filtered 1484 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 424.149s | Pos: (-1.4995,2.8) | Vel: 0.25m/s | ToSTART: 0.5005m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052887.424174549] [dynamic_obstacle_scan_filter]: Filtered 1481 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_1] Time: 429.149s | Pos: (-1.2505,2.8) | Vel: 0.25m/s | ToEND: 2.2505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052892.424348709] [dynamic_obstacle_scan_filter]: Filtered 1489 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 434.149s | Pos: (-0.0005,2.8) | Vel: 0.25m/s | ToEND: 1.0005m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052897.432290108] [dynamic_obstacle_scan_filter]: Filtered 1481 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_1] Time: 439.149s | Pos: (0.7505,2.8) | Vel: 0.25m/s | ToSTART: 2.7505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052902.444917436] [dynamic_obstacle_scan_filter]: Filtered 1499 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 444.149s | Pos: (-0.4995,2.8) | Vel: 0.25m/s | ToSTART: 1.5005m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052907.493397732] [dynamic_obstacle_scan_filter]: Filtered 1498 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 449.149s | Pos: (-1.7495,2.8) | Vel: 0.25m/s | ToSTART: 0.2505m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to END
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052912.542299667] [dynamic_obstacle_scan_filter]: Filtered 1500 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 454.149s | Pos: (-1.0005,2.8) | Vel: 0.25m/s | ToEND: 2.0005m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052917.587463403] [dynamic_obstacle_scan_filter]: Filtered 1499 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 459.149s | Pos: (0.2495,2.8) | Vel: 0.25m/s | ToEND: 0.7505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052922.629607220] [dynamic_obstacle_scan_filter]: Filtered 1497 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to START
+[gazebo-1] [moving_obstacle_1] Time: 464.149s | Pos: (0.5005,2.8) | Vel: 0.25m/s | ToSTART: 2.5005m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052927.645570140] [dynamic_obstacle_scan_filter]: Filtered 1492 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 469.149s | Pos: (-0.7495,2.8) | Vel: 0.25m/s | ToSTART: 1.2505m
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052932.656209811] [dynamic_obstacle_scan_filter]: Filtered 1490 dynamic scan beams in 5 s[0m
+[gazebo-1] [moving_obstacle_1] Time: 474.149s | Pos: (-1.9995,2.8) | Vel: 0.25m/s | ToSTART: 0.0005m
+[gazebo-1] [moving_obstacle_1] ----------------------------------------
+[gazebo-1] [moving_obstacle_1] Reached target, now moving to END
+[gazebo-1] [moving_obstacle_2] ----------------------------------------
+[gazebo-1] [moving_obstacle_2] Reached target, now moving to END
+[dynamic_obstacle_scan_filter.py-6] [0m[INFO] [1790052937.664572429] [dynamic_obstacle_scan_filter]: Filtered 1488 dynamic scan beams in 5 s[0m
