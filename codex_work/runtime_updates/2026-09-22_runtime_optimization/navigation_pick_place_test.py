@@ -369,7 +369,8 @@ class PickPlaceTest(Node):
 
     def navigate(
             self, label, target, handoff_distance=None, lock_route=False,
-            strict_handoff=False, _allow_stall_retry=True):
+            strict_handoff=False, no_progress_timeout=None,
+            _allow_stall_retry=True):
         """
         Navigate normally, or hand the final approach to a local controller.
 
@@ -444,6 +445,7 @@ class PickPlaceTest(Node):
                 yaw,
                 handoff_distance,
                 strict_handoff,
+                no_progress_timeout,
             )
         except RuntimeError as error:
             cancel = handle.cancel_goal_async()
@@ -457,7 +459,7 @@ class PickPlaceTest(Node):
                 time.sleep(0.5)
                 return self.navigate(
                     label, target, handoff_distance, lock_route,
-                    strict_handoff,
+                    strict_handoff, no_progress_timeout,
                     _allow_stall_retry=False)
             raise
         if handed_off:
@@ -492,7 +494,7 @@ class PickPlaceTest(Node):
                 time.sleep(0.5)
                 return self.navigate(
                     label, target, handoff_distance, lock_route,
-                    strict_handoff,
+                    strict_handoff, no_progress_timeout,
                     _allow_stall_retry=False)
             raise RuntimeError(
                 f'Navigation to {label} failed; status={status}')
@@ -501,7 +503,8 @@ class PickPlaceTest(Node):
 
     def _wait_navigation_result(
             self, handle, result_future, label, target_x, target_y,
-            target_yaw, handoff_distance, strict_handoff):
+            target_yaw, handoff_distance, strict_handoff,
+            no_progress_timeout=None):
         """Wait for Nav2 while supporting a confirmed position-only handoff."""
         destination_handoff = (
             handoff_distance is None and label.startswith('destination '))
@@ -544,6 +547,22 @@ class PickPlaceTest(Node):
                         f'Nav2 feedback remained at {feedback_distance:.2f}m '
                         f'for {now - last_feedback_change:.1f}s with '
                         f'{self._navigation_feedback_recoveries} recovery events')
+                elif (no_progress_timeout is not None
+                      and now - last_feedback_change
+                      >= float(no_progress_timeout)):
+                    velocity_fresh = (
+                        now - self.base_velocity_received <= 0.35)
+                    stopped = (
+                        velocity_fresh
+                        and self.base_velocity is not None
+                        and abs(self.base_velocity.linear.x) <= 0.03
+                        and abs(self.base_velocity.angular.z) <= 0.05)
+                    if stopped:
+                        raise NavigationNoProgress(
+                            f'Nav2 feedback remained at '
+                            f'{feedback_distance:.2f}m for '
+                            f'{now - last_feedback_change:.1f}s while the '
+                            'base was stopped')
             if now < next_pose_check:
                 continue
             next_pose_check = now + 0.10
@@ -828,24 +847,46 @@ class PickPlaceTest(Node):
             'Dropoff RPP profile configured: carried_speed=1.05m/s, '
             'lookahead=1.10m, '
             'range=0.90..1.60m, time=1.00s')
+
     def configure_pickup_tracking(self):
-        """Restore the proven fast cruise speed after a carried leg."""
+        """Restore empty cruise and the destination-safe turn profile."""
         if not self.controller_parameters.wait_for_service(timeout_sec=3.0):
             raise RuntimeError('controller_server parameter service unavailable')
+        # A controlled 2026-09-09 A-route comparison showed that 0.90 rad
+        # removes about 4.6 s of moderate-corner stop/rotate cycles without an
+        # acceptance regression.  Applying it globally is unsafe: the
+        # 2026-09-22 B/C regression cut the C wall-end crossing and aborted at
+        # 1.09 m remaining.  Keep C on the proven 0.60 rad threshold and use
+        # 0.90 only for A/B tasks, where all compulsory wall turns remain true
+        # 90-degree corners and therefore still rotate in place.
+        turn_threshold = 0.60 if self.destination == 'C' else 0.90
         request = SetParameters.Request()
-        request.parameters = [ParameterMsg(
-            name='FollowPath.desired_linear_vel',
-            value=ParameterValue(
-                type=ParameterType.PARAMETER_DOUBLE,
-                double_value=1.40))]
+        request.parameters = [
+            ParameterMsg(
+                name='FollowPath.desired_linear_vel',
+                value=ParameterValue(
+                    type=ParameterType.PARAMETER_DOUBLE,
+                    double_value=1.40)),
+            ParameterMsg(
+                name='FollowPath.rotate_to_heading_min_angle',
+                value=ParameterValue(
+                    type=ParameterType.PARAMETER_DOUBLE,
+                    double_value=turn_threshold)),
+        ]
         future = self.controller_parameters.call_async(request)
         self._wait_future(future, 5.0, 'restore pickup cruise speed')
-        result = future.result().results[0]
-        if not result.successful:
+        failures = [
+            result.reason or 'rejected'
+            for result in future.result().results if not result.successful
+        ]
+        if failures:
             raise RuntimeError(
                 'Cannot restore pickup cruise speed: '
-                + (result.reason or 'rejected'))
-        self.get_logger().info('Pickup RPP speed restored: 1.40m/s')
+                + '; '.join(failures))
+        self.get_logger().info(
+            'Pickup RPP profile restored: '
+            f'speed=1.40m/s, turn_threshold={turn_threshold:.2f}rad, '
+            f'destination={self.destination}')
 
     def configure_final_pickup_tracking(self):
         """Bound speed before the last Nav2 approach to an ungrasped cube.
@@ -931,6 +972,30 @@ class PickPlaceTest(Node):
                 'A-to-blue pickup stays on west corridor: '
                 f'pickup_x={target_x:.3f}, east_boundary=-2.300; '
                 'skipping B east reverse transit')
+        robot_in_b = self._relative_pose('six_arm', 'zone_b')
+        leaving_b = math.hypot(
+            robot_in_b.position.x, robot_in_b.position.y) <= 1.80
+        if leaving_b:
+            # A direct B -> upper-row pickup plan repeatedly changed homotopy
+            # around the centre walls: the 2026-09-22 A/B baseline spent
+            # 31.5 s on red_cube_2 while distance_remaining jumped between
+            # 4 and 9 m.  Retrace the already-proven B inbound and central
+            # doorway points before selecting the live final pickup leg.
+            # This changes neither obstacle geometry nor the final grasp pose.
+            b_exit_transits = (
+                {'x': -1.45, 'y': -2.40, 'yaw': math.pi / 2.0},
+                {'x': -2.25, 'y': -0.25, 'yaw': math.pi / 2.0},
+                {'x': -2.30, 'y': 1.30, 'yaw': math.pi / 2.0},
+            )
+            for index, transit in enumerate(b_exit_transits, 1):
+                self.publish_navigation_status(
+                    phase='PICKUP_TRANSIT', event='phase_start',
+                    transit_index=index,
+                    transit_count=len(b_exit_transits),
+                    route_mode='b_reverse_central_doorway')
+                self.navigate(
+                    f'B reverse doorway transit {index}', transit,
+                    handoff_distance=0.35, lock_route=True)
         if self.object_id == 'red_cube_5':
             # red_cube_5 lies north of moving_obstacle_1's immutable y=2.8
             # rail.  The old west-end route then drove east along the cube row
@@ -1176,7 +1241,15 @@ class PickPlaceTest(Node):
 
         north = estimate('north')
         south = estimate('south')
-        mode = 'north' if north[0] <= south[0] else 'south'
+        # The north route has two extra stop/cancel/reacquire boundaries.  A
+        # sub-second ETA lead is below the measured prediction noise and can
+        # turn into an 8+ s loss once those boundaries execute.  Prefer the
+        # simpler south route unless north is materially faster.
+        north_switch_margin = 6.0
+        mode = (
+            'north'
+            if north[0] + north_switch_margin <= south[0]
+            else 'south')
         self.get_logger().info(
             'C crossing ETA choice: '
             f'obstacle_y={obstacle_y:.3f}, obstacle_vy={obstacle_vy:.3f}, '
@@ -1184,6 +1257,7 @@ class PickPlaceTest(Node):
             f'handoff={north[3]:.2f}s), '
             f'south_total={south[0]:.2f}s(wait={south[2]:.2f}s,'
             f'handoff={south[3]:.2f}s), '
+            f'north_switch_margin={north_switch_margin:.1f}s, '
             f'selected={mode}')
         return mode, obstacle_y
 
@@ -1226,7 +1300,11 @@ class PickPlaceTest(Node):
 
         north = estimate('north')
         south = estimate('south')
-        mode = 'north' if north[0] <= south[0] else 'south'
+        north_switch_margin = 6.0
+        mode = (
+            'north'
+            if north[0] + north_switch_margin <= south[0]
+            else 'south')
         self.get_logger().info(
             'C exit ETA choice: '
             f'obstacle_y={obstacle_y:.3f}, obstacle_vy={obstacle_vy:.3f}, '
@@ -1234,6 +1312,7 @@ class PickPlaceTest(Node):
             f'handoff={north[2]:.2f}s), '
             f'south_total={south[0]:.2f}s(wait={south[1]:.2f}s,'
             f'handoff={south[2]:.2f}s), '
+            f'north_switch_margin={north_switch_margin:.1f}s, '
             f'selected={mode}')
         return mode
 
@@ -1277,12 +1356,30 @@ class PickPlaceTest(Node):
             # travel south without running alongside the obstacle at 0.35 m.
             # The tight handoffs below also ensure the chassis is fully south
             # of Wall_118 before crossing its endpoint.
+            # Both physical C routes share this west-side staging point.  Do
+            # not lock north/south while still several metres away: the
+            # obstacle can complete a large part of its cycle during that
+            # common transit, making an otherwise correct ETA stale before
+            # the robot reaches the rail.  Arrive and settle here first, then
+            # choose once from the freshest obstacle pose.  This adds no
+            # waypoint compared with the routes below; it only delays the
+            # already-existing branch decision.
+            common_staging = {
+                'x': 0.35, 'y': -1.00, 'yaw': -math.pi / 2.0,
+            }
+            self.publish_navigation_status(
+                phase='DROPOFF_TRANSIT', event='phase_start',
+                transit_index=1, transit_count=1,
+                route_mode='c_common_west_staging')
+            self.navigate(
+                'C common west staging', common_staging,
+                handoff_distance=0.30, lock_route=True)
+
             crossing_mode, obstacle_y = self._choose_c_crossing()
             self._c_crossing_mode = crossing_mode
             if crossing_mode == 'north':
                 route_mode = 'c_eta_north_crossing'
                 staging = (
-                    {'x': 0.35, 'y': -1.00, 'yaw': -math.pi / 2.0},
                     {'x': 0.35, 'y': -3.60, 'yaw': 0.0},
                 )
                 after_crossing = (
@@ -1296,7 +1393,6 @@ class PickPlaceTest(Node):
             else:
                 route_mode = 'c_eta_south_crossing'
                 staging = (
-                    {'x': 0.35, 'y': -1.00, 'yaw': -math.pi / 2.0},
                     {'x': 0.35, 'y': -6.55, 'yaw': 0.0,
                      'handoff': 0.10, 'strict_handoff': True},
                 )
@@ -1661,7 +1757,11 @@ class PickPlaceTest(Node):
         deadline = time.monotonic() + float(timeout_sec)
         stable_since = None
         last_log = 0.0
-        tolerance = 0.035
+        # A 0.050 rad (2.9 deg) heading error displaces the carried cube by
+        # at most about 20 mm at 0.40 m reach, still well inside the narrowest
+        # validated slot margin.  Avoid spending repeated stop time chasing
+        # sub-degree corrections before and after the straight final approach.
+        tolerance = 0.050
         self.get_logger().info(
             f'Starting dropoff heading alignment: target={target_yaw:.3f}rad')
         try:
@@ -1686,7 +1786,10 @@ class PickPlaceTest(Node):
                         return
                 else:
                     stable_since = None
-                    angular = max(-0.55, min(0.55, 1.50 * error))
+                    # The base is already stopped for this in-place alignment.
+                    # A small cap increase trims repeated pre-place rotation time
+                    # without changing carried translation speed or cornering.
+                    angular = max(-0.65, min(0.65, 1.50 * error))
                     if abs(angular) < 0.07:
                         angular = math.copysign(0.07, error)
                     self._publish_dock_command(0.0, angular)
@@ -2393,7 +2496,9 @@ def execute_one_task(node, requested_object, destination,
         }
         node.navigate(
             f'{destination} final pre-approach', pre_approach,
-            handoff_distance=0.20, lock_route=True)
+            handoff_distance=0.20, lock_route=True,
+            no_progress_timeout=(
+                6.0 if destination in ('A', 'B') else None))
         node.align_dropoff_heading(float(dropoff['yaw']))
     else:
         node.navigate(f'destination {destination}', dropoff, lock_route=True)
