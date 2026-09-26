@@ -56,3 +56,12 @@
 - 未修改地图、墙壁、石块、移动障碍物轨迹或全局安全距离；仅将下半区障碍2沿既有轨迹的速度改为 `0.50 m/s`，上半区障碍保持不变。
 - 未取消最终夹取 `0.60 m/s` 减速、两段式放置、三维库存校验或 Collision Monitor。
 - 每轮均通过单 Gazebo、单 RViz、Nav2 和两张地图启动门禁后才发布任务。
+
+## 2026-09-27 A/B 289.082 s accepted regression
+
+- No world, map, obstacle geometry, zone, cube coordinate, or safety-clearance file was changed.
+- Merged two redundant stop/replan handoffs around the verified A doorway and west-rail route for red3/red4.
+- Raised only the already-aligned final straight dropoff approach cap from 0.13 to 0.16 m/s; sharp approaches still rotate in place and all placement checks remain enabled.
+- The fastest-mission cost now prices the executed west-rail carried route and its two handoffs instead of using an impossible Euclidean chord to A. This selected `blue5, blue4, red2, red1, red4` and avoided one full rail round trip.
+- Accepted full regression: 5/5, recovery 0, 289.082 s. Per-item times: 44.666 / 48.838 / 60.674 / 67.566 / 67.336 s.
+- Primary evidence: `ab_full_routecost_20260927.log`; directed evidence: `a_scheduler_routecost_red2_next_20260927.log`, `a_fineapproach016_red2_20260927.log`, and `b_fineapproach016_blue5_20260927.log`.

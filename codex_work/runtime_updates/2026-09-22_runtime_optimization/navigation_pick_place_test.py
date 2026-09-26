@@ -318,6 +318,30 @@ class PickPlaceTest(Node):
             carry_distance = math.hypot(
                 pose.position.x - zone.position.x,
                 pose.position.y - zone.position.y)
+            if (self.destination == 'A'
+                    and object_id in (
+                        'red_cube_3', 'red_cube_4', 'red_cube_5')):
+                # These cubes cannot use the Euclidean chord to A: the
+                # executed carried route must first clear the immutable upper
+                # obstacle rail at its west end.  Include both physical legs
+                # plus an evidence-derived 1.5 m equivalent cost for the two
+                # Nav2 stop/replan handoffs.  Without this term the scheduler
+                # repeatedly preferred red3/red4 over red1, although the
+                # measured red1 delivery was faster and avoided one dynamic
+                # crossing entirely.
+                rail_1 = (-2.75, 3.50)
+                rail_2 = (-2.75, 2.00)
+                carry_distance = (
+                    math.hypot(
+                        pose.position.x - rail_1[0],
+                        pose.position.y - rail_1[1])
+                    + math.hypot(
+                        rail_2[0] - rail_1[0],
+                        rail_2[1] - rail_1[1])
+                    + math.hypot(
+                        zone.position.x - rail_2[0],
+                        zone.position.y - rail_2[1])
+                    + 1.50)
             # Carrying is slower and less agile than unloaded travel.  The
             # modest weight chooses the fastest whole mission without sending
             # the robot across the field just to collect a slightly nearer cube.
@@ -926,13 +950,25 @@ class PickPlaceTest(Node):
             # verified doorway instead of letting a fresh global plan select
             # a blocked or much longer homotopy.  This applies regardless of
             # the next cube's final destination.
-            exit_transits = (
+            exit_transits = [
                 # Stay on the proven interior corridor, then traverse the
                 # exact inbound doorway points in reverse order.
                 {'x': -4.00, 'y': -1.75, 'yaw': 0.0},
                 {'x': -2.25, 'y': -0.25, 'yaw': math.pi / 2.0},
-                {'x': -2.30, 'y': 1.30, 'yaw': math.pi / 2.0},
-            )
+            ]
+            if self.object_id not in ('red_cube_3', 'red_cube_4'):
+                exit_transits.append(
+                    {'x': -2.30, 'y': 1.30, 'yaw': math.pi / 2.0})
+            else:
+                # red3/red4 immediately execute the west-rail bypass below.
+                # Its first point (-2.75, 2.00) is already beyond the same
+                # central doorway, so stopping once at (-2.30, 1.30) and then
+                # reacquiring an almost collinear path is redundant.  Keep the
+                # two proven A-exit constraints, then let the rail waypoint
+                # perform the doorway handoff in one continuous Nav2 leg.
+                self.get_logger().info(
+                    'A exit merges outer doorway with west-rail bypass for '
+                    f'{self.object_id}')
             for index, transit in enumerate(exit_transits, 1):
                 self.publish_navigation_status(
                     phase='PICKUP_TRANSIT', event='phase_start',
@@ -1538,6 +1574,17 @@ class PickPlaceTest(Node):
             {'x': -2.30, 'y': 1.30, 'yaw': -math.pi / 2.0},
             {'x': -2.25, 'y': -0.25, 'yaw': -math.pi / 2.0},
         ]
+        if self.object_id in ('red_cube_3', 'red_cube_4'):
+            # The verified west-rail bypass above already ends at
+            # (-2.75, 2.00), on the safe west side of the moving obstacle.
+            # Re-stopping only 0.83 m later at the outer A doorway forced an
+            # unnecessary Nav2 cancel/replan cycle.  Keep the safety-critical
+            # rail exit and the inner doorway constraint, but join them with
+            # one continuous leg.  No map or clearance parameter is changed.
+            transits = transits[1:]
+            self.get_logger().info(
+                'Carried west-rail exit merges with outer A doorway for '
+                f'{self.object_id}')
         # Reverse the already-proven A egress corridor only once two cubes
         # occupy A.  The wall-side homotopy failure was observed on the third
         # approach with two stored cubes; forcing this detour for the first
@@ -1671,7 +1718,9 @@ class PickPlaceTest(Node):
 
         The controller operates only inside the final roughly 0.6 m.  It
         first faces the already-planned dock point, then advances at no more
-        than 0.13 m/s.  Final yaw remains a separate stopped operation, so the
+        than 0.16 m/s.  This matches the already validated straight pickup
+        dock cap; sharp approaches still rotate in place and final yaw remains
+        a separate stopped operation, so the
         payload cannot sweep through a zone obstacle during translation.
         """
         target_x = float(target['x'])
@@ -1734,7 +1783,7 @@ class PickPlaceTest(Node):
                     if abs(heading_error) > 0.28:
                         linear = 0.0
                     else:
-                        linear = max(0.045, min(0.13, 0.55 * distance))
+                        linear = max(0.045, min(0.16, 0.55 * distance))
                         linear *= max(0.45, math.cos(heading_error) ** 2)
                     angular = max(-0.22, min(0.22, 1.35 * heading_error))
                     if abs(heading_error) <= 0.015:
