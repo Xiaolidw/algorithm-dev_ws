@@ -65,3 +65,4 @@
 - The fastest-mission cost now prices the executed west-rail carried route and its two handoffs instead of using an impossible Euclidean chord to A. This selected `blue5, blue4, red2, red1, red4` and avoided one full rail round trip.
 - Accepted full regression: 5/5, recovery 0, 289.082 s. Per-item times: 44.666 / 48.838 / 60.674 / 67.566 / 67.336 s.
 - Primary evidence: `ab_full_routecost_20260927.log`; directed evidence: `a_scheduler_routecost_red2_next_20260927.log`, `a_fineapproach016_red2_20260927.log`, and `b_fineapproach016_blue5_20260927.log`.
+- Zero-change repeat: 5/5, recovery 0, 294.170 s with the same selected order. The two accepted full runs are 289.082 s and 294.170 s (mean 291.626 s). Repeat evidence: `ab_full_routecost_repeat_20260927.log`.
