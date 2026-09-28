@@ -4103,7 +4103,7 @@
       </plugin>
     </model>
     <model name="moving_obstacle_2">
-      <pose>2.0 -3.0 0.505 0 0 0</pose>
+      <pose>1.0 -2.0 0.505 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.3</mass>
@@ -4163,9 +4163,9 @@
         <pose_publish_rate>10.0</pose_publish_rate>
         <stop_distance>0.0</stop_distance>
         <resume_distance>0.0</resume_distance>
-        <start_x>2.0</start_x>
-        <start_y>-3.0</start_y>
-        <end_x>2.0</end_x>
+        <start_x>1.0</start_x>
+        <start_y>-2.0</start_y>
+        <end_x>1.0</end_x>
         <end_y>-6.0</end_y>
       </plugin>
     </model>

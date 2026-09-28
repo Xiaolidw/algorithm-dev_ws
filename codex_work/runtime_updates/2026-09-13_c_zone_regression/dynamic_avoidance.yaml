@@ -30,8 +30,8 @@ dynamic_obstacle_predictor_node:
     # by rcl and makes every node sharing this parameter file fail at startup.
     route_axes: ['x', 'y']
     route_mins: [-2.0, -6.0]
-    route_maxs: [1.0, -3.0]
-    route_fixed_coordinates: [2.8, 2.0]
+    route_maxs: [1.0, -2.0]
+    route_fixed_coordinates: [2.8, 1.0]
 departure_heading_lock:
   ros__parameters:
     use_sim_time: true

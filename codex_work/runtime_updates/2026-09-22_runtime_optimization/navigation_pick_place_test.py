@@ -1228,13 +1228,13 @@ class PickPlaceTest(Node):
 
     @staticmethod
     def _predict_c_obstacle(y, vy, seconds):
-        """Predict the immutable -6..-3 m shuttle with endpoint reflection."""
+        """Predict the immutable -6..-2 m shuttle with endpoint reflection."""
         speed = max(0.05, abs(float(vy)))
         direction = 1.0 if float(vy) >= 0.0 else -1.0
-        position = max(-6.0, min(-3.0, float(y)))
+        position = max(-6.0, min(-2.0, float(y)))
         remaining = max(0.0, float(seconds))
         while remaining > 1e-9:
-            boundary = -3.0 if direction > 0.0 else -6.0
+            boundary = -2.0 if direction > 0.0 else -6.0
             to_boundary = abs(boundary - position) / speed
             if remaining <= to_boundary:
                 position += direction * speed * remaining
@@ -1405,7 +1405,7 @@ class PickPlaceTest(Node):
                         lock_route=True)
             # The authoritative officeroom origin is (0.9981, -4.92976).
             # Wall_118 is therefore the vertical segment at x=3.601 from
-            # y=-3.533 to -6.033.  Cross obstacle 2's x=2 rail once at the
+            # y=-3.533 to -6.033.  Cross obstacle 2's x=1 rail once at the
             # north staging line, settle on x=3.0 (1.0 m from its rail), then
             # travel south without running alongside the obstacle at 0.35 m.
             # The tight handoffs below also ensure the chassis is fully south
@@ -1736,8 +1736,8 @@ class PickPlaceTest(Node):
 
         The controller operates only inside the final roughly 0.6 m.  It
         first faces the already-planned dock point, then advances at no more
-        than 0.16 m/s.  This matches the already validated straight pickup
-        dock cap; sharp approaches still rotate in place and final yaw remains
+        than 0.16 m/s.  Sharp approaches still rotate in place and final yaw
+        remains
         a separate stopped operation, so the
         payload cannot sweep through a zone obstacle during translation.
         """
