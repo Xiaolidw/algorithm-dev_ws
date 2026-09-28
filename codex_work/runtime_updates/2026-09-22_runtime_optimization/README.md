@@ -66,3 +66,13 @@
 - Accepted full regression: 5/5, recovery 0, 289.082 s. Per-item times: 44.666 / 48.838 / 60.674 / 67.566 / 67.336 s.
 - Primary evidence: `ab_full_routecost_20260927.log`; directed evidence: `a_scheduler_routecost_red2_next_20260927.log`, `a_fineapproach016_red2_20260927.log`, and `b_fineapproach016_blue5_20260927.log`.
 - Zero-change repeat: 5/5, recovery 0, 294.170 s with the same selected order. The two accepted full runs are 289.082 s and 294.170 s (mean 291.626 s). Repeat evidence: `ab_full_routecost_repeat_20260927.log`.
+
+## 2026-09-28 six-mapping matrix and C lower-bound evidence
+
+- All six directed A/B/C mappings completed 5/5 with recovery 0 after the C south-window fix: redA/blueB 289.082 s (repeat 294.170 s), redA/blueC 356.926 s, redB/blueA 302.567 s, redB/blueC 342.956 s, redC/blueA 402.071 s, redC/blueB 391.683 s.
+- The south crossing now releases only while obstacle 2 is in `-5.00..-4.30 m` and moving north. This prevented the endpoint reversal collision observed in the failed redC/blueA run; no map, geometry, safety radius, or collision gate changed.
+- The C scheduler assigns red5 a measured double-dynamic-route penalty, keeping it available when required but selecting red4/red3/red2 when three alternatives exist.
+- Navigation cancellation now gives the accepted cancel result its own bounded deadline. This fixes a DDS lifecycle timeout without extending normal handoffs.
+- South-route ETA prediction now uses the exact same safe window as the physical gate. Directed two-C evidence is 2/2, recovery 0, 160.916 s (`c_two_eta_exact_window_20260928.log`).
+- Holding the existing C final pre-approach boundary at exactly 0.20 m produced 2/2, recovery 0, 159.196 s (`c_two_final_strict020_20260928.log`). It is a small safe candidate, not yet evidence of a stable improvement over the 153.098 s best phase.
+- The physical lower bound remains dominated by the 9.10 m guarded south approach, a roughly 12 s obstacle cycle with a narrow stable release window, mandatory manipulation validation, and a 30--45 s guarded exit for each non-final C item. Those costs must not be hidden by map edits or weakened gates.

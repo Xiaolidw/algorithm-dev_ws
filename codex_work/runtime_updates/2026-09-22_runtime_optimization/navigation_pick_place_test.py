@@ -342,6 +342,15 @@ class PickPlaceTest(Node):
                         zone.position.x - rail_2[0],
                         zone.position.y - rail_2[1])
                     + 1.50)
+            if self.destination == 'C' and object_id == 'red_cube_5':
+                # red5 is the only C candidate that must wait for obstacle 1
+                # at the upper rail and then wait again for obstacle 2 at the
+                # C crossing.  The failed three-red C regression measured
+                # about 12 s at the first gate alone, but the Euclidean score
+                # ranked it ahead of red3/red2.  A conservative 6 m equivalent
+                # cost keeps red5 available when required while avoiding the
+                # double-dynamic route when three other red cubes are free.
+                carry_distance += 6.0
             # Carrying is slower and less agile than unloaded travel.  The
             # modest weight chooses the fastest whole mission without sending
             # the robot across the field just to collect a slightly nearer cube.
@@ -757,8 +766,15 @@ class PickPlaceTest(Node):
                 f'Failed to confirm cancellation of navigation to {label}')
             return False
 
+        # The cancel acknowledgement and the terminal action result are two
+        # separate DDS round trips.  Sharing one three-second deadline meant a
+        # slow acknowledgement could leave only a few milliseconds for the
+        # result even though Nav2 had already accepted the cancel.  Give the
+        # terminal result its own bounded window while continuously commanding
+        # zero; normal handoffs return immediately and gain no extra delay.
+        result_deadline = time.monotonic() + max(0.5, float(timeout_sec))
         while (rclpy.ok() and not result_future.done()
-               and time.monotonic() < deadline):
+               and time.monotonic() < result_deadline):
             self._publish_dock_command(0.0, 0.0)
             rclpy.spin_once(self, timeout_sec=0.04)
         if not result_future.done() or result_future.exception() is not None:
@@ -1167,7 +1183,8 @@ class PickPlaceTest(Node):
     def _wait_for_c_south_crossing_clear(self, timeout_sec=30.0):
         """Hold west of the south crossing until obstacle 2 is separating."""
         crossing_y = -6.55
-        clear_above_y = -4.50
+        release_min_y = -5.00
+        release_max_y = -4.30
         deadline = time.monotonic() + float(timeout_sec)
         stable_since = None
         last_log = 0.0
@@ -1183,7 +1200,7 @@ class PickPlaceTest(Node):
             obstacle_vy = (float(obstacle_twist.linear.y)
                            if obstacle_twist is not None else float('nan'))
             separated = fresh and obstacle is not None and (
-                obstacle_y >= clear_above_y
+                release_min_y <= obstacle_y <= release_max_y
                 and obstacle_twist is not None
                 and obstacle_vy >= 0.05)
             if separated:
@@ -1203,7 +1220,8 @@ class PickPlaceTest(Node):
                     'C south crossing hold: '
                     f'obstacle_y={obstacle_y:.3f}, '
                     f'obstacle_vy={obstacle_vy:.3f}, '
-                    f'release_when_y>={clear_above_y:.2f}_and_vy>0')
+                    f'release_when_{release_min_y:.2f}<=y<='
+                    f'{release_max_y:.2f}_and_vy>0')
                 last_log = now
         raise RuntimeError(
             'moving_obstacle_2 did not clear the C south crossing in time')
@@ -1258,7 +1276,7 @@ class PickPlaceTest(Node):
                          and predicted_y <= -4.50
                          and predicted_vy < 0.0)
                         or (mode == 'south'
-                            and predicted_y >= -4.50
+                            and -5.00 <= predicted_y <= -4.30
                             and predicted_vy > 0.0))
                 if safe:
                     break
@@ -1324,7 +1342,7 @@ class PickPlaceTest(Node):
                          and predicted_y <= -4.50
                          and predicted_vy < 0.0)
                         or (mode == 'south'
-                            and predicted_y >= -4.50
+                            and -5.00 <= predicted_y <= -4.30
                             and predicted_vy > 0.0))
                 if safe:
                     break
@@ -2545,7 +2563,14 @@ def execute_one_task(node, requested_object, destination,
         }
         node.navigate(
             f'{destination} final pre-approach', pre_approach,
-            handoff_distance=0.20, lock_route=True,
+            handoff_distance=0.20,
+            # C's last segment is already a straight north-side approach.
+            # The speed-expanded handoff was cancelling 0.25--0.47 m early,
+            # leaving 1.8--2.1 rad for a separate in-place rotation.  Hold the
+            # existing 0.20 m boundary exactly; unlike the rejected 0.08 m
+            # experiment this does not demand centimetre-level Nav2 closure.
+            strict_handoff=(destination == 'C'),
+            lock_route=True,
             no_progress_timeout=(
                 6.0 if destination in ('A', 'B') else None))
         node.align_dropoff_heading(float(dropoff['yaw']))
