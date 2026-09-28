@@ -2564,12 +2564,6 @@ def execute_one_task(node, requested_object, destination,
         node.navigate(
             f'{destination} final pre-approach', pre_approach,
             handoff_distance=0.20,
-            # C's last segment is already a straight north-side approach.
-            # The speed-expanded handoff was cancelling 0.25--0.47 m early,
-            # leaving 1.8--2.1 rad for a separate in-place rotation.  Hold the
-            # existing 0.20 m boundary exactly; unlike the rejected 0.08 m
-            # experiment this does not demand centimetre-level Nav2 closure.
-            strict_handoff=(destination == 'C'),
             lock_route=True,
             no_progress_timeout=(
                 6.0 if destination in ('A', 'B') else None))
