@@ -342,6 +342,29 @@ class PickPlaceTest(Node):
                         zone.position.x - rail_2[0],
                         zone.position.y - rail_2[1])
                     + 1.50)
+            if (self.destination == 'C'
+                    and object_id in ('red_cube_3', 'red_cube_4')):
+                # The executed C route must first carry these north-row cubes
+                # around the west end of obstacle rail 1.  Euclidean scoring
+                # omitted both physical legs and two measured Nav2 handoffs,
+                # making red4 look faster than red2.  A directed clean run
+                # measured red2->C at 87.470 s versus about 97 s to place
+                # red4 under the same lower-obstacle geometry.  Model the
+                # actual path plus a conservative 4.5 m handoff equivalent;
+                # no navigation geometry or controller setting is changed.
+                rail_1 = (-2.75, 3.50)
+                rail_2 = (-2.75, 2.00)
+                carry_distance = (
+                    math.hypot(
+                        pose.position.x - rail_1[0],
+                        pose.position.y - rail_1[1])
+                    + math.hypot(
+                        rail_2[0] - rail_1[0],
+                        rail_2[1] - rail_1[1])
+                    + math.hypot(
+                        zone.position.x - rail_2[0],
+                        zone.position.y - rail_2[1])
+                    + 4.50)
             if self.destination == 'C' and object_id == 'red_cube_5':
                 # red5 is the only C candidate that must wait for obstacle 1
                 # at the upper rail and then wait again for obstacle 2 at the
