@@ -1182,7 +1182,11 @@ class PickPlaceTest(Node):
 
     def _wait_for_c_south_crossing_clear(self, timeout_sec=30.0):
         """Hold west of the south crossing until obstacle 2 is separating."""
-        crossing_y = -6.55
+        # Obstacle 2 now reaches y=-6.00 at x=1.00.  The former y=-6.55
+        # crossing left only 0.55 m centre clearance and the inflated path
+        # became empty near the east wall.  Keep the same guarded phase, but
+        # use the verified free row 0.90 m below the physical endpoint.
+        crossing_y = -6.90
         release_min_y = -5.00
         release_max_y = -4.30
         deadline = time.monotonic() + float(timeout_sec)
@@ -1260,7 +1264,7 @@ class PickPlaceTest(Node):
             float(robot.position.y) + 1.00)
 
         def estimate(mode):
-            crossing_y = -3.60 if mode == 'north' else -6.55
+            crossing_y = -3.60 if mode == 'north' else -6.90
             # Strict waypoint handoffs make the measured carried-route
             # progress about 0.43 m/s even though RPP's straight-line limit is
             # 1.05 m/s.  ETA must use that end-to-end value or it predicts a
@@ -1327,11 +1331,11 @@ class PickPlaceTest(Node):
         obstacle_vy = float(twist.linear.y)
         to_south_gate = math.hypot(
             float(robot.position.x) - 3.90,
-            float(robot.position.y) + 6.55)
+            float(robot.position.y) + 6.90)
         effective_speed = 0.43
 
         def estimate(mode):
-            before_distance = (to_south_gate + 0.90 + 2.95
+            before_distance = (to_south_gate + 0.90 + 3.30
                                if mode == 'north' else to_south_gate)
             arrival = before_distance / effective_speed
             wait = 0.0
@@ -1347,7 +1351,7 @@ class PickPlaceTest(Node):
                 if safe:
                     break
                 wait += 0.10
-            after_distance = 5.25 if mode == 'north' else 9.10
+            after_distance = 5.25 if mode == 'north' else 9.45
             handoff_overhead = 8.0 if mode == 'north' else 0.0
             return (arrival + wait + after_distance / effective_speed
                     + handoff_overhead), wait, handoff_overhead
@@ -1439,19 +1443,19 @@ class PickPlaceTest(Node):
                 after_crossing = (
                     {'x': 3.00, 'y': -3.60, 'yaw': -math.pi / 2.0,
                      'handoff': 0.10, 'strict_handoff': True},
-                    {'x': 3.00, 'y': -6.55, 'yaw': 0.0,
+                    {'x': 3.00, 'y': -6.90, 'yaw': 0.0,
                      'handoff': 0.08, 'strict_handoff': True},
-                    {'x': 3.90, 'y': -6.55, 'yaw': 0.0,
+                    {'x': 3.90, 'y': -6.90, 'yaw': 0.0,
                      'handoff': 0.20, 'strict_handoff': True},
                 )
             else:
                 route_mode = 'c_eta_south_crossing'
                 staging = (
-                    {'x': 0.35, 'y': -6.55, 'yaw': 0.0,
+                    {'x': 0.35, 'y': -6.90, 'yaw': 0.0,
                      'handoff': 0.10, 'strict_handoff': True},
                 )
                 after_crossing = (
-                    {'x': 3.90, 'y': -6.55, 'yaw': 0.0,
+                    {'x': 3.90, 'y': -6.90, 'yaw': 0.0,
                      'handoff': 0.20, 'strict_handoff': True},
                 )
             transits = staging + after_crossing
@@ -1965,19 +1969,19 @@ class PickPlaceTest(Node):
         crossing_mode = self._choose_c_exit_crossing()
         if crossing_mode == 'south':
             before_crossing = (
-                {'x': 3.90, 'y': -6.55, 'yaw': math.pi,
+                {'x': 3.90, 'y': -6.90, 'yaw': math.pi,
                  'handoff': 0.20, 'strict_handoff': True},
             )
             after_crossing = (
-                {'x': 0.35, 'y': -6.55, 'yaw': math.pi / 2.0,
+                {'x': 0.35, 'y': -6.90, 'yaw': math.pi / 2.0,
                  'handoff': 0.20, 'strict_handoff': True},
                 {'x': 0.35, 'y': -1.00, 'yaw': 0.0},
             )
         else:
             before_crossing = (
-                {'x': 3.90, 'y': -6.55, 'yaw': math.pi,
+                {'x': 3.90, 'y': -6.90, 'yaw': math.pi,
                  'handoff': 0.20, 'strict_handoff': True},
-                {'x': 3.00, 'y': -6.55, 'yaw': math.pi / 2.0,
+                {'x': 3.00, 'y': -6.90, 'yaw': math.pi / 2.0,
                  'handoff': 0.08, 'strict_handoff': True},
                 {'x': 3.00, 'y': -3.60, 'yaw': math.pi,
                  'handoff': 0.10, 'strict_handoff': True},
