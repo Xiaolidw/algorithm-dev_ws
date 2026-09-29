@@ -370,10 +370,12 @@ class PickPlaceTest(Node):
                 # at the upper rail and then wait again for obstacle 2 at the
                 # C crossing.  The failed three-red C regression measured
                 # about 12 s at the first gate alone, but the Euclidean score
-                # ranked it ahead of red3/red2.  A conservative 6 m equivalent
-                # cost keeps red5 available when required while avoiding the
-                # double-dynamic route when three other red cubes are free.
-                carry_distance += 6.0
+                # ranked it ahead of red3/red2.  The five-item formal run also
+                # exposed that its east staging point can be caught by the
+                # returning kinematic obstacle.  A 7 m equivalent keeps red5
+                # available when required while preferring the proven west-end
+                # red3 route whenever that cube is still free.
+                carry_distance += 7.0
             # Carrying is slower and less agile than unloaded travel.  The
             # modest weight chooses the fastest whole mission without sending
             # the robot across the field just to collect a slightly nearer cube.
