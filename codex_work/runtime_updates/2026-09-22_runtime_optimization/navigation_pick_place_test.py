@@ -1213,7 +1213,11 @@ class PickPlaceTest(Node):
         # use the verified free row 0.90 m below the physical endpoint.
         crossing_y = -6.90
         release_min_y = -5.00
-        release_max_y = -4.30
+        # Once the obstacle has climbed above y=-5.00 it is already at least
+        # 1.90 m from the y=-6.90 crossing and continues moving away.  The old
+        # upper bound at y=-4.30 turned that indefinitely improving state back
+        # into "unsafe", so an arrival at y=-3.20 waited a full shuttle cycle.
+        # Keep the lower clearance bound, but do not close a separating window.
         deadline = time.monotonic() + float(timeout_sec)
         stable_since = None
         last_log = 0.0
@@ -1229,7 +1233,7 @@ class PickPlaceTest(Node):
             obstacle_vy = (float(obstacle_twist.linear.y)
                            if obstacle_twist is not None else float('nan'))
             separated = fresh and obstacle is not None and (
-                release_min_y <= obstacle_y <= release_max_y
+                release_min_y <= obstacle_y
                 and obstacle_twist is not None
                 and obstacle_vy >= 0.05)
             if separated:
@@ -1249,8 +1253,7 @@ class PickPlaceTest(Node):
                     'C south crossing hold: '
                     f'obstacle_y={obstacle_y:.3f}, '
                     f'obstacle_vy={obstacle_vy:.3f}, '
-                    f'release_when_{release_min_y:.2f}<=y<='
-                    f'{release_max_y:.2f}_and_vy>0')
+                    f'release_when_y>={release_min_y:.2f}_and_vy>0')
                 last_log = now
         raise RuntimeError(
             'moving_obstacle_2 did not clear the C south crossing in time')
@@ -1285,17 +1288,18 @@ class PickPlaceTest(Node):
         obstacle_y = float(obstacle.position.y)
         obstacle_vy = float(twist.linear.y)
         first_leg = math.hypot(
-            float(robot.position.x) - 0.35,
+            float(robot.position.x) - 0.00,
             float(robot.position.y) + 1.00)
 
         def estimate(mode):
             crossing_y = -3.60 if mode == 'north' else -6.90
-            # Strict waypoint handoffs make the measured carried-route
-            # progress about 0.43 m/s even though RPP's straight-line limit is
-            # 1.05 m/s.  ETA must use that end-to-end value or it predicts a
-            # gate phase roughly five seconds too early and chooses the wrong
-            # side of the shuttle.
-            effective_speed = 0.43
+            # With the west line moved from x=0.35 to x=0.00, two clean
+            # carried descents covered 5.90 m in 7.28--8.25 s.  Retaining the
+            # old 0.43 m/s value predicted gate arrival about six seconds too
+            # late and then selected a 13.8 s south wait.  Use the conservative
+            # lower edge of the new observation; exit timing is calibrated
+            # separately below and is intentionally unchanged.
+            effective_speed = 0.70
             arrival = (first_leg + abs(crossing_y + 1.00)) / effective_speed
             wait = 0.0
             while wait <= 24.0:
@@ -1305,12 +1309,12 @@ class PickPlaceTest(Node):
                          and predicted_y <= -4.50
                          and predicted_vy < 0.0)
                         or (mode == 'south'
-                            and -5.00 <= predicted_y <= -4.30
+                            and predicted_y >= -5.00
                             and predicted_vy > 0.0))
                 if safe:
                     break
                 wait += 0.10
-            after_distance = 6.50 if mode == 'north' else 3.55
+            after_distance = 7.20 if mode == 'north' else 3.90
             # Distance alone made equal-length routes default to north even
             # though north has two additional strict Nav2 handoffs (cross,
             # turn south, turn east).  Successful 2026-09-22 regressions show
@@ -1371,12 +1375,12 @@ class PickPlaceTest(Node):
                          and predicted_y <= -4.50
                          and predicted_vy < 0.0)
                         or (mode == 'south'
-                            and -5.00 <= predicted_y <= -4.30
+                            and predicted_y >= -5.00
                             and predicted_vy > 0.0))
                 if safe:
                     break
                 wait += 0.10
-            after_distance = 5.25 if mode == 'north' else 9.45
+            after_distance = 5.60 if mode == 'north' else 9.80
             handoff_overhead = 8.0 if mode == 'north' else 0.0
             return (arrival + wait + after_distance / effective_speed
                     + handoff_overhead), wait, handoff_overhead
@@ -1436,7 +1440,10 @@ class PickPlaceTest(Node):
             # Wall_118 is therefore the vertical segment at x=3.601 from
             # y=-3.533 to -6.033.  Cross obstacle 2's x=1 rail once at the
             # north staging line, settle on x=3.0 (1.0 m from its rail), then
-            # travel south without running alongside the obstacle at 0.35 m.
+            # travel south without running alongside the obstacle.  The west
+            # line is x=0.00, a full 1.00 m from obstacle 2's x=1.00 rail;
+            # x=0.35 left only 0.13 m of physical edge clearance and a
+            # phase-dependent contact launched the chassis in regression.
             # The tight handoffs below also ensure the chassis is fully south
             # of Wall_118 before crossing its endpoint.
             # Both physical C routes share this west-side staging point.  Do
@@ -1448,7 +1455,7 @@ class PickPlaceTest(Node):
             # waypoint compared with the routes below; it only delays the
             # already-existing branch decision.
             common_staging = {
-                'x': 0.35, 'y': -1.00, 'yaw': -math.pi / 2.0,
+                'x': 0.00, 'y': -1.00, 'yaw': -math.pi / 2.0,
             }
             self.publish_navigation_status(
                 phase='DROPOFF_TRANSIT', event='phase_start',
@@ -1463,7 +1470,7 @@ class PickPlaceTest(Node):
             if crossing_mode == 'north':
                 route_mode = 'c_eta_north_crossing'
                 staging = (
-                    {'x': 0.35, 'y': -3.60, 'yaw': 0.0},
+                    {'x': 0.00, 'y': -3.60, 'yaw': 0.0},
                 )
                 after_crossing = (
                     {'x': 3.00, 'y': -3.60, 'yaw': -math.pi / 2.0,
@@ -1476,7 +1483,7 @@ class PickPlaceTest(Node):
             else:
                 route_mode = 'c_eta_south_crossing'
                 staging = (
-                    {'x': 0.35, 'y': -6.90, 'yaw': 0.0,
+                    {'x': 0.00, 'y': -6.90, 'yaw': 0.0,
                      'handoff': 0.10, 'strict_handoff': True},
                 )
                 after_crossing = (
@@ -1998,9 +2005,9 @@ class PickPlaceTest(Node):
                  'handoff': 0.20, 'strict_handoff': True},
             )
             after_crossing = (
-                {'x': 0.35, 'y': -6.90, 'yaw': math.pi / 2.0,
+                {'x': 0.00, 'y': -6.90, 'yaw': math.pi / 2.0,
                  'handoff': 0.20, 'strict_handoff': True},
-                {'x': 0.35, 'y': -1.00, 'yaw': 0.0},
+                {'x': 0.00, 'y': -1.00, 'yaw': 0.0},
             )
         else:
             before_crossing = (
@@ -2012,8 +2019,8 @@ class PickPlaceTest(Node):
                  'handoff': 0.10, 'strict_handoff': True},
             )
             after_crossing = (
-                {'x': 0.35, 'y': -3.60, 'yaw': math.pi / 2.0},
-                {'x': 0.35, 'y': -1.00, 'yaw': 0.0},
+                {'x': 0.00, 'y': -3.60, 'yaw': math.pi / 2.0},
+                {'x': 0.00, 'y': -1.00, 'yaw': 0.0},
             )
         transits = before_crossing + after_crossing
         self.get_logger().info(
@@ -2593,6 +2600,10 @@ def execute_one_task(node, requested_object, destination,
         node.navigate(
             f'{destination} final pre-approach', pre_approach,
             handoff_distance=0.20,
+            strict_handoff=(
+                destination == 'C'
+                and node.selected_dropoff_slot is not None
+                and node.selected_dropoff_slot[1] > 0.0),
             lock_route=True,
             no_progress_timeout=(
                 6.0 if destination in ('A', 'B') else None))
