@@ -2632,6 +2632,14 @@ def execute_one_task(node, requested_object, destination,
     node.validate_destination_inventory()
     if egress_after_place:
         node.egress_after_place()
+        if destination == 'C':
+            # Placement and inventory validation have completed, and the
+            # bounded reverse egress has restored physical clearance from the
+            # released cube.  The guarded C corridor is therefore an empty-
+            # base transit; do not keep the 1.05 m/s carried-object profile
+            # until the next batch item restores 1.40 m/s anyway.  Route
+            # geometry, strict handoffs and obstacle phase gates are unchanged.
+            node.configure_pickup_tracking()
         node.navigate_c_post_place_exit()
     node.publish_navigation_status(phase='COMPLETE', event='acceptance_passed')
     node.get_logger().info(
