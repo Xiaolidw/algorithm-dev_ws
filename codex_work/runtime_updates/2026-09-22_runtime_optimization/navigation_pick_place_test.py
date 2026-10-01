@@ -1288,13 +1288,13 @@ class PickPlaceTest(Node):
         obstacle_y = float(obstacle.position.y)
         obstacle_vy = float(twist.linear.y)
         first_leg = math.hypot(
-            float(robot.position.x) - 0.00,
+            float(robot.position.x) + 0.50,
             float(robot.position.y) + 1.00)
 
         def estimate(mode):
             crossing_y = -3.60 if mode == 'north' else -6.90
-            # With the west line moved from x=0.35 to x=0.00, two clean
-            # carried descents covered 5.90 m in 7.28--8.25 s.  Retaining the
+            # After moving the west line away from the unsafe x=0.35 rail,
+            # two clean carried descents covered 5.90 m in 7.28--8.25 s.  Retaining the
             # old 0.43 m/s value predicted gate arrival about six seconds too
             # late and then selected a 13.8 s south wait.  Use the conservative
             # lower edge of the new observation; exit timing is calibrated
@@ -1314,7 +1314,7 @@ class PickPlaceTest(Node):
                 if safe:
                     break
                 wait += 0.10
-            after_distance = 7.20 if mode == 'north' else 3.90
+            after_distance = 7.70 if mode == 'north' else 4.40
             # Distance alone made equal-length routes default to north even
             # though north has two additional strict Nav2 handoffs (cross,
             # turn south, turn east).  Successful 2026-09-22 regressions show
@@ -1380,7 +1380,7 @@ class PickPlaceTest(Node):
                 if safe:
                     break
                 wait += 0.10
-            after_distance = 5.60 if mode == 'north' else 9.80
+            after_distance = 6.10 if mode == 'north' else 10.30
             handoff_overhead = 8.0 if mode == 'north' else 0.0
             return (arrival + wait + after_distance / effective_speed
                     + handoff_overhead), wait, handoff_overhead
@@ -1441,9 +1441,11 @@ class PickPlaceTest(Node):
             # y=-3.533 to -6.033.  Cross obstacle 2's x=1 rail once at the
             # north staging line, settle on x=3.0 (1.0 m from its rail), then
             # travel south without running alongside the obstacle.  The west
-            # line is x=0.00, a full 1.00 m from obstacle 2's x=1.00 rail;
+            # line is x=-0.50, a full 1.50 m from obstacle 2's x=1.00 rail;
             # x=0.35 left only 0.13 m of physical edge clearance and a
             # phase-dependent contact launched the chassis in regression.
+            # x=0.00 was collision-free but its northbound empty exit ran at
+            # only about 0.46 m/s beside the dynamic inflation layer.
             # The tight handoffs below also ensure the chassis is fully south
             # of Wall_118 before crossing its endpoint.
             # Both physical C routes share this west-side staging point.  Do
@@ -1455,7 +1457,7 @@ class PickPlaceTest(Node):
             # waypoint compared with the routes below; it only delays the
             # already-existing branch decision.
             common_staging = {
-                'x': 0.00, 'y': -1.00, 'yaw': -math.pi / 2.0,
+                'x': -0.50, 'y': -1.00, 'yaw': -math.pi / 2.0,
             }
             self.publish_navigation_status(
                 phase='DROPOFF_TRANSIT', event='phase_start',
@@ -1470,7 +1472,7 @@ class PickPlaceTest(Node):
             if crossing_mode == 'north':
                 route_mode = 'c_eta_north_crossing'
                 staging = (
-                    {'x': 0.00, 'y': -3.60, 'yaw': 0.0},
+                    {'x': -0.50, 'y': -3.60, 'yaw': 0.0},
                 )
                 after_crossing = (
                     {'x': 3.00, 'y': -3.60, 'yaw': -math.pi / 2.0,
@@ -1483,7 +1485,7 @@ class PickPlaceTest(Node):
             else:
                 route_mode = 'c_eta_south_crossing'
                 staging = (
-                    {'x': 0.00, 'y': -6.90, 'yaw': 0.0,
+                    {'x': -0.50, 'y': -6.90, 'yaw': 0.0,
                      'handoff': 0.10, 'strict_handoff': True},
                 )
                 after_crossing = (
@@ -2005,9 +2007,9 @@ class PickPlaceTest(Node):
                  'handoff': 0.20, 'strict_handoff': True},
             )
             after_crossing = (
-                {'x': 0.00, 'y': -6.90, 'yaw': math.pi / 2.0,
+                {'x': -0.50, 'y': -6.90, 'yaw': math.pi / 2.0,
                  'handoff': 0.20, 'strict_handoff': True},
-                {'x': 0.00, 'y': -1.00, 'yaw': 0.0},
+                {'x': -0.50, 'y': -1.00, 'yaw': 0.0},
             )
         else:
             before_crossing = (
@@ -2019,8 +2021,8 @@ class PickPlaceTest(Node):
                  'handoff': 0.10, 'strict_handoff': True},
             )
             after_crossing = (
-                {'x': 0.00, 'y': -3.60, 'yaw': math.pi / 2.0},
-                {'x': 0.00, 'y': -1.00, 'yaw': 0.0},
+                {'x': -0.50, 'y': -3.60, 'yaw': math.pi / 2.0},
+                {'x': -0.50, 'y': -1.00, 'yaw': 0.0},
             )
         transits = before_crossing + after_crossing
         self.get_logger().info(
