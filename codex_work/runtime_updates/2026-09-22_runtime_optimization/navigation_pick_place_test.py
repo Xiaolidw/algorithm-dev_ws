@@ -877,6 +877,13 @@ class PickPlaceTest(Node):
         """Use a longer RPP preview only for the long carried-object leg."""
         if not self.controller_parameters.wait_for_service(timeout_sec=3.0):
             raise RuntimeError('controller_server parameter service unavailable')
+        # C is reached through long, axis-aligned open corridors and uses an
+        # independent phase gate before crossing the moving obstacle.  Raise
+        # only that carried cruise by less than ten percent; A/B retain the
+        # 1.05 m/s envelope established after the unstable five-red A trace.
+        # Collision Monitor, RPP curvature/cost regulation, the gate holds,
+        # and the final low-speed docking controller remain unchanged.
+        carried_speed = 1.15 if self.destination == 'C' else 1.05
         requested = {
             # The raised arm and attached cube move the centre of mass upward.
             # A 2026-09-12 five-red trace became physically unstable on the
@@ -884,7 +891,7 @@ class PickPlaceTest(Node):
             # then received an empty path before Gazebo threw the chassis out
             # of the map. Keep the fast setting for empty travel, but use the
             # measured conservative envelope while carrying.
-            'FollowPath.desired_linear_vel': 1.05,
+            'FollowPath.desired_linear_vel': carried_speed,
             'FollowPath.lookahead_dist': 1.10,
             'FollowPath.min_lookahead_dist': 0.90,
             'FollowPath.max_lookahead_dist': 1.60,
@@ -910,7 +917,7 @@ class PickPlaceTest(Node):
             raise RuntimeError(
                 'Cannot configure dropoff path tracking: ' + '; '.join(failures))
         self.get_logger().info(
-            'Dropoff RPP profile configured: carried_speed=1.05m/s, '
+            f'Dropoff RPP profile configured: carried_speed={carried_speed:.2f}m/s, '
             'lookahead=1.10m, '
             'range=0.90..1.60m, time=1.00s')
 
