@@ -84,6 +84,7 @@ class PickPlaceTest(Node):
         self.global_costmap = None
         self.selected_dropoff_slot = None
         self._c_crossing_mode = None
+        self._preselected_pickup = None
         self.slot_claim_path = '/tmp/moon_warehouse_slot_claims.json'
         costmap_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
@@ -981,7 +982,8 @@ class PickPlaceTest(Node):
             'Final pickup RPP speed configured: 0.60m/s '
             '(empty transit remains 1.40m/s)')
 
-    def navigate_pickup_transits(self, pickup_target=None):
+    def navigate_pickup_transits(
+            self, pickup_target=None, staged_mode=None):
         """Bypass a dynamic swept track before selected pickup approaches."""
         leaving_a = False
         robot_in_a = self._relative_pose('six_arm', 'zone_a')
@@ -1106,6 +1108,11 @@ class PickPlaceTest(Node):
             {'x': -2.75, 'y': 2.00, 'yaw': math.pi / 2.0},
             {'x': -2.75, 'y': 3.50, 'yaw': 0.0},
         )
+        if staged_mode == 'red34_rail1':
+            transits = transits[1:]
+            self.get_logger().info(
+                f'C exit already staged {self.object_id} at west rail 1; '
+                'continuing from rail 2 without a duplicate goal')
         for index, transit in enumerate(transits, 1):
             self.publish_navigation_status(
                 phase='PICKUP_TRANSIT', event='phase_start',
@@ -1857,7 +1864,8 @@ class PickPlaceTest(Node):
         finally:
             self._publish_navigation_stop()
 
-    def align_dropoff_heading(self, target_yaw, timeout_sec=10.0):
+    def align_dropoff_heading(
+            self, target_yaw, timeout_sec=10.0, angular_cap=0.65):
         """Precisely align the chassis before the arm extends for placement."""
         deadline = time.monotonic() + float(timeout_sec)
         stable_since = None
@@ -1867,8 +1875,10 @@ class PickPlaceTest(Node):
         # validated slot margin.  Avoid spending repeated stop time chasing
         # sub-degree corrections before and after the straight final approach.
         tolerance = 0.050
+        angular_cap = max(0.20, min(1.00, float(angular_cap)))
         self.get_logger().info(
-            f'Starting dropoff heading alignment: target={target_yaw:.3f}rad')
+            f'Starting dropoff heading alignment: target={target_yaw:.3f}rad, '
+            f'angular_cap={angular_cap:.2f}rad/s')
         try:
             while rclpy.ok() and time.monotonic() < deadline:
                 rclpy.spin_once(self, timeout_sec=0.04)
@@ -1894,7 +1904,8 @@ class PickPlaceTest(Node):
                     # The base is already stopped for this in-place alignment.
                     # A small cap increase trims repeated pre-place rotation time
                     # without changing carried translation speed or cornering.
-                    angular = max(-0.65, min(0.65, 1.50 * error))
+                    angular = max(
+                        -angular_cap, min(angular_cap, 1.50 * error))
                     if abs(angular) < 0.07:
                         angular = math.copysign(0.07, error)
                     self._publish_dock_command(0.0, angular)
@@ -1992,7 +2003,8 @@ class PickPlaceTest(Node):
         finally:
             self._publish_navigation_stop()
 
-    def navigate_c_post_place_exit(self):
+    def navigate_c_post_place_exit(
+            self, next_pickup=None, pickup_handoff_distance=0.70):
         """Leave C through the same guarded corridor used on entry."""
         if self.destination != 'C':
             return
@@ -2024,6 +2036,36 @@ class PickPlaceTest(Node):
                 {'x': -0.50, 'y': -3.60, 'yaw': math.pi / 2.0},
                 {'x': -0.50, 'y': -1.00, 'yaw': 0.0},
             )
+        staged_mode = None
+        if next_pickup is not None:
+            next_object = str(next_pickup['object_id'])
+            if next_object in ('red_cube_3', 'red_cube_4'):
+                # Join the open west-side exit directly to the first proven
+                # rail-bypass node.  The next task resumes at rail 2.
+                final_target = {
+                    'x': -2.75, 'y': 2.00, 'yaw': math.pi / 2.0,
+                    'handoff': 0.20, 'strict_handoff': True,
+                }
+                staged_mode = 'red34_rail1'
+            elif next_object == 'red_cube_5':
+                # red5 uses a separate phase-gated diagonal crossing.  Keep
+                # the common exit for that rare fallback rather than joining
+                # an unverified chord.
+                final_target = None
+            else:
+                final_target = dict(next_pickup['pickup'])
+                final_target.update({
+                    'handoff': float(pickup_handoff_distance),
+                    'strict_handoff': False,
+                })
+                staged_mode = 'pickup_handoff'
+            if final_target is not None:
+                after_crossing = after_crossing[:-1] + (final_target,)
+                self.get_logger().info(
+                    'C exit lookahead merged common staging with next pickup: '
+                    f'object={next_object}, staged_mode={staged_mode}, '
+                    f'target=({final_target["x"]:.3f},'
+                    f'{final_target["y"]:.3f})')
         transits = before_crossing + after_crossing
         self.get_logger().info(
             'Starting guarded C post-place exit before next pickup: '
@@ -2044,6 +2086,8 @@ class PickPlaceTest(Node):
                 strict_handoff=transit.get('strict_handoff', False),
                 lock_route=True)
         self.get_logger().info('Guarded C post-place exit complete')
+        if next_pickup is not None:
+            next_pickup['staged_mode'] = staged_mode
 
     def check_drop_alignment(self):
         zone = ZONE_MODELS[self.destination]
@@ -2528,7 +2572,7 @@ def load_targets(destination, requested_object=None):
 
 def execute_one_task(node, requested_object, destination,
                      pickup_handoff_distance, egress_after_place=False,
-                     select_only=False):
+                     select_only=False, next_task=None):
     """Execute one item while allowing the ROS node to be reused in a batch."""
     node.object_id = requested_object
     node.destination = destination
@@ -2539,7 +2583,25 @@ def execute_one_task(node, requested_object, destination,
     }
     approaches, dropoff = load_targets(destination, requested_object)
     node.wait_for_state_service()
-    selected = node.select_object(requested_object, approaches)
+    cached_pickup = node._preselected_pickup
+    use_cached_pickup = (
+        cached_pickup is not None
+        and cached_pickup.get('requested_object') == requested_object
+        and cached_pickup.get('destination') == destination)
+    if use_cached_pickup:
+        selected = str(cached_pickup['object_id'])
+        if selected not in approaches:
+            raise RuntimeError(
+                f'Preselected object {selected} is not valid for '
+                f'{requested_object}->{destination}')
+        node.get_logger().info(
+            'Using C-exit lookahead selection: '
+            f'object={selected}, '
+            f'staged_mode={cached_pickup.get("staged_mode")}')
+    else:
+        selected = node.select_object(requested_object, approaches)
+        cached_pickup = None
+    node._preselected_pickup = None
     node.object_id = selected
     node.publish_navigation_status(
         phase='SELECTED', event='object_selected', object_id=selected,
@@ -2549,12 +2611,22 @@ def execute_one_task(node, requested_object, destination,
         return selected
     node.wait_for_interfaces()
     node.configure_pickup_tracking()
-    pickup = node.nearest_dock_target(selected, approaches[selected])
-    node.navigate_pickup_transits(pickup)
-    node.publish_navigation_status(phase='NAV_PICKUP', event='phase_start')
-    node.navigate(
-        f'pickup {selected}', pickup,
-        handoff_distance=pickup_handoff_distance)
+    pickup = (
+        dict(cached_pickup['pickup']) if cached_pickup is not None
+        else node.nearest_dock_target(selected, approaches[selected]))
+    staged_mode = (
+        cached_pickup.get('staged_mode')
+        if cached_pickup is not None else None)
+    if staged_mode == 'pickup_handoff':
+        node.get_logger().info(
+            f'C exit already reached the {selected} pickup handoff; '
+            'starting fine dock without a duplicate Nav2 goal')
+    else:
+        node.navigate_pickup_transits(pickup, staged_mode=staged_mode)
+        node.publish_navigation_status(phase='NAV_PICKUP', event='phase_start')
+        node.navigate(
+            f'pickup {selected}', pickup,
+            handoff_distance=pickup_handoff_distance)
     node.publish_navigation_status(phase='FINE_DOCK', event='phase_start')
     node.fine_dock()
     node.check_pick_alignment()
@@ -2609,7 +2681,9 @@ def execute_one_task(node, requested_object, destination,
             lock_route=True,
             no_progress_timeout=(
                 6.0 if destination in ('A', 'B') else None))
-        node.align_dropoff_heading(float(dropoff['yaw']))
+        node.align_dropoff_heading(
+            float(dropoff['yaw']),
+            angular_cap=1.00 if destination == 'C' else 0.65)
     else:
         node.navigate(f'destination {destination}', dropoff, lock_route=True)
     node.publish_navigation_status(
@@ -2632,6 +2706,35 @@ def execute_one_task(node, requested_object, destination,
     node.publish_navigation_status(phase='PLACE', event='phase_start')
     node.manipulate('place')
     node.validate_destination_inventory()
+    next_pickup = None
+    if egress_after_place and destination == 'C' and next_task is not None:
+        next_requested_object, next_destination = next_task
+        saved_object = node.object_id
+        saved_destination = node.destination
+        try:
+            node.object_id = next_requested_object
+            node.destination = next_destination
+            next_approaches, _ = load_targets(
+                next_destination, next_requested_object)
+            next_selected = node.select_object(
+                next_requested_object, next_approaches)
+            node.object_id = next_selected
+            next_dock = node.nearest_dock_target(
+                next_selected, next_approaches[next_selected])
+            next_pickup = {
+                'requested_object': next_requested_object,
+                'destination': next_destination,
+                'object_id': next_selected,
+                'pickup': dict(next_dock),
+                'staged_mode': None,
+            }
+            node.get_logger().info(
+                'C exit lookahead selected next pickup: '
+                f'{next_selected}->{next_destination}, '
+                f'dock=({next_dock["x"]:.3f},{next_dock["y"]:.3f})')
+        finally:
+            node.object_id = saved_object
+            node.destination = saved_destination
     if egress_after_place:
         node.egress_after_place()
         if destination == 'C':
@@ -2642,7 +2745,10 @@ def execute_one_task(node, requested_object, destination,
             # until the next batch item restores 1.40 m/s anyway.  Route
             # geometry, strict handoffs and obstacle phase gates are unchanged.
             node.configure_pickup_tracking()
-        node.navigate_c_post_place_exit()
+        node.navigate_c_post_place_exit(
+            next_pickup=next_pickup,
+            pickup_handoff_distance=pickup_handoff_distance)
+        node._preselected_pickup = next_pickup
     node.publish_navigation_status(phase='COMPLETE', event='acceptance_passed')
     node.get_logger().info(
         'ACCEPTANCE PASSED: navigation + pick + carry + place')
@@ -2728,7 +2834,8 @@ def main(args=None):
                 egress_after_place=(
                     parsed.egress_after_place
                     if len(tasks) == 1 else index < len(tasks)),
-                select_only=parsed.select_only)
+                select_only=parsed.select_only,
+                next_task=(tasks[index] if index < len(tasks) else None))
             node.get_logger().info(
                 f'BATCH ITEM {index}/{len(tasks)} complete: '
                 f'{requested_object}->{task_destination}, '
