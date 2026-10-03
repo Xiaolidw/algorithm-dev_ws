@@ -2158,14 +2158,16 @@ class PickPlaceTest(Node):
             elif self.destination == 'B':
                 # B is not constrained to a single row.  Its floor lettering
                 # makes some otherwise regular y positions lethal for the
-                # chassis, so retain a two-row interior candidate grid and let
-                # the live cargo-clearance and chassis-cost filters choose at
-                # most the four physically permitted placements.  These are
-                # the previously proven B coordinates; no map geometry or
-                # manipulation trajectory is changed here.
+                # chassis, so retain the proven inner grid and add an east
+                # interior row for the new map2 layout.  After two deliveries
+                # every remaining inner-row chassis dock measured cost 99;
+                # the x=0.30 row measured 46..55 while preserving at least
+                # 0.10 m cargo-centre clearance.  Live cargo and chassis-cost
+                # filters still decide which candidates are actually usable.
                 candidates = [
                     (0.08, -0.13), (0.08, 0.05), (0.08, 0.13),
                     (0.18, -0.13), (0.18, 0.10), (0.13, 0.02),
+                    (0.30, -0.18), (0.30, 0.00), (0.30, 0.18),
                 ]
             else:
                 # C is approached only from its open north side.  Keep every
