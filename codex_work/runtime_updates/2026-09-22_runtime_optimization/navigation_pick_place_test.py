@@ -221,8 +221,36 @@ class PickPlaceTest(Node):
         if not self.state_client.wait_for_service(timeout_sec=20.0):
             raise RuntimeError('/gazebo/get_entity_state is unavailable')
 
+    def _north_of_upper_rail(self, object_id):
+        """Return whether a live cube needs the west-end rail crossing.
+
+        map2 deliberately scatters colours, so object numbers no longer imply
+        topology.  The moving upper rail occupies y=2.8, x=-2..1; any cube
+        whose live centre is north of it uses the proven west bypass whenever
+        the robot or destination is on the south side.
+        """
+        pose = self._relative_pose(object_id, 'world')
+        return float(pose.position.y) >= 3.20
+
+    @staticmethod
+    def _west_rail_distance(start_x, start_y, end_x, end_y):
+        west_south = (-2.75, 2.00)
+        west_north = (-2.75, 3.50)
+        return (
+            math.hypot(start_x - west_north[0], start_y - west_north[1])
+            + math.hypot(
+                west_north[0] - west_south[0],
+                west_north[1] - west_south[1])
+            + math.hypot(end_x - west_south[0], end_y - west_south[1]))
+
     def select_object(self, selector, approaches):
-        """Select a requested cube from its live Gazebo pose."""
+        """Pre-plan the nearest two live cubes and select the faster one.
+
+        Euclidean-nearest remains the first candidate, but the second-nearest
+        may win when its complete pickup + carried route avoids the upper
+        moving rail.  This is recalculated after every completed batch item;
+        no map2 decision is tied to a colour row or object number.
+        """
         selector = str(selector).lower()
         if selector in approaches:
             return selector
@@ -251,21 +279,9 @@ class PickPlaceTest(Node):
                          + zone_orientation.z * zone_orientation.z))
         cos_zone = math.cos(zone_yaw)
         sin_zone = math.sin(zone_yaw)
-        # A legal return from A must first leave through its east doorway.
-        # Ranking from the parking pose by a straight chord ignores the walls
-        # and can prefer a longer route.  In that state, compare grasp docks
-        # from the verified outer doorway; elsewhere compare them from the
-        # live robot pose.
         ranking_x = float(robot.position.x)
         ranking_y = float(robot.position.y)
-        robot_in_a = self._relative_pose('six_arm', 'zone_a')
         ranking_mode = 'live_robot_to_grasp_dock'
-        if (self.destination == 'A'
-                and math.hypot(robot_in_a.position.x,
-                               robot_in_a.position.y) <= 1.80):
-            ranking_x = -2.30
-            ranking_y = 1.30
-            ranking_mode = 'a_outer_doorway_to_grasp_dock'
         ranked = []
         for object_id in candidates:
             pose = self._relative_pose(object_id, 'world')
@@ -279,22 +295,23 @@ class PickPlaceTest(Node):
                     f'Skipping {object_id}: already inside destination '
                     f'{self.destination}')
                 continue
-            configured_yaw = float(approaches[object_id]['yaw'])
+            # All four face-normal docks are valid grasp candidates.  Reject
+            # lethal cells before ranking so a geometrically close dock on the
+            # wrong side of a wall does not win.
             dock_points = [
                 (float(pose.position.x) - 0.38 * math.cos(yaw),
                  float(pose.position.y) - 0.38 * math.sin(yaw))
-                for yaw in (
-                    configured_yaw,
-                    configured_yaw + math.pi / 2.0,
-                    configured_yaw + math.pi,
-                    configured_yaw + 3.0 * math.pi / 2.0)]
-            if object_id in ('red_cube_3', 'red_cube_4', 'red_cube_5'):
-                # All cubes north of the rail require the immutable west-rail
-                # bypass.  red_cube_3 was previously omitted and could remain
-                # stopped indefinitely behind moving_obstacle_1.
-                # Rank the route that will actually execute; Euclidean
-                # ranking incorrectly chose red5 even though its final north
-                # leg is 2.2 m longer and intermittently blocked by the mover.
+                for yaw in (0.0, math.pi / 2.0, math.pi, -math.pi / 2.0)]
+            dock_points = [
+                point for point in dock_points
+                if (self._global_costmap_cell(point[0], point[1]) is None
+                    or self._global_costmap_cell(point[0], point[1]) < 99)]
+            if not dock_points:
+                self.get_logger().warning(
+                    f'Skipping {object_id}: all four grasp docks are lethal')
+                continue
+            north_of_rail = float(pose.position.y) >= 3.20
+            if north_of_rail and ranking_y < 2.80:
                 west_1 = (-2.75, 2.00)
                 west_2 = (-2.75, 3.50)
                 pickup_distance = (
@@ -313,86 +330,44 @@ class PickPlaceTest(Node):
             self.get_logger().info(
                 f'Pickup candidate {object_id}: '
                 f'route_rank={pickup_distance:.3f}m, mode={candidate_mode}')
-            if not race_selection:
-                ranked.append((pickup_distance, object_id, 0.0))
-                continue
             carry_distance = math.hypot(
                 pose.position.x - zone.position.x,
                 pose.position.y - zone.position.y)
-            if (self.destination == 'A'
-                    and object_id in (
-                        'red_cube_3', 'red_cube_4', 'red_cube_5')):
-                # These cubes cannot use the Euclidean chord to A: the
-                # executed carried route must first clear the immutable upper
-                # obstacle rail at its west end.  Include both physical legs
-                # plus an evidence-derived 1.5 m equivalent cost for the two
-                # Nav2 stop/replan handoffs.  Without this term the scheduler
-                # repeatedly preferred red3/red4 over red1, although the
-                # measured red1 delivery was faster and avoided one dynamic
-                # crossing entirely.
-                rail_1 = (-2.75, 3.50)
-                rail_2 = (-2.75, 2.00)
-                carry_distance = (
-                    math.hypot(
-                        pose.position.x - rail_1[0],
-                        pose.position.y - rail_1[1])
-                    + math.hypot(
-                        rail_2[0] - rail_1[0],
-                        rail_2[1] - rail_1[1])
-                    + math.hypot(
-                        zone.position.x - rail_2[0],
-                        zone.position.y - rail_2[1])
-                    + 1.50)
-            if (self.destination == 'C'
-                    and object_id in ('red_cube_3', 'red_cube_4')):
-                # The executed C route must first carry these north-row cubes
-                # around the west end of obstacle rail 1.  Euclidean scoring
-                # omitted both physical legs and two measured Nav2 handoffs,
-                # making red4 look faster than red2.  A directed clean run
-                # measured red2->C at 87.470 s versus about 97 s to place
-                # red4 under the same lower-obstacle geometry.  Model the
-                # actual path plus a conservative 4.5 m handoff equivalent;
-                # no navigation geometry or controller setting is changed.
-                rail_1 = (-2.75, 3.50)
-                rail_2 = (-2.75, 2.00)
-                carry_distance = (
-                    math.hypot(
-                        pose.position.x - rail_1[0],
-                        pose.position.y - rail_1[1])
-                    + math.hypot(
-                        rail_2[0] - rail_1[0],
-                        rail_2[1] - rail_1[1])
-                    + math.hypot(
-                        zone.position.x - rail_2[0],
-                        zone.position.y - rail_2[1])
-                    + 4.50)
-            if self.destination == 'C' and object_id == 'red_cube_5':
-                # red5 is the only C candidate that must wait for obstacle 1
-                # at the upper rail and then wait again for obstacle 2 at the
-                # C crossing.  The failed three-red C regression measured
-                # about 12 s at the first gate alone, but the Euclidean score
-                # ranked it ahead of red3/red2.  The five-item formal run also
-                # exposed that its east staging point can be caught by the
-                # returning kinematic obstacle.  A 7 m equivalent keeps red5
-                # available when required while preferring the proven west-end
-                # red3 route whenever that cube is still free.
-                carry_distance += 7.0
-            # Carrying is slower and less agile than unloaded travel.  The
-            # modest weight chooses the fastest whole mission without sending
-            # the robot across the field just to collect a slightly nearer cube.
+            if north_of_rail and float(zone.position.y) < 2.80:
+                carry_distance = self._west_rail_distance(
+                    float(pose.position.x), float(pose.position.y),
+                    float(zone.position.x), float(zone.position.y))
+                # Two position handoffs plus an obstacle-phase allowance.
+                carry_distance += 2.50
             score = pickup_distance + 1.15 * carry_distance
-            ranked.append((score, object_id, carry_distance))
+            ranked.append({
+                'pickup': pickup_distance,
+                'score': score,
+                'object_id': object_id,
+                'carry': carry_distance,
+                'mode': candidate_mode,
+            })
         if not ranked:
             raise RuntimeError(f'No live candidates match {selector!r}')
-        score, object_id, carry_distance = min(ranked)
+        by_pickup = sorted(ranked, key=lambda item: item['pickup'])
+        shortlist = by_pickup[:2]
         if race_selection:
+            winner = min(shortlist, key=lambda item: item['score'])
+        else:
+            winner = shortlist[0]
+        object_id = winner['object_id']
+        if race_selection:
+            comparison = ', '.join(
+                f"{item['object_id']}:pickup={item['pickup']:.2f}m,"
+                f"total={item['score']:.2f}"
+                for item in shortlist)
             self.get_logger().info(
-                f'Fastest-mission selection: {object_id}, score={score:.3f}, '
-                f'estimated_carry={carry_distance:.3f}m')
+                f'map2 nearest-two preplan: {comparison}; '
+                f'selected={object_id}, reason=minimum_complete_route_cost')
         else:
             self.get_logger().info(
                 f'Nearest-object selection: {object_id}, '
-                f'distance={score:.3f}m')
+                f'distance={winner["pickup"]:.3f}m')
         return object_id
 
     def nearest_dock_target(self, object_id, configured_target):
@@ -418,12 +393,25 @@ class PickPlaceTest(Node):
             travel = math.hypot(
                 target['x'] - robot.position.x,
                 target['y'] - robot.position.y)
-            candidates.append((travel, target))
-        travel, target = min(candidates, key=lambda item: item[0])
+            cost = self._global_costmap_cell(target['x'], target['y'])
+            if cost is not None and cost >= 99:
+                self.get_logger().info(
+                    f'Rejecting {object_id} dock '
+                    f'({target["x"]:.3f},{target["y"]:.3f}): cost={cost}')
+                continue
+            # Prefer open cells when travel differs by only a few centimetres;
+            # this avoids handing the fine controller a dock embedded in the
+            # inflation shoulder of a neighbouring map2 cube.
+            cost_penalty = 0.0 if cost is None else 0.002 * max(0, cost)
+            candidates.append((travel + cost_penalty, travel, cost, target))
+        if not candidates:
+            raise RuntimeError(
+                f'No non-lethal face-normal dock is available for {object_id}')
+        _, travel, cost, target = min(candidates, key=lambda item: item[0])
         self.get_logger().info(
             f'Nearest dock for {object_id}: x={target["x"]:.3f}, '
             f'y={target["y"]:.3f}, yaw={target["yaw"]:.3f}, '
-            f'direct_distance={travel:.3f}m')
+            f'direct_distance={travel:.3f}m, cost={cost}')
         return target
 
     def navigate(
@@ -692,7 +680,7 @@ class PickPlaceTest(Node):
                 # dock error alone does not bound chassis-to-cube clearance.
                 # The action cancellation took up to 1.3 s in visual mode;
                 # trigger directly from live cube range with that measured
-                # delay, then finish at 0.16 m/s under fine-dock control.
+                # delay, then finish under bounded fine-dock control.
                 cube_brake_threshold = (
                     0.385 + 1.20*speed + speed*speed/(2.0*2.0))
                 # A cube can be physically close while a wall still separates
@@ -880,14 +868,15 @@ class PickPlaceTest(Node):
         # C is reached through long, axis-aligned open corridors and uses an
         # independent phase gate before crossing the moving obstacle.  Raise
         # only that carried cruise by less than ten percent; A/B retain the
-        # 1.05 m/s envelope established after the unstable five-red A trace.
+        # A/B remain below the C straight-corridor speed because of their
+        # tighter doorway and rail turns.
         # Collision Monitor, RPP curvature/cost regulation, the gate holds,
         # and the final low-speed docking controller remain unchanged.
-        carried_speed = 1.15 if self.destination == 'C' else 1.05
+        carried_speed = 1.50 if self.destination == 'C' else 1.25
         requested = {
             # The raised arm and attached cube move the centre of mass upward.
             # A 2026-09-12 five-red trace became physically unstable on the
-            # long A approach at the 1.40 m/s empty-base cruise setting; Nav2
+            # long A approach at the former empty-base cruise setting; Nav2
             # then received an empty path before Gazebo threw the chassis out
             # of the map. Keep the fast setting for empty travel, but use the
             # measured conservative envelope while carrying.
@@ -939,7 +928,7 @@ class PickPlaceTest(Node):
                 name='FollowPath.desired_linear_vel',
                 value=ParameterValue(
                     type=ParameterType.PARAMETER_DOUBLE,
-                    double_value=1.40)),
+                    double_value=1.80)),
             ParameterMsg(
                 name='FollowPath.rotate_to_heading_min_angle',
                 value=ParameterValue(
@@ -958,13 +947,13 @@ class PickPlaceTest(Node):
                 + '; '.join(failures))
         self.get_logger().info(
             'Pickup RPP profile restored: '
-            f'speed=1.40m/s, turn_threshold={turn_threshold:.2f}rad, '
+            f'speed=1.80m/s, turn_threshold={turn_threshold:.2f}rad, '
             f'destination={self.destination}')
 
     def configure_final_pickup_tracking(self):
         """Bound speed before the last Nav2 approach to an ungrasped cube.
 
-        The empty-base transit may safely use the 1.40 m/s profile, but that
+        The empty-base transit may safely use the fast cruise profile, but that
         speed leaves too much cancellation distance when Nav2 hands control
         to fine docking.  A cube is still a movable physics body at this
         point, so use a separate 0.60 m/s final-approach profile instead of
@@ -977,7 +966,7 @@ class PickPlaceTest(Node):
             name='FollowPath.desired_linear_vel',
             value=ParameterValue(
                 type=ParameterType.PARAMETER_DOUBLE,
-                double_value=0.60))]
+                double_value=0.75))]
         future = self.controller_parameters.call_async(request)
         self._wait_future(future, 5.0, 'configure final pickup approach speed')
         result = future.result().results[0]
@@ -986,8 +975,8 @@ class PickPlaceTest(Node):
                 'Cannot configure final pickup approach speed: '
                 + (result.reason or 'rejected'))
         self.get_logger().info(
-            'Final pickup RPP speed configured: 0.60m/s '
-            '(empty transit remains 1.40m/s)')
+            'Final pickup RPP speed configured: 0.75m/s '
+            '(empty transit remains 1.80m/s)')
 
     def navigate_pickup_transits(
             self, pickup_target=None, staged_mode=None):
@@ -1006,7 +995,7 @@ class PickPlaceTest(Node):
                 {'x': -4.00, 'y': -1.75, 'yaw': 0.0},
                 {'x': -2.25, 'y': -0.25, 'yaw': math.pi / 2.0},
             ]
-            if self.object_id not in ('red_cube_3', 'red_cube_4'):
+            if not self._north_of_upper_rail(self.object_id):
                 exit_transits.append(
                     {'x': -2.30, 'y': 1.30, 'yaw': math.pi / 2.0})
             else:
@@ -1082,40 +1071,15 @@ class PickPlaceTest(Node):
                 self.navigate(
                     f'B reverse doorway transit {index}', transit,
                     handoff_distance=0.35, lock_route=True)
-        if self.object_id == 'red_cube_5':
-            # red_cube_5 lies north of moving_obstacle_1's immutable y=2.8
-            # rail.  The old west-end route then drove east along the cube row
-            # and was correctly stopped by red_cube_4.  The two zero-cost
-            # staging cells below form a diagonal crossing between blue cube
-            # columns; cross only while obstacle 1 is safely to the west.
-            transits = (
-                {'x': -0.65, 'y': 1.80, 'yaw': 0.0},
-                {'x': 1.20, 'y': 3.20, 'yaw': 0.0},
-            )
-            for index, transit in enumerate(transits, 1):
-                if index == 2:
-                    self._wait_for_red5_rail_crossing_clear()
-                self.publish_navigation_status(
-                    phase='PICKUP_TRANSIT', event='phase_start',
-                    transit_index=index, transit_count=len(transits),
-                    route_mode='red5_gated_vertical_crossing')
-                self.navigate(
-                    f'red_cube_5 gated rail crossing {index}', transit,
-                    handoff_distance=0.08 if index == 2 else 0.20,
-                    strict_handoff=(index == 2),
-                    lock_route=True)
+        if not self._north_of_upper_rail(self.object_id):
             return
-        if self.object_id not in ('red_cube_3', 'red_cube_4'):
-            return
-        # A direct origin -> red_cube_4 chord crosses moving_obstacle_1's
-        # prescribed y=2.8 rail inside x=[-2, 1].  A contact with that
-        # kinematic obstacle can launch the chassis.  Cross 0.75 m beyond the
-        # west endpoint, then approach along the north side of the rail.
+        # map2 upper-row cubes cross the moving y=2.8 rail only at its proven
+        # west end.  Selection is based on live y, never colour or cube ID.
         transits = (
             {'x': -2.75, 'y': 2.00, 'yaw': math.pi / 2.0},
             {'x': -2.75, 'y': 3.50, 'yaw': 0.0},
         )
-        if staged_mode == 'red34_rail1':
+        if staged_mode == 'map2_upper_rail_1':
             transits = transits[1:]
             self.get_logger().info(
                 f'C exit already staged {self.object_id} at west rail 1; '
@@ -1375,7 +1339,10 @@ class PickPlaceTest(Node):
         to_south_gate = math.hypot(
             float(robot.position.x) - 3.90,
             float(robot.position.y) + 6.90)
-        effective_speed = 0.43
+        # Empty C exits use the faster cruise profile.  The former 0.43 m/s
+        # estimate predicted arrival about one obstacle phase late, selected
+        # south, and then paid an avoidable 8--10 second gate wait.
+        effective_speed = 0.85
 
         def estimate(mode):
             before_distance = (to_south_gate + 0.90 + 3.30
@@ -1420,7 +1387,7 @@ class PickPlaceTest(Node):
     def navigate_dropoff_transits(self):
         """Enter each delivery corridor before the final continuous leg."""
         if self.destination == 'C':
-            if self.object_id in ('red_cube_3', 'red_cube_4'):
+            if self._north_of_upper_rail(self.object_id):
                 rail_exit = (
                     {'x': -2.75, 'y': 3.50, 'yaw': math.pi},
                     {'x': -2.75, 'y': 2.00, 'yaw': -math.pi / 2.0},
@@ -1429,27 +1396,10 @@ class PickPlaceTest(Node):
                     self.publish_navigation_status(
                         phase='DROPOFF_TRANSIT', event='phase_start',
                         transit_index=index, transit_count=len(rail_exit),
-                        route_mode='red34_to_c_west_rail_exit')
+                        route_mode='map2_upper_rail_to_c')
                     self.navigate(
                         f'{self.object_id} to-C rail exit {index}', transit,
                         handoff_distance=0.20, lock_route=True)
-            elif self.object_id == 'red_cube_5':
-                rail_exit = (
-                    {'x': 1.20, 'y': 3.20, 'yaw': math.pi},
-                    {'x': -0.65, 'y': 1.80, 'yaw': math.pi},
-                )
-                for index, transit in enumerate(rail_exit, 1):
-                    if index == 2:
-                        self._wait_for_red5_rail_crossing_clear()
-                    self.publish_navigation_status(
-                        phase='DROPOFF_TRANSIT', event='phase_start',
-                        transit_index=index, transit_count=len(rail_exit),
-                        route_mode='red5_to_c_gated_vertical_exit')
-                    self.navigate(
-                        f'red_cube_5 to-C gated rail exit {index}', transit,
-                        handoff_distance=0.08 if index == 2 else 0.20,
-                        strict_handoff=(index == 2),
-                        lock_route=True)
             # The authoritative officeroom origin is (0.9981, -4.92976).
             # Wall_118 is therefore the vertical segment at x=3.601 from
             # y=-3.533 to -6.033.  Cross obstacle 2's x=1 rail once at the
@@ -1527,51 +1477,27 @@ class PickPlaceTest(Node):
                     lock_route=True)
             return
         if self.destination == 'B':
-            if self.object_id.startswith('red_cube_'):
-                if self.object_id in ('red_cube_3', 'red_cube_4'):
-                    # red_cube_4 is picked north of moving_obstacle_1's
-                    # immutable y=2.8 rail.  Retrace the west-end bypass while
-                    # carrying it; a direct diagonal to the central doorway
-                    # crossed the rail and launched the chassis out of bounds.
-                    rail_exit_transits = (
-                        {'x': -2.75, 'y': 3.50, 'yaw': math.pi},
-                        {'x': -2.75, 'y': 2.00, 'yaw': -math.pi / 2.0},
-                    )
-                    for index, transit in enumerate(rail_exit_transits, 1):
-                        self.publish_navigation_status(
-                            phase='DROPOFF_TRANSIT', event='phase_start',
-                            transit_index=index,
-                            transit_count=len(rail_exit_transits),
-                            route_mode='red34_to_b_rail_exit')
-                        self.navigate(
-                            f'{self.object_id} to-B rail exit {index}', transit,
-                            handoff_distance=0.35, lock_route=True)
-                elif self.object_id == 'red_cube_5':
-                    # The east side is disconnected in the static map. Reuse
-                    # the proven west-end crossing for this inverse-colour
-                    # carried route as well.
-                    rail_exit_transits = (
-                        {'x': -2.75, 'y': 3.50, 'yaw': math.pi},
-                        {'x': -2.75, 'y': 2.00, 'yaw': -math.pi / 2.0},
-                    )
-                    for index, transit in enumerate(rail_exit_transits, 1):
-                        self.publish_navigation_status(
-                            phase='DROPOFF_TRANSIT', event='phase_start',
-                            transit_index=index,
-                            transit_count=len(rail_exit_transits),
-                            route_mode='red5_to_b_west_rail_exit')
-                        self.navigate(
-                            f'red_cube_5 to-B rail exit {index}', transit,
-                            handoff_distance=0.35, lock_route=True)
-            if (self.object_id.startswith('red_cube_')
-                    or self.object_id in ('blue_cube_1', 'blue_cube_2')):
-                # Upper-row red cubes and the two west-side blue cubes cannot
-                # reliably reach the fixed B east transit with one direct
-                # chord.  blue_cube_2 was observed to lose its path twice at
-                # 6.53 m remaining after a valid grasp.  Select the already
-                # proven central-doorway homotopy before entering B.  The
-                # remaining east-side blue cubes retain the shorter direct
-                # route.
+            object_pose = self._relative_pose(self.object_id, 'world')
+            north_of_rail = self._north_of_upper_rail(self.object_id)
+            if north_of_rail:
+                rail_exit_transits = (
+                    {'x': -2.75, 'y': 3.50, 'yaw': math.pi},
+                    {'x': -2.75, 'y': 2.00, 'yaw': -math.pi / 2.0},
+                )
+                for index, transit in enumerate(rail_exit_transits, 1):
+                    self.publish_navigation_status(
+                        phase='DROPOFF_TRANSIT', event='phase_start',
+                        transit_index=index,
+                        transit_count=len(rail_exit_transits),
+                        route_mode='map2_upper_rail_to_b')
+                    self.navigate(
+                        f'{self.object_id} to-B rail exit {index}', transit,
+                        handoff_distance=0.35, lock_route=True)
+            if (north_of_rail
+                    or float(object_pose.position.x) < -2.30
+                    or float(object_pose.position.y) > 1.30):
+                # Geometry, rather than colour/number, selects the proven
+                # central doorway before the B east-side approach.
                 cross_zone_transits = (
                     {'x': -2.30, 'y': 1.30, 'yaw': -math.pi / 2.0},
                     {'x': -2.25, 'y': -0.25, 'yaw': -math.pi / 2.0},
@@ -1599,7 +1525,8 @@ class PickPlaceTest(Node):
             return
         if self.destination != 'A':
             return
-        if self.object_id in ('red_cube_3', 'red_cube_4'):
+        north_of_rail = self._north_of_upper_rail(self.object_id)
+        if north_of_rail:
             # The pickup pose is north-east of moving_obstacle_1's immutable
             # y=2.8 rail.  A direct carried-object chord to A crosses that
             # physical obstacle and the 2026-09-09 trace launched the chassis
@@ -1614,25 +1541,9 @@ class PickPlaceTest(Node):
                     phase='DROPOFF_TRANSIT', event='phase_start',
                     transit_index=index,
                     transit_count=len(rail_transits),
-                    route_mode='red34_carried_rail_bypass')
+                    route_mode='map2_upper_rail_to_a')
                 self.navigate(
                     f'{self.object_id} carried rail bypass {index}', transit,
-                    handoff_distance=0.35, lock_route=True)
-        elif self.object_id == 'red_cube_5':
-            # The east side is disconnected in the static map; take the same
-            # proven west-end crossing as red_cube_4 while carrying red 5.
-            rail_transits = (
-                {'x': -2.75, 'y': 3.50, 'yaw': math.pi},
-                {'x': -2.75, 'y': 2.00, 'yaw': -math.pi / 2.0},
-            )
-            for index, transit in enumerate(rail_transits, 1):
-                self.publish_navigation_status(
-                    phase='DROPOFF_TRANSIT', event='phase_start',
-                    transit_index=index,
-                    transit_count=len(rail_transits),
-                    route_mode='red5_carried_west_rail_bypass')
-                self.navigate(
-                    f'red_cube_5 west rail bypass {index}', transit,
                     handoff_distance=0.35, lock_route=True)
         # These two position handoffs constrain the chassis to the verified
         # east-side doorway.  NavigateThroughPoses was deliberately removed:
@@ -1644,7 +1555,7 @@ class PickPlaceTest(Node):
             {'x': -2.30, 'y': 1.30, 'yaw': -math.pi / 2.0},
             {'x': -2.25, 'y': -0.25, 'yaw': -math.pi / 2.0},
         ]
-        if self.object_id in ('red_cube_3', 'red_cube_4'):
+        if north_of_rail:
             # The verified west-rail bypass above already ends at
             # (-2.75, 2.00), on the safe west side of the moving obstacle.
             # Re-stopping only 0.83 m later at the outer A doorway forced an
@@ -1739,7 +1650,7 @@ class PickPlaceTest(Node):
                     # Drive and steer together.  The former rotate-only gate
                     # kept linear.x at zero while the high angular command
                     # repeatedly overshot the cube centreline.
-                    linear = max(-0.12, min(0.16, 1.4 * range_error))
+                    linear = max(-0.16, min(0.22, 1.6 * range_error))
                     if abs(range_error) > 0.015 and abs(linear) < 0.06:
                         linear = math.copysign(0.06, range_error)
                     # Explicit two-stage docking: first face the cube, then
@@ -1753,7 +1664,7 @@ class PickPlaceTest(Node):
                     # Close the lateral error promptly once range is already
                     # correct.  The former 1.25 gain spent about three seconds
                     # creeping from |y|=0.036 m into the 0.015 m grasp window.
-                    angular = max(-0.60, min(0.60, 2.40 * heading_error))
+                    angular = max(-0.80, min(0.80, 2.60 * heading_error))
                     if (abs(heading_error) > 0.018
                             and abs(angular) < 0.065):
                         angular = math.copysign(0.065, heading_error)
@@ -1788,7 +1699,7 @@ class PickPlaceTest(Node):
 
         The controller operates only inside the final roughly 0.6 m.  It
         first faces the already-planned dock point, then advances at no more
-        than 0.16 m/s.  Sharp approaches still rotate in place and final yaw
+        than the long-range Nav2 cruise. Sharp approaches still rotate in place and final yaw
         remains
         a separate stopped operation, so the
         payload cannot sweep through a zone obstacle during translation.
@@ -1853,9 +1764,9 @@ class PickPlaceTest(Node):
                     if abs(heading_error) > 0.28:
                         linear = 0.0
                     else:
-                        linear = max(0.045, min(0.16, 0.55 * distance))
+                        linear = max(0.055, min(0.22, 0.70 * distance))
                         linear *= max(0.45, math.cos(heading_error) ** 2)
-                    angular = max(-0.22, min(0.22, 1.35 * heading_error))
+                    angular = max(-0.30, min(0.30, 1.55 * heading_error))
                     if abs(heading_error) <= 0.015:
                         angular = 0.0
                     self._publish_dock_command(linear, angular)
@@ -1872,7 +1783,7 @@ class PickPlaceTest(Node):
             self._publish_navigation_stop()
 
     def align_dropoff_heading(
-            self, target_yaw, timeout_sec=10.0, angular_cap=0.65):
+            self, target_yaw, timeout_sec=10.0, angular_cap=0.90):
         """Precisely align the chassis before the arm extends for placement."""
         deadline = time.monotonic() + float(timeout_sec)
         stable_since = None
@@ -1926,7 +1837,7 @@ class PickPlaceTest(Node):
         finally:
             self._publish_navigation_stop()
 
-    def egress_after_place(self, travel_distance=0.45, timeout_sec=9.0):
+    def egress_after_place(self, travel_distance=0.35, timeout_sec=7.0):
         """Back straight away from a placed cube before starting another task.
 
         This is deliberately opt-in: the final task still settles in place.
@@ -1952,7 +1863,7 @@ class PickPlaceTest(Node):
         # command is mathematically away from the released cube.
         heading_dot_away = (
             math.cos(start_yaw) * away_x + math.sin(start_yaw) * away_y)
-        linear_command = 0.25 if heading_dot_away >= 0.0 else -0.25
+        linear_command = 0.40 if heading_dot_away >= 0.0 else -0.40
         deadline = time.monotonic() + float(timeout_sec)
         last_progress = time.monotonic()
         best_travel = 0.0
@@ -2046,19 +1957,14 @@ class PickPlaceTest(Node):
         staged_mode = None
         if next_pickup is not None:
             next_object = str(next_pickup['object_id'])
-            if next_object in ('red_cube_3', 'red_cube_4'):
+            if self._north_of_upper_rail(next_object):
                 # Join the open west-side exit directly to the first proven
                 # rail-bypass node.  The next task resumes at rail 2.
                 final_target = {
                     'x': -2.75, 'y': 2.00, 'yaw': math.pi / 2.0,
                     'handoff': 0.20, 'strict_handoff': True,
                 }
-                staged_mode = 'red34_rail1'
-            elif next_object == 'red_cube_5':
-                # red5 uses a separate phase-gated diagonal crossing.  Keep
-                # the common exit for that rare fallback rather than joining
-                # an unverified chord.
-                final_target = None
+                staged_mode = 'map2_upper_rail_1'
             else:
                 final_target = dict(next_pickup['pickup'])
                 final_target.update({
@@ -2681,16 +2587,16 @@ def execute_one_task(node, requested_object, destination,
         node.navigate(
             f'{destination} final pre-approach', pre_approach,
             handoff_distance=0.20,
-            strict_handoff=(
-                destination == 'C'
-                and node.selected_dropoff_slot is not None
-                and node.selected_dropoff_slot[1] > 0.0),
+            # Avoid handing C to the fine controller from roughly 0.69 m out;
+            # that loose transition adds a long rotation and approach.  Both
+            # C rows have already validated the strict 0.20 m endpoint.
+            strict_handoff=(destination == 'C'),
             lock_route=True,
             no_progress_timeout=(
                 6.0 if destination in ('A', 'B') else None))
         node.align_dropoff_heading(
             float(dropoff['yaw']),
-            angular_cap=1.00 if destination == 'C' else 0.65)
+            angular_cap=1.00)
     else:
         node.navigate(f'destination {destination}', dropoff, lock_route=True)
     node.publish_navigation_status(
@@ -2714,7 +2620,7 @@ def execute_one_task(node, requested_object, destination,
     node.manipulate('place')
     node.validate_destination_inventory()
     next_pickup = None
-    if egress_after_place and destination == 'C' and next_task is not None:
+    if egress_after_place and next_task is not None:
         next_requested_object, next_destination = next_task
         saved_object = node.object_id
         saved_destination = node.destination
@@ -2736,7 +2642,7 @@ def execute_one_task(node, requested_object, destination,
                 'staged_mode': None,
             }
             node.get_logger().info(
-                'C exit lookahead selected next pickup: '
+                'map2 post-place preplan selected next pickup: '
                 f'{next_selected}->{next_destination}, '
                 f'dock=({next_dock["x"]:.3f},{next_dock["y"]:.3f})')
         finally:
@@ -2748,8 +2654,8 @@ def execute_one_task(node, requested_object, destination,
             # Placement and inventory validation have completed, and the
             # bounded reverse egress has restored physical clearance from the
             # released cube.  The guarded C corridor is therefore an empty-
-            # base transit; do not keep the 1.05 m/s carried-object profile
-            # until the next batch item restores 1.40 m/s anyway.  Route
+            # base transit; do not keep the carried-object profile until the
+            # next batch item restores the empty cruise anyway. Route
             # geometry, strict handoffs and obstacle phase gates are unchanged.
             node.configure_pickup_tracking()
         node.navigate_c_post_place_exit(

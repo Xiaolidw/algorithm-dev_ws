@@ -47,12 +47,14 @@ fixed_manipulation_server:
     gripper_contact_compression_m: 0.001
 
     # Phase-8: per-segment durations
-    arm_home_to_pregrasp_duration_s: 0.95
-    arm_pregrasp_to_grasp_duration_s: 1.10
-    arm_return_home_duration_s: 0.90
-    arm_motion_duration_s: 1.5
-    gripper_open_duration_s: 0.25
-    gripper_close_duration_s: 0.30
+    # Five-object scoring profile: remove idle interpolation time from every
+    # pick and place while retaining explicit settle/validation stages.
+    arm_home_to_pregrasp_duration_s: 0.60
+    arm_pregrasp_to_grasp_duration_s: 0.70
+    arm_return_home_duration_s: 0.60
+    arm_motion_duration_s: 0.75
+    gripper_open_duration_s: 0.15
+    gripper_close_duration_s: 0.18
     gripper_motion_duration_s: 0.6
     settle_time_s: 0.015
     pre_close_settle_time_s: 0.12
@@ -85,7 +87,7 @@ fixed_manipulation_server:
     placement_zone_half_depth: 0.25
     placement_boundary_margin: 0.025
     placement_slot_clearance: 0.055
-    placement_settle_time_s: 0.15
+    placement_settle_time_s: 0.35
     placement_validation_attempts: 3
     placement_speed_tolerance_mps: 0.12
     pre_release_object_z_min_m: 0.015

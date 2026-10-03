@@ -49,14 +49,15 @@ class CubeObstacleMapNode(Node):
         self.declare_parameter('map_origin_y', -33.4)
         self.declare_parameter('map_width', 658)
         self.declare_parameter('map_height', 822)
-        # 方块世界坐标(与 world 文件一致): red y=3.9 / blue y=1.7
+        # map2 方块世界坐标（与 competition_v2_scoring.world 一致）。
+        # Gazebo ModelStates 到达后仍以实时位姿覆盖这些启动默认值。
         self.declare_parameter(
             'cube_positions',
-            ['red_cube_1:-8.35:3.9', 'red_cube_2:-6.15:3.9',
-             'red_cube_3:-3.95:3.9', 'red_cube_4:-1.75:3.9',
-             'red_cube_5:0.45:3.9', 'blue_cube_1:-8.35:1.7',
-             'blue_cube_2:-6.15:1.7', 'blue_cube_3:-3.95:1.7',
-             'blue_cube_4:-1.75:1.7', 'blue_cube_5:0.45:1.7'])
+            ['red_cube_1:1.0:4.0', 'red_cube_2:3.5:0.5',
+             'red_cube_3:-1.7:1.6', 'red_cube_4:-6.0:0.0',
+             'red_cube_5:1.0:-9.0', 'blue_cube_1:-2.0:4.0',
+             'blue_cube_2:0.5:1.6', 'blue_cube_3:-8.0:0.0',
+             'blue_cube_4:-6.0:-7.0', 'blue_cube_5:-2.0:4.0'])
         # 标记半径取方块实体半宽0.045m。机器人净距仍由局部/全局
         # inflation layer 负责，避免虚拟核心额外封死物块列之间的通道。
         self.declare_parameter('mark_radius', 0.045)

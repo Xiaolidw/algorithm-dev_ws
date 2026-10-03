@@ -14,21 +14,23 @@ approach_policy:
   reference_offset_m: 0.80
   note: "Initial map-safe poses; calibrate final arm-facing yaw during manipulation tuning."
 
-# All cargo positions are at least 4 m apart. z is recorded for world/layout
-# consistency even though Nav2 consumes only the 2-D search pose.
+# map2 cargo layout. z is recorded for world/layout consistency even though
+# Nav2 consumes live 2-D Gazebo poses. blue_cube_1 and blue_cube_5 intentionally
+# share the user-specified initial coordinate; runtime planning re-reads their
+# post-contact Gazebo poses rather than assuming that overlap persists.
 cargo:
   red:
-    - {id: red_cube_1, object_pose: [-8.35, 3.9, 0.015], search_pose: null}
-    - {id: red_cube_2, object_pose: [-6.15, 3.9, 0.015], search_pose: null}
-    - {id: red_cube_3, object_pose: [-3.95, 3.9, 0.015], search_pose: null}
-    - {id: red_cube_4, object_pose: [-1.75, 3.9, 0.015], search_pose: null}
-    - {id: red_cube_5, object_pose: [0.45, 3.9, 0.015], search_pose: null}
+    - {id: red_cube_1, object_pose: [1.0, 4.0, 0.015], search_pose: null}
+    - {id: red_cube_2, object_pose: [3.5, 0.5, 0.015], search_pose: null}
+    - {id: red_cube_3, object_pose: [-1.7, 1.6, 0.015], search_pose: null}
+    - {id: red_cube_4, object_pose: [-6.0, 0.0, 0.015], search_pose: null}
+    - {id: red_cube_5, object_pose: [1.0, -9.0, 0.015], search_pose: null}
   blue:
-    - {id: blue_cube_1, object_pose: [-8.35, 1.7, 0.015], search_pose: null}
-    - {id: blue_cube_2, object_pose: [-6.15, 1.7, 0.015], search_pose: null}
-    - {id: blue_cube_3, object_pose: [-3.95, 1.7, 0.015], search_pose: null}
-    - {id: blue_cube_4, object_pose: [-1.75, 1.7, 0.015], search_pose: null}
-    - {id: blue_cube_5, object_pose: [0.45, 1.7, 0.015], search_pose: null}
+    - {id: blue_cube_1, object_pose: [-2.0, 4.0, 0.015], search_pose: null}
+    - {id: blue_cube_2, object_pose: [0.5, 1.6, 0.015], search_pose: null}
+    - {id: blue_cube_3, object_pose: [-8.0, 0.0, 0.015], search_pose: null}
+    - {id: blue_cube_4, object_pose: [-6.0, -7.0, 0.015], search_pose: null}
+    - {id: blue_cube_5, object_pose: [-2.0, 4.0, 0.015], search_pose: null}
 
 # The three regions are placed in wall-separated rooms.
 placement_areas:
