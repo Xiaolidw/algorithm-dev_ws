@@ -724,7 +724,13 @@ class PickPlaceTest(Node):
                 not object_pickup_handoff or distance <= 1.10)
             pickup_speed_ready = (
                 not object_pickup_handoff
-                or (pickup_slowdown_applied and speed <= 0.72))
+                # The final pickup profile is capped at 0.75 m/s.  Requiring
+                # <=0.72 m/s could therefore prevent the handoff throughout a
+                # straight approach and let the chassis enter the protection
+                # radius before the controller naturally decelerated.  Allow
+                # a small odometry margin so fine docking can take ownership
+                # as soon as the configured slow profile is active.
+                or (pickup_slowdown_applied and speed <= 0.80))
             if (math.isfinite(distance)
                     and (distance <= dynamic_threshold
                          or object_proximity_handoff)
