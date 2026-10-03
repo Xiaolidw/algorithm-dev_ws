@@ -18,7 +18,7 @@ flow_execution:
     blue_cube_2: {x: 0.50, y: 1.17, yaw: 1.5708}
     blue_cube_3: {x: -7.57, y: 0.00, yaw: 3.1416}
     blue_cube_4: {x: -5.57, y: -7.00, yaw: 3.1416}
-    blue_cube_5: {x: -2.00, y: 3.57, yaw: 1.5708}
+    blue_cube_5: {x: -1.00, y: -8.57, yaw: -1.5708}
 
   destinations:
     A: {x: -7.0, y: -3.8, yaw: 0.0}

@@ -57,7 +57,7 @@ class CubeObstacleMapNode(Node):
              'red_cube_3:-1.7:1.6', 'red_cube_4:-6.0:0.0',
              'red_cube_5:1.0:-9.0', 'blue_cube_1:-2.0:4.0',
              'blue_cube_2:0.5:1.6', 'blue_cube_3:-8.0:0.0',
-             'blue_cube_4:-6.0:-7.0', 'blue_cube_5:-2.0:4.0'])
+             'blue_cube_4:-6.0:-7.0', 'blue_cube_5:-1.0:-9.0'])
         # 标记半径取方块实体半宽0.045m。机器人净距仍由局部/全局
         # inflation layer 负责，避免虚拟核心额外封死物块列之间的通道。
         self.declare_parameter('mark_radius', 0.045)

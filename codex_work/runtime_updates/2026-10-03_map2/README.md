@@ -17,11 +17,10 @@ runner.
 | blue_cube_2 | 0.5 | 1.6 |
 | blue_cube_3 | -8.0 | 0.0 |
 | blue_cube_4 | -6.0 | -7.0 |
-| blue_cube_5 | -2.0 | 4.0 |
+| blue_cube_5 | -1.0 | -9.0 |
 
-`blue_cube_1` and `blue_cube_5` intentionally retain the duplicate initial
-coordinate supplied for this task. Runtime scheduling reads Gazebo's settled
-poses before each decision.
+The corrected layout contains no duplicate initial cube coordinates. Runtime
+scheduling still reads Gazebo's settled poses before each decision.
 
 ## Changed production artifacts
 
