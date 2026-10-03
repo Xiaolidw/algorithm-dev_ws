@@ -243,6 +243,21 @@ class PickPlaceTest(Node):
                 west_north[1] - west_south[1])
             + math.hypot(end_x - west_south[0], end_y - west_south[1]))
 
+    @staticmethod
+    def _route_distance_through(start_x, start_y, waypoints, end_x, end_y):
+        """Return polyline length through the exact runtime waypoints."""
+        total = 0.0
+        current_x = float(start_x)
+        current_y = float(start_y)
+        for waypoint_x, waypoint_y in waypoints:
+            total += math.hypot(
+                float(waypoint_x) - current_x,
+                float(waypoint_y) - current_y)
+            current_x = float(waypoint_x)
+            current_y = float(waypoint_y)
+        return total + math.hypot(
+            float(end_x) - current_x, float(end_y) - current_y)
+
     def select_object(self, selector, approaches):
         """Pre-plan the nearest two live cubes and select the faster one.
 
@@ -281,6 +296,13 @@ class PickPlaceTest(Node):
         sin_zone = math.sin(zone_yaw)
         ranking_x = float(robot.position.x)
         ranking_y = float(robot.position.y)
+        robot_zone_dx = ranking_x - float(zone.position.x)
+        robot_zone_dy = ranking_y - float(zone.position.y)
+        robot_zone_x = cos_zone * robot_zone_dx + sin_zone * robot_zone_dy
+        robot_zone_y = -sin_zone * robot_zone_dx + cos_zone * robot_zone_dy
+        leaving_b = (
+            self.destination == 'B'
+            and math.hypot(robot_zone_x, robot_zone_y) <= 1.80)
         ranking_mode = 'live_robot_to_grasp_dock'
         ranked = []
         for object_id in candidates:
@@ -311,7 +333,28 @@ class PickPlaceTest(Node):
                     f'Skipping {object_id}: all four grasp docks are lethal')
                 continue
             north_of_rail = float(pose.position.y) >= 3.20
-            if north_of_rail and ranking_y < 2.80:
+            south_east_of_b = (
+                self.destination == 'B'
+                and float(pose.position.x) > -2.30
+                and float(pose.position.y) < -5.50)
+            if leaving_b:
+                # Match navigate_pickup_transits exactly.  South-east map2
+                # cargo can leave B after the east doorway only; west/central
+                # cargo must also traverse the two central doorway points.
+                # The old direct Euclidean rank hid 6--11 m of forced egress
+                # and selected blue4 over the materially faster blue3.
+                b_exit = [(-1.45, -2.40)]
+                if not south_east_of_b:
+                    b_exit.extend([(-2.25, -0.25), (-2.30, 1.30)])
+                pickup_distance = min(
+                    self._route_distance_through(
+                        ranking_x, ranking_y, b_exit, dx, dy)
+                    for dx, dy in dock_points)
+                candidate_mode = (
+                    ranking_mode + '_via_b_east_exit'
+                    if south_east_of_b
+                    else ranking_mode + '_via_b_central_exit')
+            elif north_of_rail and ranking_y < 2.80:
                 west_1 = (-2.75, 2.00)
                 west_2 = (-2.75, 3.50)
                 pickup_distance = (
@@ -333,7 +376,16 @@ class PickPlaceTest(Node):
             carry_distance = math.hypot(
                 pose.position.x - zone.position.x,
                 pose.position.y - zone.position.y)
-            if north_of_rail and float(zone.position.y) < 2.80:
+            if self.destination == 'B':
+                b_entry = [(-1.45, -2.40)]
+                if not south_east_of_b:
+                    b_entry = [(-2.30, 1.30), (-2.25, -0.25)] + b_entry
+                if north_of_rail:
+                    b_entry = [(-2.75, 3.50), (-2.75, 2.00)] + b_entry
+                carry_distance = self._route_distance_through(
+                    float(pose.position.x), float(pose.position.y),
+                    b_entry, float(zone.position.x), float(zone.position.y))
+            elif north_of_rail and float(zone.position.y) < 2.80:
                 carry_distance = self._west_rail_distance(
                     float(pose.position.x), float(pose.position.y),
                     float(zone.position.x), float(zone.position.y))
@@ -1063,17 +1115,31 @@ class PickPlaceTest(Node):
             # 4 and 9 m.  Retrace the already-proven B inbound and central
             # doorway points before selecting the live final pickup leg.
             # This changes neither obstacle geometry nor the final grasp pose.
-            b_exit_transits = (
+            selected_pose = self._relative_pose(self.object_id, 'world')
+            south_east_pickup = (
+                float(selected_pose.position.x) > -2.30
+                and float(selected_pose.position.y) < -5.50)
+            b_exit_transits = [
                 {'x': -1.45, 'y': -2.40, 'yaw': math.pi / 2.0},
-                {'x': -2.25, 'y': -0.25, 'yaw': math.pi / 2.0},
-                {'x': -2.30, 'y': 1.30, 'yaw': math.pi / 2.0},
-            )
+            ]
+            if not south_east_pickup:
+                b_exit_transits.extend([
+                    {'x': -2.25, 'y': -0.25, 'yaw': math.pi / 2.0},
+                    {'x': -2.30, 'y': 1.30, 'yaw': math.pi / 2.0},
+                ])
+            self.get_logger().info(
+                'B exit topology selected: '
+                f'object={self.object_id}, '
+                f'mode={"east_only" if south_east_pickup else "central"}, '
+                f'waypoints={len(b_exit_transits)}')
             for index, transit in enumerate(b_exit_transits, 1):
                 self.publish_navigation_status(
                     phase='PICKUP_TRANSIT', event='phase_start',
                     transit_index=index,
                     transit_count=len(b_exit_transits),
-                    route_mode='b_reverse_central_doorway')
+                    route_mode=(
+                        'b_reverse_east_only' if south_east_pickup
+                        else 'b_reverse_central_doorway'))
                 self.navigate(
                     f'B reverse doorway transit {index}', transit,
                     handoff_distance=0.35, lock_route=True)
