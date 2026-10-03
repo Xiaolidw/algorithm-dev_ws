@@ -1330,13 +1330,21 @@ class FixedManipulationServer(Node):
         except ManipulationError as exc:
             self.get_logger().error(f'DETACH failed: {exc}')
             raise
-        await self._stabilize_released_object(object_id)
+        # Capture the validated release pose before opening.  DETACH must
+        # remain first because open-then-detach can leave an invalid
+        # LinkAttacher joint, but the subsequently retracting fingers can
+        # still drag an already-free cube several decimetres.  Restore this
+        # pose once the fingers are fully clear, using the same Gazebo state
+        # service that already removes the detach impulse.
+        release_pose = await self._stabilize_released_object(object_id)
         self._log_stage_end('detach_object')
         self._log_stage_start('open_gripper')
         await self._stage(handle, 'open_gripper', 0.70)
         await self._send_trajectory_safe(
             self._gripper_client, self._gripper_joints, self._gripper_open,
             self._gripper_open_dur)
+        await self._stabilize_released_object(
+            object_id, preserve_pose=release_pose)
         self._log_stage_end('open_gripper')
 
     def _is_in_valid_placement_zone(self, object_id):
@@ -1532,7 +1540,8 @@ class FixedManipulationServer(Node):
         linear = msg.twist[index].linear
         return math.sqrt(linear.x ** 2 + linear.y ** 2 + linear.z ** 2)
 
-    async def _stabilize_released_object(self, object_id):
+    async def _stabilize_released_object(
+            self, object_id, preserve_pose=None):
         """Remove LinkAttacher release impulse while preserving release pose."""
         query = GetEntityState.Request()
         query.name = object_id
@@ -1544,13 +1553,15 @@ class FixedManipulationServer(Node):
                 f'Cannot query released object {object_id}.')
         request = SetEntityState.Request()
         request.state.name = object_id
-        request.state.pose = current.state.pose
+        request.state.pose = (
+            current.state.pose if preserve_pose is None else preserve_pose)
         request.state.reference_frame = 'world'
         response = await self._set_state_client.call_async(request)
         if not response.success:
             raise ManipulationError(
                 self.ATTACH_FAILED,
                 f'Cannot stabilize released object {object_id}.')
+        return request.state.pose
 
     async def _establish_floor_clearance(self, object_id):
         """Give a closed-gripper object minimal clearance before attachment."""
