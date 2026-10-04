@@ -133,7 +133,10 @@ controller_server:
       min_lookahead_dist: 0.75
       max_lookahead_dist: 1.30
       lookahead_time: 0.85
-      rotate_to_heading_angular_vel: 1.00
+      # Map2 uses explicit position handoffs before every compulsory corner.
+      # A faster stopped turn shortens those repeated 90/180-degree pivots
+      # without increasing translational corner-cutting.
+      rotate_to_heading_angular_vel: 1.35
       transform_tolerance: 0.1
       use_velocity_scaled_lookahead_dist: true
       min_approach_linear_velocity: 0.16
@@ -361,8 +364,12 @@ velocity_smoother:
     smoothing_frequency: 40.0
     scale_velocities: True
     feedback: "OPEN_LOOP"
-    max_velocity: [1.50, 0.0, 1.5]
-    min_velocity: [-0.50, 0.0, -1.5]
+    # Map2 C uses long, axis-aligned corridors with independent endpoint
+    # clearance and Collision Monitor protection. Permit the 2.20 m/s map2
+    # straight-corridor profile requested by the mission node; its RPP
+    # curvature/cost regulation still slows every constrained turn.
+    max_velocity: [2.20, 0.0, 1.8]
+    min_velocity: [-0.50, 0.0, -1.8]
     max_accel: [2.8, 0.0, 2.5]
     max_decel: [-3.2, 0.0, -2.8]
     odom_topic: "odom"

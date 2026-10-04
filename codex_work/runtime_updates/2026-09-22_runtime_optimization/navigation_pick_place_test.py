@@ -300,6 +300,9 @@ class PickPlaceTest(Node):
         robot_zone_dy = ranking_y - float(zone.position.y)
         robot_zone_x = cos_zone * robot_zone_dx + sin_zone * robot_zone_dy
         robot_zone_y = -sin_zone * robot_zone_dx + cos_zone * robot_zone_dy
+        leaving_a = (
+            self.destination == 'A'
+            and math.hypot(robot_zone_x, robot_zone_y) <= 1.80)
         leaving_b = (
             self.destination == 'B'
             and math.hypot(robot_zone_x, robot_zone_y) <= 1.80)
@@ -337,7 +340,21 @@ class PickPlaceTest(Node):
                 self.destination == 'B'
                 and float(pose.position.x) > -2.30
                 and float(pose.position.y) < -5.50)
-            if leaving_b:
+            if leaving_a:
+                # Rank from the corridor position where every intermediate A
+                # task must actually exit, not by a misleading chord through
+                # the room wall.  On map2 this correctly prefers red3 beside
+                # the outer doorway over red4, saving both the outbound and
+                # carried return legs.
+                a_exit = [(-4.00, -1.75), (-2.25, -0.25)]
+                if not north_of_rail:
+                    a_exit.append((-2.30, 1.30))
+                pickup_distance = min(
+                    self._route_distance_through(
+                        ranking_x, ranking_y, a_exit, dx, dy)
+                    for dx, dy in dock_points)
+                candidate_mode = ranking_mode + '_via_a_doorway_exit'
+            elif leaving_b:
                 # Match navigate_pickup_transits exactly.  South-east map2
                 # cargo can leave B after the east doorway only; west/central
                 # cargo must also traverse the two central doorway points.
@@ -376,7 +393,12 @@ class PickPlaceTest(Node):
             carry_distance = math.hypot(
                 pose.position.x - zone.position.x,
                 pose.position.y - zone.position.y)
-            if self.destination == 'B':
+            if self.destination == 'A' and not north_of_rail:
+                carry_distance = self._route_distance_through(
+                    float(pose.position.x), float(pose.position.y),
+                    [(-2.30, 1.30), (-2.25, -0.25)],
+                    float(zone.position.x), float(zone.position.y))
+            elif self.destination == 'B':
                 b_entry = [(-1.45, -2.40)]
                 if not south_east_of_b:
                     b_entry = [(-2.30, 1.30), (-2.25, -0.25)] + b_entry
@@ -930,7 +952,11 @@ class PickPlaceTest(Node):
         # tighter doorway and rail turns.
         # Collision Monitor, RPP curvature/cost regulation, the gate holds,
         # and the final low-speed docking controller remain unchanged.
-        carried_speed = 1.50 if self.destination == 'C' else 1.25
+        # Keep curvature/cost regulation and Collision Monitor in authority,
+        # but let long clear segments use the map2 simulation envelope.  A is
+        # lower than C because its doorway has tighter successive turns.
+        carried_speed = 2.20 if self.destination == 'C' else (
+            1.65 if self.destination == 'A' else 1.25)
         requested = {
             # The raised arm and attached cube move the centre of mass upward.
             # A 2026-09-12 five-red trace became physically unstable on the
@@ -986,7 +1012,7 @@ class PickPlaceTest(Node):
                 name='FollowPath.desired_linear_vel',
                 value=ParameterValue(
                     type=ParameterType.PARAMETER_DOUBLE,
-                    double_value=1.80)),
+                    double_value=2.20)),
             ParameterMsg(
                 name='FollowPath.rotate_to_heading_min_angle',
                 value=ParameterValue(
@@ -1005,7 +1031,7 @@ class PickPlaceTest(Node):
                 + '; '.join(failures))
         self.get_logger().info(
             'Pickup RPP profile restored: '
-            f'speed=1.80m/s, turn_threshold={turn_threshold:.2f}rad, '
+            f'speed=2.20m/s, turn_threshold={turn_threshold:.2f}rad, '
             f'destination={self.destination}')
 
     def configure_final_pickup_tracking(self):
@@ -1256,18 +1282,18 @@ class PickPlaceTest(Node):
             'moving_obstacle_2 did not clear the C north crossing in time')
 
     def _wait_for_c_south_crossing_clear(self, timeout_sec=30.0):
-        """Hold west of the south crossing until obstacle 2 is separating."""
+        """Hold until obstacle 2 is northbound and clear of the crossing."""
         # Obstacle 2 now reaches y=-6.00 at x=1.00.  The former y=-6.55
         # crossing left only 0.55 m centre clearance and the inflated path
         # became empty near the east wall.  Keep the same guarded phase, but
         # use the verified free row 0.90 m below the physical endpoint.
         crossing_y = -6.90
         release_min_y = -5.00
-        # Once the obstacle has climbed above y=-5.00 it is already at least
-        # 1.90 m from the y=-6.90 crossing and continues moving away.  The old
-        # upper bound at y=-4.30 turned that indefinitely improving state back
-        # into "unsafe", so an arrival at y=-3.20 waited a full shuttle cycle.
-        # Keep the lower clearance bound, but do not close a separating window.
+        # A predicted three-second intersection ETA proved too optimistic for
+        # a carried base when cost regulation stretched the crossing.  Require
+        # the obstacle to be northbound as well as above this threshold; it is
+        # then moving away for the entire manoeuvre.  Nav2 and Collision
+        # Monitor remain active over the verified y=-6.90 free row.
         deadline = time.monotonic() + float(timeout_sec)
         stable_since = None
         last_log = 0.0
@@ -1283,8 +1309,8 @@ class PickPlaceTest(Node):
             obstacle_vy = (float(obstacle_twist.linear.y)
                            if obstacle_twist is not None else float('nan'))
             separated = fresh and obstacle is not None and (
-                release_min_y <= obstacle_y
-                and obstacle_twist is not None
+                obstacle_twist is not None
+                and obstacle_y >= release_min_y
                 and obstacle_vy >= 0.05)
             if separated:
                 if stable_since is None:
@@ -1484,26 +1510,40 @@ class PickPlaceTest(Node):
             # only about 0.46 m/s beside the dynamic inflation layer.
             # The tight handoffs below also ensure the chassis is fully south
             # of Wall_118 before crossing its endpoint.
-            # Both physical C routes share this west-side staging point.  Do
-            # not lock north/south while still several metres away: the
-            # obstacle can complete a large part of its cycle during that
-            # common transit, making an otherwise correct ETA stale before
-            # the robot reaches the rail.  Arrive and settle here first, then
-            # choose once from the freshest obstacle pose.  This adds no
-            # waypoint compared with the routes below; it only delays the
-            # already-existing branch decision.
-            common_staging = {
-                'x': -0.50, 'y': -1.00, 'yaw': -math.pi / 2.0,
-            }
-            self.publish_navigation_status(
-                phase='DROPOFF_TRANSIT', event='phase_start',
-                transit_index=1, transit_count=1,
-                route_mode='c_common_west_staging')
-            self.navigate(
-                'C common west staging', common_staging,
-                handoff_distance=0.30, lock_route=True)
-
-            crossing_mode, obstacle_y = self._choose_c_crossing()
+            # A map2 pickup already south of the obstacle rail must not drive
+            # north to the common staging point and then retrace the same
+            # 6.35 m corridor. Join the verified y=-6.90 row
+            # directly.  The moving obstacle ends at y=-6.00, leaving 0.90 m
+            # centre clearance; the local costmap and Collision Monitor stay
+            # active over the crossing.  Other pickups still use the common
+            # staging point and live north/south ETA choice.
+            object_pose = self._relative_pose(self.object_id, 'world')
+            direct_south = (
+                not self._north_of_upper_rail(self.object_id)
+                and float(object_pose.position.y) < -5.50)
+            if direct_south:
+                crossing_mode = 'south'
+                obstacle = self.model_poses.get('moving_obstacle_2')
+                obstacle_y = (
+                    float(obstacle.position.y)
+                    if obstacle is not None else float('nan'))
+                self.get_logger().info(
+                    'C direct-south entry selected: '
+                    f'object={self.object_id}, '
+                    f'object_y={float(object_pose.position.y):.3f}; '
+                    'skipping common west staging')
+            else:
+                common_staging = {
+                    'x': -0.50, 'y': -1.00, 'yaw': -math.pi / 2.0,
+                }
+                self.publish_navigation_status(
+                    phase='DROPOFF_TRANSIT', event='phase_start',
+                    transit_index=1, transit_count=1,
+                    route_mode='c_common_west_staging')
+                self.navigate(
+                    'C common west staging', common_staging,
+                    handoff_distance=0.30, lock_route=True)
+                crossing_mode, obstacle_y = self._choose_c_crossing()
             self._c_crossing_mode = crossing_mode
             if crossing_mode == 'north':
                 route_mode = 'c_eta_north_crossing'
@@ -1833,7 +1873,12 @@ class PickPlaceTest(Node):
                     # caused a repeated turn/go/turn hesitation near both
                     # scoring zones; reserve in-place rotation for genuinely
                     # sharp approaches.
-                    if abs(heading_error) > 0.28:
+                    # With the long carried-object offset, stopping at 0.28
+                    # rad lets caster drift move the chassis away while it
+                    # turns in place.  Continue the already speed-limited arc
+                    # through moderate error; reserve stopped rotation for a
+                    # genuinely sharp (>26 degree) correction.
+                    if abs(heading_error) > 0.45:
                         linear = 0.0
                     else:
                         linear = max(0.055, min(0.22, 0.70 * distance))
@@ -1865,7 +1910,7 @@ class PickPlaceTest(Node):
         # validated slot margin.  Avoid spending repeated stop time chasing
         # sub-degree corrections before and after the straight final approach.
         tolerance = 0.050
-        angular_cap = max(0.20, min(1.00, float(angular_cap)))
+        angular_cap = max(0.20, min(1.50, float(angular_cap)))
         self.get_logger().info(
             f'Starting dropoff heading alignment: target={target_yaw:.3f}rad, '
             f'angular_cap={angular_cap:.2f}rad/s')
@@ -1997,6 +2042,29 @@ class PickPlaceTest(Node):
             self, next_pickup=None, pickup_handoff_distance=0.70):
         """Leave C through the same guarded corridor used on entry."""
         if self.destination != 'C':
+            return
+        # red_cube_2 is on the same east side of obstacle 2 and north of the
+        # fixed C wall endpoint.  After the last C placement, reach it by the
+        # open eastern homotopy instead of crossing the south gate westward,
+        # picking red5, and immediately retracing the map toward A.  Nav2's
+        # locked route and all normal cost/collision layers remain active.
+        if (next_pickup is not None
+                and next_pickup.get('destination') == 'A'
+                and next_pickup.get('object_id') == 'red_cube_2'):
+            target = dict(next_pickup['pickup'])
+            self.get_logger().info(
+                'C east-side exit merged directly with red_cube_2 pickup; '
+                'south obstacle crossing is not on this homotopy')
+            self.publish_navigation_status(
+                phase='POST_PLACE_TRANSIT', event='phase_start',
+                transit_index=1, transit_count=1,
+                route_mode='c_east_to_red2_pickup')
+            self.navigate(
+                'C east-side exit to red_cube_2', target,
+                handoff_distance=float(pickup_handoff_distance),
+                lock_route=True)
+            next_pickup['staged_mode'] = 'pickup_handoff'
+            self.get_logger().info('Guarded C east-side exit complete')
             return
         # A direct next-pick goal lets Nav2 choose a shorter-looking path
         # through the fixed wall and obstacle-2 rail.  Retrace the proven
@@ -2670,7 +2738,8 @@ def execute_one_task(node, requested_object, destination,
                 6.0 if destination in ('A', 'B') else None))
         node.align_dropoff_heading(
             float(dropoff['yaw']),
-            angular_cap=1.00)
+            angular_cap=(1.50 if destination == 'C' else
+                         1.25 if destination == 'A' else 1.00))
     else:
         node.navigate(f'destination {destination}', dropoff, lock_route=True)
     node.publish_navigation_status(
@@ -2683,7 +2752,11 @@ def execute_one_task(node, requested_object, destination,
         # manipulation server's positive-y release boundary.  Finish closer
         # to the computed base target so residual chassis error cannot push a
         # correctly oriented cube beyond that boundary.
-        dropoff_tolerance = 0.09
+        # The first map2 C run reached 0.104 m, then the 0.09 m threshold
+        # forced an in-place turn that introduced caster drift.  A 0.11 m
+        # threshold still leaves 0.065 m inside the release boundary and lets
+        # the separate stopped yaw alignment finish the pose safely.
+        dropoff_tolerance = 0.11
     node.fine_dropoff_approach(
         dropoff, target_tolerance=dropoff_tolerance)
     node.publish_navigation_status(
@@ -2705,6 +2778,18 @@ def execute_one_task(node, requested_object, destination,
                 next_destination, next_requested_object)
             next_selected = node.select_object(
                 next_requested_object, next_approaches)
+            if (destination == 'C'
+                    and next_destination == 'A'
+                    and next_requested_object == 'fastest-red'
+                    and 'red_cube_2' in next_approaches):
+                red2_in_a = node._relative_pose('red_cube_2', 'zone_a')
+                if not (abs(red2_in_a.position.x) <= 0.50
+                        and abs(red2_in_a.position.y) <= 0.25):
+                    next_selected = 'red_cube_2'
+                    node.get_logger().info(
+                        'map2 global transition override: red_cube_2 shares '
+                        'the C east-side homotopy and avoids one south-gate '
+                        'crossing before A')
             node.object_id = next_selected
             next_dock = node.nearest_dock_target(
                 next_selected, next_approaches[next_selected])
@@ -2745,15 +2830,19 @@ def execute_one_task(node, requested_object, destination,
 def optimize_batch_order(tasks):
     """Return the evidence-backed zone order while preserving task identity.
 
-    Repeated full-chain logs show that leaving A to serve B creates the most
-    expensive cross-map transition, while leaving C between items pays the
-    guarded corridor egress a second time.  A stable B -> A -> C ordering
-    therefore removes both penalties without changing any map, safety, or
-    manipulation setting.  Relative order inside one destination is retained;
-    live ``fastest-*`` selection still chooses the lowest whole-mission-cost
+    A/B retains its validated B -> A order.  On the map2 A/C pairing, starting
+    at C removes the measured 43 s A-exit-to-south-blue transition; the final
+    C exit is merged directly into the first A pickup, so it is useful travel
+    rather than a standalone return.  B/C retains B -> C until it has its own
+    full-chain evidence.  Relative order inside one destination is retained;
+    live ``fastest-*`` selection still chooses the lowest whole-route-cost
     cube when that item begins.
     """
-    zone_rank = {'B': 0, 'A': 1, 'C': 2}
+    destinations = {str(task[1]).upper() for task in tasks}
+    if destinations == {'A', 'C'}:
+        zone_rank = {'C': 0, 'A': 1}
+    else:
+        zone_rank = {'B': 0, 'A': 1, 'C': 2}
     return sorted(
         tasks,
         key=lambda task: zone_rank.get(str(task[1]).upper(), 99))
@@ -2782,7 +2871,7 @@ def main(args=None):
     parser.add_argument(
         '--preserve-batch-order', action='store_true',
         help='Run the supplied batch literally (directed regression only). '
-             'Normal competition batches use the validated B -> A -> C order.')
+             'Normal competition batches use the validated pair-specific order.')
     parsed, ros_args = parser.parse_known_args(args)
     destination = parsed.destination.upper()
 
@@ -2812,7 +2901,7 @@ def main(args=None):
             node.get_logger().info(
                 'BATCH ROUTE OPTIMIZED: '
                 f'original={original_tasks}, planned={tasks}; '
-                'policy=B-before-A,C-last')
+                'policy=pair-specific-map2-order')
         for index, (requested_object, task_destination) in enumerate(tasks, 1):
             item_start = time.monotonic()
             execute_one_task(

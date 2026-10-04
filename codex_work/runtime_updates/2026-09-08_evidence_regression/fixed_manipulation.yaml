@@ -49,15 +49,15 @@ fixed_manipulation_server:
     # Phase-8: per-segment durations
     # Five-object scoring profile: remove idle interpolation time from every
     # pick and place while retaining explicit settle/validation stages.
-    arm_home_to_pregrasp_duration_s: 0.60
-    arm_pregrasp_to_grasp_duration_s: 0.70
-    arm_return_home_duration_s: 0.60
-    arm_motion_duration_s: 0.75
-    gripper_open_duration_s: 0.15
-    gripper_close_duration_s: 0.18
+    arm_home_to_pregrasp_duration_s: 0.42
+    arm_pregrasp_to_grasp_duration_s: 0.50
+    arm_return_home_duration_s: 0.42
+    arm_motion_duration_s: 0.55
+    gripper_open_duration_s: 0.10
+    gripper_close_duration_s: 0.12
     gripper_motion_duration_s: 0.6
     settle_time_s: 0.015
-    pre_close_settle_time_s: 0.12
+    pre_close_settle_time_s: 0.08
 
     # Grasp window validation
     validate_grasp_window: true
@@ -73,7 +73,7 @@ fixed_manipulation_server:
     attached_drift_tolerance: 0.01
     carry_relative_tolerance_m: 0.08
     attachment_validation_samples: 3
-    attachment_validation_interval_s: 0.08
+    attachment_validation_interval_s: 0.05
     attachment_settle_time_s: 0.0158
     # Lift to the configured arm_lift pose after a stable low-position attach,
     # then validate once more before navigation starts.
@@ -87,7 +87,7 @@ fixed_manipulation_server:
     placement_zone_half_depth: 0.25
     placement_boundary_margin: 0.025
     placement_slot_clearance: 0.055
-    placement_settle_time_s: 0.35
+    placement_settle_time_s: 0.20
     placement_validation_attempts: 3
     placement_speed_tolerance_mps: 0.12
     pre_release_object_z_min_m: 0.015
@@ -99,8 +99,8 @@ fixed_manipulation_server:
     placed_object_z_max_m: 0.020
     placed_object_max_tilt_rad: 0.12
     place_target_object_z_m: 0.0215
-    preplace_settle_time_s: 0.12
-    place_pose_settle_time_s: 0.20
+    preplace_settle_time_s: 0.08
+    place_pose_settle_time_s: 0.12
 
     # Phase-6: dynamic IK params
     dynamic_grasp_ik: true
