@@ -2139,7 +2139,44 @@ class PickPlaceTest(Node):
                 })
                 staged_mode = 'pickup_handoff'
             if final_target is not None:
-                after_crossing = after_crossing[:-1] + (final_target,)
+                if (crossing_mode == 'south'
+                        and float(final_target['y']) < -7.50):
+                    # Do not cut diagonally from the west side of the C gate to
+                    # a south-row pickup.  The red5 replay reached 1.08 m, then
+                    # both locked paths became empty beside the obstacle-2 rail
+                    # endpoint.  Stay on the proven x=-0.50 line until y=-8.60
+                    # and enter the dock laterally in open space.
+                    lower_staging = {
+                        'x': -0.50, 'y': -8.60, 'yaw': 0.0,
+                        'handoff': 0.20, 'strict_handoff': True,
+                    }
+                    # The pickup was selected while the robot was still east
+                    # of C, so its cached dock can be on the object's far side
+                    # (red5 used x=1.38).  From the west lower staging that
+                    # would require circling through the cube's own inflated
+                    # obstacle and made the path empty at 1.08 m.  Recompute
+                    # the face-normal dock on the staging side from live pose.
+                    next_pose = self._relative_pose(next_object, 'world')
+                    object_x = float(next_pose.position.x)
+                    object_y = float(next_pose.position.y)
+                    if object_x >= float(lower_staging['x']):
+                        final_target.update({
+                            'x': object_x - 0.38,
+                            'y': object_y,
+                            'yaw': 0.0,
+                        })
+                    else:
+                        final_target.update({
+                            'x': object_x + 0.38,
+                            'y': object_y,
+                            'yaw': math.pi,
+                        })
+                    next_pickup['pickup'] = dict(final_target)
+                    after_crossing = (
+                        after_crossing[:-1]
+                        + (lower_staging, final_target))
+                else:
+                    after_crossing = after_crossing[:-1] + (final_target,)
                 self.get_logger().info(
                     'C exit lookahead merged common staging with next pickup: '
                     f'object={next_object}, staged_mode={staged_mode}, '
@@ -2863,17 +2900,17 @@ def execute_one_task(node, requested_object, destination,
 def optimize_batch_order(tasks):
     """Return the evidence-backed zone order while preserving task identity.
 
-    A/B retains its validated B -> A order.  On the map2 A/C pairing, starting
-    at C removes the measured 43 s A-exit-to-south-blue transition; the final
-    C exit is merged directly into the first A pickup, so it is useful travel
-    rather than a standalone return.  B/C retains B -> C until it has its own
-    full-chain evidence.  Relative order inside one destination is retained;
+    A/B retains its validated B -> A order.  On map2 pairings that contain C,
+    starting at C removes the measured 43 s A-exit-to-south-blue transition
+    and the 92.877 s B-to-first-C item; the final C exit is merged directly
+    into the first non-C pickup, so it is useful travel rather than a
+    standalone return.  Relative order inside one destination is retained;
     live ``fastest-*`` selection still chooses the lowest whole-route-cost
     cube when that item begins.
     """
     destinations = {str(task[1]).upper() for task in tasks}
-    if destinations == {'A', 'C'}:
-        zone_rank = {'C': 0, 'A': 1}
+    if destinations in ({'A', 'C'}, {'B', 'C'}):
+        zone_rank = {'C': 0, 'A': 1, 'B': 1}
     else:
         zone_rank = {'B': 0, 'A': 1, 'C': 2}
     return sorted(
