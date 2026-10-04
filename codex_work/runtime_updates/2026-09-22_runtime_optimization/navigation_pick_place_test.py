@@ -296,16 +296,20 @@ class PickPlaceTest(Node):
         sin_zone = math.sin(zone_yaw)
         ranking_x = float(robot.position.x)
         ranking_y = float(robot.position.y)
-        robot_zone_dx = ranking_x - float(zone.position.x)
-        robot_zone_dy = ranking_y - float(zone.position.y)
-        robot_zone_x = cos_zone * robot_zone_dx + sin_zone * robot_zone_dy
-        robot_zone_y = -sin_zone * robot_zone_dx + cos_zone * robot_zone_dy
-        leaving_a = (
-            self.destination == 'A'
-            and math.hypot(robot_zone_x, robot_zone_y) <= 1.80)
-        leaving_b = (
-            self.destination == 'B'
-            and math.hypot(robot_zone_x, robot_zone_y) <= 1.80)
+        # Detect the room we are physically leaving, independently of the
+        # destination of the next item.  The former test transformed the robot
+        # through ``zone`` (the *next* destination) and also required
+        # destination == current room.  Cross-zone B->A therefore scored a
+        # direct 4.17 m chord to blue4 while execution correctly followed the
+        # 15 m B doorway route, producing a repeatable 91--94 s item.
+        robot_in_a = self._relative_pose('six_arm', 'zone_a')
+        robot_in_b = self._relative_pose('six_arm', 'zone_b')
+        leaving_a = math.hypot(
+            float(robot_in_a.position.x),
+            float(robot_in_a.position.y)) <= 1.80
+        leaving_b = math.hypot(
+            float(robot_in_b.position.x),
+            float(robot_in_b.position.y)) <= 1.80
         ranking_mode = 'live_robot_to_grasp_dock'
         ranked = []
         for object_id in candidates:
@@ -337,8 +341,7 @@ class PickPlaceTest(Node):
                 continue
             north_of_rail = float(pose.position.y) >= 3.20
             south_east_of_b = (
-                self.destination == 'B'
-                and float(pose.position.x) > -2.30
+                float(pose.position.x) > -2.30
                 and float(pose.position.y) < -5.50)
             if leaving_a:
                 # Rank from the corridor position where every intermediate A
@@ -413,12 +416,25 @@ class PickPlaceTest(Node):
                     float(zone.position.x), float(zone.position.y))
                 # Two position handoffs plus an obstacle-phase allowance.
                 carry_distance += 2.50
-            score = pickup_distance + 1.15 * carry_distance
+            route_risk_penalty = 0.0
+            if (self.destination == 'A'
+                    and float(pose.position.x) < -7.00
+                    and float(pose.position.y) > -2.00):
+                # A carried cube from the far-west pocket makes the planner's
+                # path to the east doorway empty: two locked-route attempts for
+                # map2 blue3 stalled at 5.2 m and ended status=6.  Empty pickup
+                # traversal succeeds, so keep it available for B/C, but charge
+                # the measured A carry topology risk and prefer another of the
+                # nearest candidates for A.
+                route_risk_penalty = 20.0
+            score = (pickup_distance + 1.15 * carry_distance
+                     + route_risk_penalty)
             ranked.append({
                 'pickup': pickup_distance,
                 'score': score,
                 'object_id': object_id,
                 'carry': carry_distance,
+                'risk_penalty': route_risk_penalty,
                 'mode': candidate_mode,
             })
         if not ranked:
@@ -1288,7 +1304,12 @@ class PickPlaceTest(Node):
         # became empty near the east wall.  Keep the same guarded phase, but
         # use the verified free row 0.90 m below the physical endpoint.
         crossing_y = -6.90
-        release_min_y = -5.00
+        # At y=-5.20 the obstacle is already 1.70 m north of the verified
+        # y=-6.90 crossing and continues moving away.  Retaining the direction
+        # gate, 0.40 s stability sample, Nav2 cost checks and Collision Monitor
+        # makes the 0.20 m relaxation safe while removing about 0.4 s from
+        # every south-gate encounter (roughly 2 s in a three-C batch).
+        release_min_y = -5.20
         # A predicted three-second intersection ETA proved too optimistic for
         # a carried base when cost regulation stretched the crossing.  Require
         # the obstacle to be northbound as well as above this threshold; it is
@@ -1385,7 +1406,7 @@ class PickPlaceTest(Node):
                          and predicted_y <= -4.50
                          and predicted_vy < 0.0)
                         or (mode == 'south'
-                            and predicted_y >= -5.00
+                            and predicted_y >= -5.20
                             and predicted_vy > 0.0))
                 if safe:
                     break
@@ -1454,7 +1475,7 @@ class PickPlaceTest(Node):
                          and predicted_y <= -4.50
                          and predicted_vy < 0.0)
                         or (mode == 'south'
-                            and predicted_y >= -5.00
+                            and predicted_y >= -5.20
                             and predicted_vy > 0.0))
                 if safe:
                     break
@@ -1678,12 +1699,12 @@ class PickPlaceTest(Node):
             self.get_logger().info(
                 'Carried west-rail exit merges with outer A doorway for '
                 f'{self.object_id}')
-        # Reverse the already-proven A egress corridor only once two cubes
-        # occupy A.  The wall-side homotopy failure was observed on the third
-        # approach with two stored cubes; forcing this detour for the first
-        # two deliveries adds distance without providing collision clearance.
-        # Count live, grounded inventory so mixed and inverse mappings use the
-        # same rule instead of relying on colour or batch position.
+        # Reverse the proven A egress corridor for every entry.  The six-round
+        # replay showed that even the second approach can change homotopy on
+        # the direct (-2.25,-0.25)->final chord: distance_remaining jumped from
+        # 1.7 m to 12.6 m and cost 40 s.  (-4.00,-1.75) lies on the same useful
+        # diagonal and adds only one short handoff while making the wall side
+        # deterministic.  Keep the live inventory count for diagnostics.
         grounded_in_a = 0
         for name, pose in self.model_poses.items():
             if (name == self.object_id
@@ -1694,9 +1715,8 @@ class PickPlaceTest(Node):
             if (abs(relative.position.x) <= 0.50
                     and abs(relative.position.y) <= 0.25):
                 grounded_in_a += 1
-        if grounded_in_a >= 2:
-            transits.append(
-                {'x': -4.00, 'y': -1.75, 'yaw': math.pi})
+        transits.append(
+            {'x': -4.00, 'y': -1.75, 'yaw': math.pi})
         self.get_logger().info(
             f'A corridor inventory={grounded_in_a}; '
             f'transit_count={len(transits)}')
@@ -1765,12 +1785,16 @@ class PickPlaceTest(Node):
                     linear = max(-0.16, min(0.22, 1.6 * range_error))
                     if abs(range_error) > 0.015 and abs(linear) < 0.06:
                         linear = math.copysign(0.06, range_error)
-                    # Explicit two-stage docking: first face the cube, then
-                    # change range.  Coupled reverse+turn at large heading
-                    # error orbited around blue_cube_3 and eventually put it
-                    # beneath the chassis protection boundary.
-                    if abs(heading_error) > 0.20:
+                    # Keep truly sharp corrections rotate-only, but use a
+                    # speed-limited arc for moderate errors.  The map2 B->A
+                    # replay handed blue4 over at 0.391 rad: rotating in place
+                    # let caster drift grow its range from 0.46 m to 1.59 m and
+                    # cost about 11 s.  The 0.08 m/s cap below prevents the old
+                    # large-error blue3 orbit while preserving forward progress.
+                    if abs(heading_error) > 0.45:
                         linear = 0.0
+                    elif abs(heading_error) > 0.20:
+                        linear = math.copysign(min(abs(linear), 0.08), linear)
                     else:
                         linear *= max(0.35, math.cos(heading_error) ** 2)
                     # Close the lateral error promptly once range is already
@@ -1877,8 +1901,10 @@ class PickPlaceTest(Node):
                     # rad lets caster drift move the chassis away while it
                     # turns in place.  Continue the already speed-limited arc
                     # through moderate error; reserve stopped rotation for a
-                    # genuinely sharp (>26 degree) correction.
-                    if abs(heading_error) > 0.45:
+                    # genuinely sharp (>34 degree) correction.  A six-round
+                    # matrix replay reached 0.121 m, then oscillated only
+                    # because a 0.517 rad error crossed the former boundary.
+                    if abs(heading_error) > 0.60:
                         linear = 0.0
                     else:
                         linear = max(0.055, min(0.22, 0.70 * distance))
@@ -2283,11 +2309,18 @@ class PickPlaceTest(Node):
                         (0.28, -0.13), (0.28, 0.16), (0.20, 0.02),
                     ]
                 else:
-                    # Blue cubes have a larger observed post-release sweep;
-                    # keep their verified inset one-row geometry.
+                    # Blue cubes have a larger observed post-release sweep.
+                    # The original inset row stores two reliably, but those
+                    # two released cubes inflate every remaining same-row
+                    # chassis dock to cost 99.  Add a staggered inner x=0.30
+                    # row, mirroring the B-capacity repair.  Its predicted
+                    # x~0.375 landing remains 0.125 m inside the A boundary;
+                    # the live cargo-clearance and chassis-cost filters below
+                    # still reject an unsafe candidate before navigation.
                     candidates = [
                         (0.18, -0.18), (0.18, -0.09), (0.18, 0.00),
                         (0.18, 0.09),
+                        (0.30, -0.18), (0.30, 0.00), (0.30, 0.18),
                     ]
             elif self.destination == 'B':
                 # B is not constrained to a single row.  Its floor lettering
