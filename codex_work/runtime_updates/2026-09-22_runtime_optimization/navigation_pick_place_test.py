@@ -343,20 +343,33 @@ class PickPlaceTest(Node):
             south_east_of_b = (
                 float(pose.position.x) > -2.30
                 and float(pose.position.y) < -5.50)
+            south_west_of_a = (
+                self.destination == 'A'
+                and float(pose.position.x) < -4.50
+                and float(pose.position.y) < -5.50)
             if leaving_a:
                 # Rank from the corridor position where every intermediate A
                 # task must actually exit, not by a misleading chord through
                 # the room wall.  On map2 this correctly prefers red3 beside
                 # the outer doorway over red4, saving both the outbound and
                 # carried return legs.
-                a_exit = [(-4.00, -1.75), (-2.25, -0.25)]
-                if not north_of_rail:
-                    a_exit.append((-2.30, 1.30))
+                if south_west_of_a:
+                    a_exit = [
+                        (-7.27, -3.41), (-9.15, -4.05),
+                        (-8.94, -5.02), (-6.98, -6.19),
+                    ]
+                    candidate_mode = (
+                        ranking_mode + '_via_a_west_outer')
+                else:
+                    a_exit = [(-4.00, -1.75), (-2.25, -0.25)]
+                    if not north_of_rail:
+                        a_exit.append((-2.30, 1.30))
+                    candidate_mode = (
+                        ranking_mode + '_via_a_doorway_exit')
                 pickup_distance = min(
                     self._route_distance_through(
                         ranking_x, ranking_y, a_exit, dx, dy)
                     for dx, dy in dock_points)
-                candidate_mode = ranking_mode + '_via_a_doorway_exit'
             elif leaving_b:
                 # Match navigate_pickup_transits exactly.  South-east map2
                 # cargo can leave B after the east doorway only; west/central
@@ -397,10 +410,14 @@ class PickPlaceTest(Node):
                 pose.position.x - zone.position.x,
                 pose.position.y - zone.position.y)
             if self.destination == 'A' and not north_of_rail:
+                a_entry = (
+                    [(-6.98, -6.19), (-8.94, -5.02),
+                     (-9.15, -4.05), (-7.27, -3.41)]
+                    if south_west_of_a
+                    else [(-2.30, 1.30), (-2.25, -0.25)])
                 carry_distance = self._route_distance_through(
                     float(pose.position.x), float(pose.position.y),
-                    [(-2.30, 1.30), (-2.25, -0.25)],
-                    float(zone.position.x), float(zone.position.y))
+                    a_entry, float(zone.position.x), float(zone.position.y))
             elif self.destination == 'B':
                 b_entry = [(-1.45, -2.40)]
                 if not south_east_of_b:
@@ -644,7 +661,8 @@ class PickPlaceTest(Node):
             no_progress_timeout=None):
         """Wait for Nav2 while supporting a confirmed position-only handoff."""
         destination_handoff = (
-            handoff_distance is None and label.startswith('destination '))
+            handoff_distance is None
+            and label.startswith('destination '))
         if handoff_distance is None and not destination_handoff:
             self._wait_future(
                 result_future, self.nav_timeout,
@@ -972,7 +990,7 @@ class PickPlaceTest(Node):
         # but let long clear segments use the map2 simulation envelope.  A is
         # lower than C because its doorway has tighter successive turns.
         carried_speed = 2.20 if self.destination == 'C' else (
-            1.65 if self.destination == 'A' else 1.25)
+            1.75 if self.destination == 'A' else 1.25)
         requested = {
             # The raised arm and attached cube move the centre of mass upward.
             # A 2026-09-12 five-red trace became physically unstable on the
@@ -1085,6 +1103,23 @@ class PickPlaceTest(Node):
         robot_in_a = self._relative_pose('six_arm', 'zone_a')
         if math.hypot(robot_in_a.position.x, robot_in_a.position.y) <= 1.80:
             leaving_a = True
+            selected_pose = self._relative_pose(self.object_id, 'world')
+            south_west_a_pickup = (
+                self.destination == 'A'
+                and float(selected_pose.position.x) < -4.50
+                and float(selected_pose.position.y) < -5.50)
+            if south_west_a_pickup:
+                # A live ComputePathToPose probe from the final A pose to the
+                # map2 blue4 dock found a 7.429 m collision-free west-outer
+                # homotopy (x~-9).  Forcing the east/north three-door route
+                # made the same trip roughly 16 m and the last item 78.477 s.
+                # Keep the collision-free west route available to Nav2; the
+                # batch planner now reaches this cube directly from C, so this
+                # branch is only a bounded fallback for a later A revisit.
+                self.get_logger().info(
+                    'A south-west pickup uses direct west-outer homotopy; '
+                    'skipping east/north reverse doorway transits')
+                return
             # After an intermediate A placement, leave through the same
             # verified doorway instead of letting a fresh global plan select
             # a blocked or much longer homotopy.  This applies regardless of
@@ -1310,11 +1345,11 @@ class PickPlaceTest(Node):
         # makes the 0.20 m relaxation safe while removing about 0.4 s from
         # every south-gate encounter (roughly 2 s in a three-C batch).
         release_min_y = -5.20
-        # A predicted three-second intersection ETA proved too optimistic for
-        # a carried base when cost regulation stretched the crossing.  Require
-        # the obstacle to be northbound as well as above this threshold; it is
-        # then moving away for the entire manoeuvre.  Nav2 and Collision
-        # Monitor remain active over the verified y=-6.90 free row.
+        # Release only while the obstacle is moving north and separating.
+        # A rejected cross-before-arrival experiment released at y=-2.85
+        # southbound, but dynamic cost regulation stretched the crossing until
+        # the obstacle reached y=-6.00 and blocked the route.  Direction is a
+        # hard part of the gate, not merely an ETA hint.
         deadline = time.monotonic() + float(timeout_sec)
         stable_since = None
         last_log = 0.0
@@ -1402,12 +1437,18 @@ class PickPlaceTest(Node):
             while wait <= 24.0:
                 predicted_y, predicted_vy = self._predict_c_obstacle(
                     obstacle_y, obstacle_vy, arrival + wait)
+                stable_y, stable_vy = self._predict_c_obstacle(
+                    obstacle_y, obstacle_vy, arrival + wait + 0.60)
                 safe = ((mode == 'north'
                          and predicted_y <= -4.50
-                         and predicted_vy < 0.0)
+                         and predicted_vy < 0.0
+                         and stable_y <= -4.50
+                         and stable_vy < 0.0)
                         or (mode == 'south'
                             and predicted_y >= -5.20
-                            and predicted_vy > 0.0))
+                            and predicted_vy > 0.0
+                            and stable_y >= -5.20
+                            and stable_vy > 0.0))
                 if safe:
                     break
                 wait += 0.10
@@ -1471,12 +1512,18 @@ class PickPlaceTest(Node):
             while wait <= 24.0:
                 predicted_y, predicted_vy = self._predict_c_obstacle(
                     obstacle_y, obstacle_vy, arrival + wait)
+                stable_y, stable_vy = self._predict_c_obstacle(
+                    obstacle_y, obstacle_vy, arrival + wait + 0.60)
                 safe = ((mode == 'north'
                          and predicted_y <= -4.50
-                         and predicted_vy < 0.0)
+                         and predicted_vy < 0.0
+                         and stable_y <= -4.50
+                         and stable_vy < 0.0)
                         or (mode == 'south'
                             and predicted_y >= -5.20
-                            and predicted_vy > 0.0))
+                            and predicted_vy > 0.0
+                            and stable_y >= -5.20
+                            and stable_vy > 0.0))
                 if safe:
                     break
                 wait += 0.10
@@ -1487,7 +1534,11 @@ class PickPlaceTest(Node):
 
         north = estimate('north')
         south = estimate('south')
-        north_switch_margin = 6.0
+        # Handoff overhead is already included in north_total.  The former
+        # additional 6 s margin kept south selected even when its release was
+        # about to disappear at the shuttle endpoint; a full half-cycle wait
+        # then cost 10 s.  Retain one second for prediction noise only.
+        north_switch_margin = 1.0
         mode = (
             'north'
             if north[0] + north_switch_margin <= south[0]
@@ -1657,6 +1708,34 @@ class PickPlaceTest(Node):
                 handoff_distance=0.35, lock_route=True)
             return
         if self.destination != 'A':
+            return
+        object_pose = self._relative_pose(self.object_id, 'world')
+        if (float(object_pose.position.x) < -4.50
+                and float(object_pose.position.y) < -5.50):
+            # Pin only the carried return.  The failed four-point experiment
+            # started inside A's inflated boundary and could not reach its
+            # first outbound point; after blue4 is grasped these reverse
+            # samples all lie in open space.  They prevent the direct target
+            # from switching between 5--9 m homotopies and timing out, while
+            # every leg still uses the carried footprint and live costmaps.
+            self.get_logger().info(
+                'South-west A delivery uses pinned west-outer return')
+            west_outer_return = (
+                {'x': -6.98, 'y': -6.19, 'yaw': 2.73},
+                {'x': -8.94, 'y': -5.02, 'yaw': 2.60},
+                {'x': -9.15, 'y': -4.05, 'yaw': 1.78},
+                {'x': -7.27, 'y': -3.41, 'yaw': 0.33},
+            )
+            for index, transit in enumerate(west_outer_return, 1):
+                self.publish_navigation_status(
+                    phase='DROPOFF_TRANSIT', event='phase_start',
+                    transit_index=index,
+                    transit_count=len(west_outer_return),
+                    route_mode='a_west_outer_return_pinned')
+                self.navigate(
+                    f'{self.object_id} west-outer return {index}', transit,
+                    handoff_distance=0.45, lock_route=True,
+                    strict_handoff=True)
             return
         north_of_rail = self._north_of_upper_rail(self.object_id)
         if north_of_rail:
@@ -2121,6 +2200,7 @@ class PickPlaceTest(Node):
                 {'x': -0.50, 'y': -1.00, 'yaw': 0.0},
             )
         staged_mode = None
+        blue4_wall_bypass = None
         if next_pickup is not None:
             next_object = str(next_pickup['object_id'])
             if self._north_of_upper_rail(next_object):
@@ -2137,6 +2217,30 @@ class PickPlaceTest(Node):
                     'handoff': float(pickup_handoff_distance),
                     'strict_handoff': False,
                 })
+                if (next_object == 'blue_cube_4'
+                        and next_pickup.get('destination') == 'A'):
+                    next_pose = self._relative_pose(next_object, 'world')
+                    # Apply the proven north-face dock before deciding whether
+                    # a lower-staging detour is needed.  The cached east-face
+                    # dock has y=-7.00, so placing this only inside the former
+                    # y<-7.50 branch silently skipped the safety override.
+                    final_target.update({
+                        'x': float(next_pose.position.x),
+                        'y': float(next_pose.position.y) + 0.38,
+                        'yaw': -math.pi / 2.0,
+                    })
+                    next_pickup['pickup'] = dict(final_target)
+                    # The static wall at x~-3.2 ends near y=-6.2.  A direct
+                    # (-0.5,-6.9)->north-dock chord is geometrically free but
+                    # passes through the inflation shoulder; one full replay
+                    # stopped at x~-2.35 for 17 s before its bounded retry.
+                    # Dip just 0.5 m south before that endpoint.  The sampled
+                    # static row y=-7.4 is open from x=-0.5 through blue4 and
+                    # adds only about 0.35 m of path length.
+                    blue4_wall_bypass = {
+                        'x': -2.20, 'y': -7.40, 'yaw': math.pi,
+                        'handoff': 0.30, 'strict_handoff': True,
+                    }
                 staged_mode = 'pickup_handoff'
             if final_target is not None:
                 if (crossing_mode == 'south'
@@ -2176,7 +2280,12 @@ class PickPlaceTest(Node):
                         after_crossing[:-1]
                         + (lower_staging, final_target))
                 else:
-                    after_crossing = after_crossing[:-1] + (final_target,)
+                    if blue4_wall_bypass is not None:
+                        after_crossing = (
+                            after_crossing[:-1]
+                            + (blue4_wall_bypass, final_target))
+                    else:
+                        after_crossing = after_crossing[:-1] + (final_target,)
                 self.get_logger().info(
                     'C exit lookahead merged common staging with next pickup: '
                     f'object={next_object}, staged_mode={staged_mode}, '
@@ -2749,9 +2858,20 @@ def execute_one_task(node, requested_object, destination,
     else:
         node.navigate_pickup_transits(pickup, staged_mode=staged_mode)
         node.publish_navigation_status(phase='NAV_PICKUP', event='phase_start')
+        selected_world = node._relative_pose(selected, 'world')
+        lock_southwest_a_route = (
+            destination == 'A'
+            and float(selected_world.position.x) < -4.50
+            and float(selected_world.position.y) < -5.50)
         node.navigate(
             f'pickup {selected}', pickup,
-            handoff_distance=pickup_handoff_distance)
+            handoff_distance=pickup_handoff_distance,
+            # The default BT replanned the planner-verified 7.4 m west route
+            # every few seconds (feedback repeatedly jumped 4.5--8.9 m) and
+            # took 36 s.  Keep that homotopy unless the path is actually
+            # invalid; all live cost checks and local collision protection
+            # remain enabled.
+            lock_route=lock_southwest_a_route)
     node.publish_navigation_status(phase='FINE_DOCK', event='phase_start')
     node.fine_dock()
     node.check_pick_alignment()
@@ -2848,6 +2968,23 @@ def execute_one_task(node, requested_object, destination,
                 next_destination, next_requested_object)
             next_selected = node.select_object(
                 next_requested_object, next_approaches)
+            if (destination == 'C'
+                    and next_destination == 'A'
+                    and next_requested_object == 'fastest-blue'
+                    and 'blue_cube_4' in next_approaches):
+                blue4_in_a = node._relative_pose('blue_cube_4', 'zone_a')
+                if not (abs(blue4_in_a.position.x) <= 0.50
+                        and abs(blue4_in_a.position.y) <= 0.25):
+                    # The C south exit already reaches (-0.50, -6.90), on the
+                    # same row as map2 blue4 at (-6, -7).  Merge that exit
+                    # directly into its pickup instead of first driving north
+                    # to blue2, placing in A, and then paying a full A<->blue4
+                    # round trip (measured 68.567--77.412 s).
+                    next_selected = 'blue_cube_4'
+                    node.get_logger().info(
+                        'map2 global transition override: blue_cube_4 shares '
+                        'the C south-exit row and removes one A-to-southwest '
+                        'round trip')
             if (destination == 'C'
                     and next_destination == 'A'
                     and next_requested_object == 'fastest-red'
