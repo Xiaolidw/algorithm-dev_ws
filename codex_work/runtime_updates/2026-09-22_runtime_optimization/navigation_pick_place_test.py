@@ -1664,7 +1664,7 @@ class PickPlaceTest(Node):
                      'handoff': 0.30, 'strict_handoff': True},
                 )
                 after_crossing = (
-                    {'x': 4.30, 'y': -7.40, 'yaw': 0.0,
+                    {'x': 4.60, 'y': -7.40, 'yaw': 0.0,
                      'handoff': 0.20, 'strict_handoff': True},
                 )
             else:
