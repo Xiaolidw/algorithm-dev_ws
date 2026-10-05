@@ -1597,30 +1597,53 @@ class FixedManipulationServer(Node):
 
     async def _send_trajectory(self, client, joints, positions,
                                duration_s, error_code, description):
-        goal = FollowJointTrajectory.Goal()
-        goal.trajectory = JointTrajectory()
-        goal.trajectory.joint_names = joints
-        point = JointTrajectoryPoint()
-        point.positions = positions
         effective_duration = duration_s / min(1.0, self._vel_scale)
-        if client is self._gripper_client:
-            self._publish_manipulation_event(
-                'gripper_command', stage=description,
-                positions=[float(value) for value in positions],
-                duration_s=float(effective_duration))
-        point.time_from_start = self._duration(effective_duration)
-        goal.trajectory.points = [point]
-        goal_handle = await client.send_goal_async(goal)
-        if not goal_handle.accepted:
-            raise ManipulationError(error_code,
-                f'Controller rejected: {description}.')
-        wrapped_result = await goal_handle.get_result_async()
-        result = wrapped_result.result
-        if result.error_code != FollowJointTrajectory.Result.SUCCESSFUL:
-            raise ManipulationError(
-                error_code,
-                f'Controller failed: {description}; '
-                f'error_code={result.error_code}.')
+        result_timeout = max(5.0, effective_duration + 3.0)
+        for attempt in (1, 2):
+            goal = FollowJointTrajectory.Goal()
+            goal.trajectory = JointTrajectory()
+            goal.trajectory.joint_names = joints
+            point = JointTrajectoryPoint()
+            point.positions = positions
+            if client is self._gripper_client:
+                self._publish_manipulation_event(
+                    'gripper_command', stage=description,
+                    positions=[float(value) for value in positions],
+                    duration_s=float(effective_duration))
+            point.time_from_start = self._duration(effective_duration)
+            goal.trajectory.points = [point]
+            goal_handle = await client.send_goal_async(goal)
+            if not goal_handle.accepted:
+                raise ManipulationError(error_code,
+                    f'Controller rejected: {description}.')
+            result_future = goal_handle.get_result_async()
+            deadline = time.monotonic() + result_timeout
+            while not result_future.done() and time.monotonic() < deadline:
+                await self._sleep(0.05)
+            if not result_future.done():
+                cancel_future = goal_handle.cancel_goal_async()
+                cancel_deadline = time.monotonic() + 2.0
+                while (not cancel_future.done()
+                       and time.monotonic() < cancel_deadline):
+                    await self._sleep(0.05)
+                if attempt == 1:
+                    self.get_logger().warning(
+                        f'Controller result timed out after '
+                        f'{result_timeout:.1f}s for {description}; '
+                        'canceling and retrying the identical safe pose once')
+                    await self._sleep(0.25)
+                    continue
+                raise ManipulationError(
+                    error_code,
+                    f'Controller timed out twice: {description}.')
+            wrapped_result = result_future.result()
+            result = wrapped_result.result
+            if result.error_code != FollowJointTrajectory.Result.SUCCESSFUL:
+                raise ManipulationError(
+                    error_code,
+                    f'Controller failed: {description}; '
+                    f'error_code={result.error_code}.')
+            return
 
     async def _send_trajectory_safe(
             self, client, joints, positions, duration_s):

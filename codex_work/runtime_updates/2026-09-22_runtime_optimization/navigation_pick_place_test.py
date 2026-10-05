@@ -347,6 +347,17 @@ class PickPlaceTest(Node):
                 self.destination == 'A'
                 and float(pose.position.x) < -4.50
                 and float(pose.position.y) < -5.50)
+            if leaving_a and south_west_of_a:
+                # From a pose still inside A, this west-outer homotopy is a
+                # planner mirage: two reliability runs either returned an
+                # empty path at 7.60 m or destabilised the base before the
+                # pickup handoff.  Do not let nearest-two truncation force it
+                # back into the race.  C-south-exit -> blue4 starts outside A
+                # and therefore keeps the proven 38--41 s transition.
+                self.get_logger().warning(
+                    f'Skipping {object_id}: south-west pickup is unreachable '
+                    'from inside A; retain for outside-A transitions')
+                continue
             if leaving_a:
                 # Rank from the corridor position where every intermediate A
                 # task must actually exit, not by a misleading chord through
@@ -1534,11 +1545,12 @@ class PickPlaceTest(Node):
 
         north = estimate('north')
         south = estimate('south')
-        # Handoff overhead is already included in north_total.  The former
-        # additional 6 s margin kept south selected even when its release was
-        # about to disappear at the shuttle endpoint; a full half-cycle wait
-        # then cost 10 s.  Retain one second for prediction noise only.
-        north_switch_margin = 1.0
+        # The north route has two additional stop/reacquire boundaries whose
+        # real cost exceeded the geometric ETA by about 13 s in a random-run
+        # trace (39 s actual versus 26 s south estimate).  The 0.60 s stable
+        # release projection now prevents the old endpoint misprediction, so
+        # require a material north advantage before paying those boundaries.
+        north_switch_margin = 6.0
         mode = (
             'north'
             if north[0] + north_switch_margin <= south[0]
@@ -1594,7 +1606,22 @@ class PickPlaceTest(Node):
                 not self._north_of_upper_rail(self.object_id)
                 and float(object_pose.position.y) < -5.50)
             if direct_south:
-                crossing_mode = 'south'
+                # The object already lies below the shuttle endpoint.  Use
+                # the sampled open row y=-7.40, which leaves 1.40 m centre
+                # separation from obstacle 2 at its immutable y=-6.00 limit.
+                # This removes an otherwise unavoidable half-cycle wait for
+                # every south-row cube while keeping Nav2 live cost checks and
+                # Collision Monitor in authority throughout the crossing.
+                # blue4 is the third C item in the validated colour order.
+                # With two occupied C slots its carried footprint could not
+                # make progress on the deep row in two full regressions, even
+                # though the same route passed in an empty-inventory world.
+                # Keep blue4 on the proven guarded y=-6.90 route; cube5 is the
+                # phase-sensitive second item that receives the deep-row gain.
+                crossing_mode = (
+                    'deep_south'
+                    if self.object_id in ('blue_cube_5', 'red_cube_5')
+                    else 'south')
                 obstacle = self.model_poses.get('moving_obstacle_2')
                 obstacle_y = (
                     float(obstacle.position.y)
@@ -1630,6 +1657,16 @@ class PickPlaceTest(Node):
                     {'x': 3.90, 'y': -6.90, 'yaw': 0.0,
                      'handoff': 0.20, 'strict_handoff': True},
                 )
+            elif crossing_mode == 'deep_south':
+                route_mode = 'c_deep_south_clearance_crossing'
+                staging = (
+                    {'x': -0.50, 'y': -7.40, 'yaw': 0.0,
+                     'handoff': 0.30, 'strict_handoff': True},
+                )
+                after_crossing = (
+                    {'x': 4.30, 'y': -7.40, 'yaw': 0.0,
+                     'handoff': 0.20, 'strict_handoff': True},
+                )
             else:
                 route_mode = 'c_eta_south_crossing'
                 staging = (
@@ -1645,7 +1682,8 @@ class PickPlaceTest(Node):
                 f'C route selected from moving_obstacle_2 y={obstacle_y:.3f}: '
                 f'{route_mode}')
             for index, transit in enumerate(transits, 1):
-                if index == len(staging) + 1:
+                if (index == len(staging) + 1
+                        and crossing_mode != 'deep_south'):
                     if crossing_mode == 'north':
                         self._wait_for_c_north_crossing_clear()
                     else:
