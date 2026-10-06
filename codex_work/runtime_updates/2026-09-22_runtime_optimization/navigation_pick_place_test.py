@@ -1958,7 +1958,11 @@ class PickPlaceTest(Node):
                     # Drive and steer together.  The former rotate-only gate
                     # kept linear.x at zero while the high angular command
                     # repeatedly overshot the cube centreline.
-                    linear = max(-0.16, min(0.22, 1.6 * range_error))
+                    # The 20-run profile spent 3.61 s/item in this controller.
+                    # Raise only the far-field forward cap; the proportional
+                    # law still tapers below 0.30 m error and the unchanged
+                    # 0.28 m chassis guard remains authoritative near a cube.
+                    linear = max(-0.16, min(0.30, 1.6 * range_error))
                     if abs(range_error) > 0.015 and abs(linear) < 0.06:
                         linear = math.copysign(0.06, range_error)
                     # Keep truly sharp corrections rotate-only, but use a
@@ -2059,7 +2063,8 @@ class PickPlaceTest(Node):
                 if distance <= target_tolerance:
                     self._publish_dock_command(0.0, 0.0)
                     stable_since = stable_since or now
-                    if now - stable_since >= 0.45:
+                    required_stable = 0.45 if self.destination == 'C' else 0.30
+                    if now - stable_since >= required_stable:
                         self.get_logger().info(
                             f'Low-speed destination approach complete: '
                             f'distance={distance:.3f}m')
@@ -2080,10 +2085,36 @@ class PickPlaceTest(Node):
                     # genuinely sharp (>34 degree) correction.  A six-round
                     # matrix replay reached 0.121 m, then oscillated only
                     # because a 0.517 rad error crossed the former boundary.
-                    if abs(heading_error) > 0.60:
+                    # Near C's wall the collision monitor can suppress an
+                    # in-place rotation while the carried cube is already
+                    # close to its slot.  The all-24 replay exposed a
+                    # deadlock at 0.16--0.17 m: error hovered around 0.62 rad,
+                    # the controller alternated between zero translation and
+                    # a tiny arc, and never crossed the unchanged 0.15 m
+                    # acceptance boundary.  Permit a very small coupled arc
+                    # only in this final 0.25 m envelope.  This does not relax
+                    # the slot, inventory, yaw, or collision checks.
+                    c_terminal_arc = (
+                        self.destination == 'C'
+                        and distance <= 0.25
+                        and abs(heading_error) <= 0.75)
+                    if abs(heading_error) > 0.60 and not c_terminal_arc:
                         linear = 0.0
                     else:
-                        linear = max(0.055, min(0.22, 0.70 * distance))
+                        # Preserve the same terminal tolerance and stopped-turn
+                        # rule while trimming the repeatable 3.03 s/item final
+                        # approach overhead measured in the random-20 batch.
+                        # C keeps the former conservative profile: its strict
+                        # 0.11 m north-row tolerance and nearby wall made the
+                        # faster profile overshoot and rotate around 0.16 m in
+                        # the directed regression. A/B retain the verified
+                        # faster far-field approach.
+                        approach_cap = 0.22 if self.destination == 'C' else 0.30
+                        approach_gain = 0.70 if self.destination == 'C' else 0.85
+                        minimum_linear = 0.040 if c_terminal_arc else 0.055
+                        linear = max(
+                            minimum_linear,
+                            min(approach_cap, approach_gain * distance))
                         linear *= max(0.45, math.cos(heading_error) ** 2)
                     angular = max(-0.30, min(0.30, 1.55 * heading_error))
                     if abs(heading_error) <= 0.015:
@@ -2131,7 +2162,7 @@ class PickPlaceTest(Node):
                 if abs(error) <= tolerance:
                     self._publish_dock_command(0.0, 0.0)
                     stable_since = stable_since or now
-                    if now - stable_since >= 0.30:
+                    if now - stable_since >= 0.20:
                         self.get_logger().info(
                             f'Dropoff heading aligned: yaw={yaw:.3f}, '
                             f'error={error:.3f}rad')
@@ -2142,9 +2173,9 @@ class PickPlaceTest(Node):
                     # A small cap increase trims repeated pre-place rotation time
                     # without changing carried translation speed or cornering.
                     angular = max(
-                        -angular_cap, min(angular_cap, 1.50 * error))
-                    if abs(angular) < 0.07:
-                        angular = math.copysign(0.07, error)
+                        -angular_cap, min(angular_cap, 2.00 * error))
+                    if abs(angular) < 0.08:
+                        angular = math.copysign(0.08, error)
                     self._publish_dock_command(0.0, angular)
                     if now - last_log >= 1.0:
                         self.get_logger().info(
@@ -2401,11 +2432,25 @@ class PickPlaceTest(Node):
                 phase='POST_PLACE_TRANSIT', event='phase_start',
                 transit_index=index, transit_count=len(transits),
                 route_mode=f'c_guarded_{crossing_mode}_exit')
+            merged_pickup_handoff = (
+                next_pickup is not None
+                and staged_mode == 'pickup_handoff'
+                and index == len(transits))
+            # The merged final leg is a real pickup approach, not merely an
+            # exit waypoint.  Naming it accordingly activates the measured
+            # 0.75 m/s proximity profile and the cube-range braking envelope.
+            # Round 2 kept the 2.20 m/s exit profile to the cached dock and
+            # overshot inside the 0.28 m chassis protection radius.
+            navigation_label = (
+                f'pickup {next_object} via C post-place exit'
+                if merged_pickup_handoff
+                else f'C post-place exit {index}')
             self.navigate(
-                f'C post-place exit {index}', transit,
+                navigation_label, transit,
                 handoff_distance=transit.get('handoff', 0.30),
                 strict_handoff=transit.get('strict_handoff', False),
-                lock_route=True)
+                lock_route=True,
+                no_progress_timeout=(8.0 if merged_pickup_handoff else None))
         self.get_logger().info('Guarded C post-place exit complete')
         if next_pickup is not None:
             next_pickup['staged_mode'] = staged_mode
@@ -2564,6 +2609,12 @@ class PickPlaceTest(Node):
                         (0.18, -0.18), (0.18, -0.09), (0.18, 0.00),
                         (0.18, 0.09),
                         (0.30, -0.18), (0.30, 0.00), (0.30, 0.18),
+                        # Four-blue A tasks can consume both established
+                        # rows.  These staggered intermediate docks preserve
+                        # the same east-side approach while giving the live
+                        # chassis-cost gate alternatives to the two cells
+                        # that measured lethal in round 19.
+                        (0.30, -0.09), (0.30, 0.09),
                     ]
             elif self.destination == 'B':
                 # B is not constrained to a single row.  Its floor lettering
@@ -2590,6 +2641,11 @@ class PickPlaceTest(Node):
                 candidates = [
                     (-0.16, -0.18), (0.16, -0.18),
                     (-0.16, 0.05), (0.16, 0.05),
+                    # Preserve the original four claims and add an open-side
+                    # fallback row for the fourth C delivery.  The all-24
+                    # batch repeatedly found the last south-row chassis dock
+                    # at cost 99 even though cargo clearance remained valid.
+                    (-0.16, 0.18), (0.00, 0.18), (0.16, 0.18),
                 ]
             preferred_indices = {
                 # red4 released from nominal inner slot (0.28,-0.13)
@@ -2965,6 +3021,9 @@ def execute_one_task(node, requested_object, destination,
             destination == 'A'
             and float(selected_world.position.x) < -4.50
             and float(selected_world.position.y) < -5.50)
+        lock_far_west_pickup_route = (
+            float(pickup['x']) < -4.50
+            and float(pickup['y']) < 2.00)
         node.navigate(
             f'pickup {selected}', pickup,
             handoff_distance=pickup_handoff_distance,
@@ -2973,7 +3032,14 @@ def execute_one_task(node, requested_object, destination,
             # took 36 s.  Keep that homotopy unless the path is actually
             # invalid; all live cost checks and local collision protection
             # remain enabled.
-            lock_route=lock_southwest_a_route)
+            # The all-24 run's slowest item repeatedly changed homotopy on
+            # the B-exit -> blue3 leg (remaining distance jumped as high as
+            # 16.33 m).  Once the explicit zone-exit waypoints place the base
+            # in the west corridor, preserve the first valid far-west path
+            # unless it becomes invalid instead of replanning every cycle.
+            lock_route=(lock_southwest_a_route
+                        or lock_far_west_pickup_route),
+            no_progress_timeout=(8.0 if lock_far_west_pickup_route else None))
     node.publish_navigation_status(phase='FINE_DOCK', event='phase_start')
     node.fine_dock()
     node.check_pick_alignment()
@@ -3031,7 +3097,7 @@ def execute_one_task(node, requested_object, destination,
         node.align_dropoff_heading(
             float(dropoff['yaw']),
             angular_cap=(1.50 if destination == 'C' else
-                         1.25 if destination == 'A' else 1.00))
+                         1.25 if destination in ('A', 'B') else 1.00))
     else:
         node.navigate(f'destination {destination}', dropoff, lock_route=True)
     node.publish_navigation_status(
