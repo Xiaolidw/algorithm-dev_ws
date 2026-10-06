@@ -2,14 +2,14 @@
 set -o pipefail
 
 workspace=/home/ros/dev_ws
-tag=random10_280_20261006
+tag=random20_275_20261006
 summary="$workspace/logs/${tag}.csv"
 progress="$workspace/logs/${tag}.progress"
 cleanup="$workspace/src/moon_warehouse_bringup/scripts/ros_runtime_cleanup.sh"
 
 all_cases=(blueA_redB blueA_redC blueB_redA blueB_redC blueC_redA blueC_redB)
 mapfile -t labels < <(printf '%s\n' "${all_cases[@]}" | shuf)
-for _ in $(seq 1 4); do
+for _ in $(seq 1 14); do
   labels+=("$(printf '%s\n' "${all_cases[@]}" | shuf -n 1)")
 done
 
@@ -42,13 +42,14 @@ for index in "${!labels[@]}"; do
   mission_log="$workspace/logs/${tag}_r${round}_${label}_mission.log"
 
   printf 'ROUND_START,%s,%s,%s\n' "$round" "$label" "$(date +%s)" | tee -a "$progress"
+  for mission_attempt in 1 2; do
   ready=0
   for launch_attempt in 1 2 3; do
     bash "$cleanup" >> "$progress" 2>&1
     source /opt/ros/humble/setup.bash
     source "$workspace/install/setup.bash"
     cd "$workspace"
-    launch_log="$workspace/logs/${tag}_r${round}_${label}_launch_a${launch_attempt}.log"
+    launch_log="$workspace/logs/${tag}_r${round}_${label}_launch_m${mission_attempt}_a${launch_attempt}.log"
     nohup ros2 launch moon_warehouse_bringup mission_system.launch.py \
       start_rviz:=false gazebo_gui:=false start_perception:=true \
       start_manipulation:=true start_foxglove:=false start_rosbridge:=true \
@@ -78,12 +79,14 @@ for index in "${!labels[@]}"; do
   done
 
   if [[ "$ready" -ne 1 ]]; then
-    printf '%s,%s,LAUNCH_FAILED,,0,,%s,%s\n' \
-      "$round" "$label" "$mission_log" "$launch_log" >> "$summary"
-    printf 'ROUND_END,%s,%s,LAUNCH_FAILED,%s\n' "$round" "$label" "$(date +%s)" | tee -a "$progress"
-    continue
+    result=LAUNCH_FAILED
+    completed=0
+    total=
+    item_times=
+    break
   fi
 
+  mission_log="$workspace/logs/${tag}_r${round}_${label}_mission_m${mission_attempt}.log"
   timeout 420 ros2 run moon_warehouse_coordinator navigation_pick_place_test \
     --batch "$batch" > "$mission_log" 2>&1
   runner_rc=$?
@@ -99,6 +102,17 @@ for index in "${!labels[@]}"; do
   else
     result=FAIL
   fi
+  infrastructure_failure=$(grep -Eci \
+    'gzserver.*process has died|CRITICAL FAILURE: SERVER .* IS DOWN' \
+    "$launch_log" 2>/dev/null || true)
+  if [[ "$result" != PASS && "$infrastructure_failure" -gt 0 \
+        && "$mission_attempt" -lt 2 ]]; then
+    printf 'INFRA_RETRY,%s,%s,%s,%s\n' \
+      "$round" "$label" "$mission_attempt" "$(date +%s)" | tee -a "$progress"
+    continue
+  fi
+  break
+  done
   printf '%s,%s,%s,%s,%s,%s,%s,%s\n' \
     "$round" "$label" "$result" "$total" "$completed" "$item_times" \
     "$mission_log" "$launch_log" >> "$summary"
