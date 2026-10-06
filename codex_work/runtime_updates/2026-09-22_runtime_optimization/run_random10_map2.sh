@@ -2,30 +2,37 @@
 set -o pipefail
 
 workspace=/home/ros/dev_ws
-tag=random10_final6_20261005
+tag=random10_280_20261006
 summary="$workspace/logs/${tag}.csv"
 progress="$workspace/logs/${tag}.progress"
 cleanup="$workspace/src/moon_warehouse_bringup/scripts/ros_runtime_cleanup.sh"
 
-labels=(
-  blueA_redB blueC_redB blueC_redA blueB_redC blueA_redC
-  blueB_redA blueA_redB blueA_redC blueC_redB blueC_redB
-)
-batches=(
-  'fastest-blue:A,fastest-blue:A,fastest-blue:A,fastest-red:B,fastest-red:B'
-  'fastest-blue:C,fastest-blue:C,fastest-blue:C,fastest-red:B,fastest-red:B'
-  'fastest-blue:C,fastest-blue:C,fastest-blue:C,fastest-red:A,fastest-red:A'
-  'fastest-blue:B,fastest-blue:B,fastest-blue:B,fastest-red:C,fastest-red:C'
-  'fastest-blue:A,fastest-blue:A,fastest-blue:A,fastest-red:C,fastest-red:C'
-  'fastest-blue:B,fastest-blue:B,fastest-blue:B,fastest-red:A,fastest-red:A'
-  'fastest-blue:A,fastest-blue:A,fastest-blue:A,fastest-red:B,fastest-red:B'
-  'fastest-blue:A,fastest-blue:A,fastest-blue:A,fastest-red:C,fastest-red:C'
-  'fastest-blue:C,fastest-blue:C,fastest-blue:C,fastest-red:B,fastest-red:B'
-  'fastest-blue:C,fastest-blue:C,fastest-blue:C,fastest-red:B,fastest-red:B'
-)
+all_cases=(blueA_redB blueA_redC blueB_redA blueB_redC blueC_redA blueC_redB)
+mapfile -t labels < <(printf '%s\n' "${all_cases[@]}" | shuf)
+for _ in $(seq 1 4); do
+  labels+=("$(printf '%s\n' "${all_cases[@]}" | shuf -n 1)")
+done
+
+batch_for_label() {
+  case "$1" in
+    blueA_redB) printf '%s' 'fastest-blue:A,fastest-blue:A,fastest-blue:A,fastest-red:B,fastest-red:B' ;;
+    blueA_redC) printf '%s' 'fastest-blue:A,fastest-blue:A,fastest-blue:A,fastest-red:C,fastest-red:C' ;;
+    blueB_redA) printf '%s' 'fastest-blue:B,fastest-blue:B,fastest-blue:B,fastest-red:A,fastest-red:A' ;;
+    blueB_redC) printf '%s' 'fastest-blue:B,fastest-blue:B,fastest-blue:B,fastest-red:C,fastest-red:C' ;;
+    blueC_redA) printf '%s' 'fastest-blue:C,fastest-blue:C,fastest-blue:C,fastest-red:A,fastest-red:A' ;;
+    blueC_redB) printf '%s' 'fastest-blue:C,fastest-blue:C,fastest-blue:C,fastest-red:B,fastest-red:B' ;;
+    *) return 1 ;;
+  esac
+}
+
+batches=()
+for label in "${labels[@]}"; do
+  batches+=("$(batch_for_label "$label")")
+done
 
 printf 'round,label,result,total_s,completed_items,item_times_s,mission_log,launch_log\n' > "$summary"
 : > "$progress"
+printf 'RANDOM_ORDER,%s\n' "${labels[*]}" | tee -a "$progress"
 
 for index in "${!labels[@]}"; do
   round=$((index + 1))

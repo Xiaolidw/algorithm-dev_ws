@@ -84,6 +84,7 @@ class PickPlaceTest(Node):
         self.global_costmap = None
         self.selected_dropoff_slot = None
         self._c_crossing_mode = None
+        self._destination_occupied_count = 0
         self._preselected_pickup = None
         self.slot_claim_path = '/tmp/moon_warehouse_slot_claims.json'
         costmap_qos = QoSProfile(
@@ -651,11 +652,25 @@ class PickPlaceTest(Node):
             if (status == GoalStatus.STATUS_ABORTED
                     and lock_route and _allow_stall_retry):
                 self._publish_navigation_stop()
+                settle_deadline = time.monotonic() + 4.0
+                start_cost = None
+                while time.monotonic() < settle_deadline:
+                    try:
+                        robot = self._fresh_robot_pose()
+                        start_cost = self._global_costmap_cell(
+                            float(robot.position.x), float(robot.position.y))
+                    except RuntimeError:
+                        start_cost = None
+                    if start_cost is None or start_cost < 99:
+                        break
+                    rclpy.spin_once(self, timeout_sec=0.10)
                 self.get_logger().warning(
                     f'{label} was aborted after its path became temporarily '
-                    'empty; issuing one fresh locked-route goal')
+                    'empty; issuing one fresh locked-route goal after '
+                    f'start-cell settling (cost={start_cost})')
                 self.publish_navigation_status(
-                    event='bounded_aborted_goal_retry', nav_status=status)
+                    event='bounded_aborted_goal_retry', nav_status=status,
+                    start_cost=start_cost)
                 time.sleep(0.5)
                 return self.navigate(
                     label, target, handoff_distance, lock_route,
@@ -1609,15 +1624,14 @@ class PickPlaceTest(Node):
                 # The object already lies below the shuttle endpoint.  Use
                 # the sampled open row y=-7.40, which leaves 1.40 m centre
                 # separation from obstacle 2 at its immutable y=-6.00 limit.
-                # This removes an otherwise unavoidable half-cycle wait for
-                # every south-row cube while keeping Nav2 live cost checks and
-                # Collision Monitor in authority throughout the crossing.
-                # blue4 is the third C item in the validated colour order.
-                # With two occupied C slots its carried footprint could not
-                # make progress on the deep row in two full regressions, even
-                # though the same route passed in an empty-inventory world.
-                # Keep blue4 on the proven guarded y=-6.90 route; cube5 is the
-                # phase-sensitive second item that receives the deep-row gain.
+                # This shortens the south-row detour while keeping Nav2 live
+                # cost checks and Collision Monitor in authority throughout
+                # the crossing.
+                # cube5 usually saves 15--20 s on the y=-7.40 row, but random
+                # full-task runs also exposed a local-inflation stall.  Keep
+                # the fast attempt only for cube5 and bound its progress wait
+                # below; any stall falls back to the guarded y=-6.90 route in
+                # the same task instead of sacrificing mission correctness.
                 crossing_mode = (
                     'deep_south'
                     if self.object_id in ('blue_cube_5', 'red_cube_5')
@@ -1643,6 +1657,11 @@ class PickPlaceTest(Node):
                     'C common west staging', common_staging,
                     handoff_distance=0.30, lock_route=True)
                 crossing_mode, obstacle_y = self._choose_c_crossing()
+                if self._destination_occupied_count == 0:
+                    crossing_mode = 'deep_south'
+                    self.get_logger().info(
+                        'C empty-inventory adaptive fast path: trying deep '
+                        'south with bounded guarded fallback')
             self._c_crossing_mode = crossing_mode
             if crossing_mode == 'north':
                 route_mode = 'c_eta_north_crossing'
@@ -1682,21 +1701,59 @@ class PickPlaceTest(Node):
                 f'C route selected from moving_obstacle_2 y={obstacle_y:.3f}: '
                 f'{route_mode}')
             for index, transit in enumerate(transits, 1):
-                if (index == len(staging) + 1
-                        and crossing_mode != 'deep_south'):
+                if index == len(staging) + 1:
                     if crossing_mode == 'north':
                         self._wait_for_c_north_crossing_clear()
                     else:
+                        # Deep-south has more geometric clearance, but the
+                        # random regressions proved Collision Monitor can
+                        # still stop a carried footprint while obstacle 2 is
+                        # at its south endpoint.  Synchronise both southern
+                        # rows to the proven northbound release window; the
+                        # bounded in-task fallback below remains a second
+                        # layer of protection against local-cost stalls.
                         self._wait_for_c_south_crossing_clear()
                 self.publish_navigation_status(
                     phase='DROPOFF_TRANSIT', event='phase_start',
                     transit_index=index, transit_count=len(transits),
                     route_mode=route_mode, obstacle_y=obstacle_y)
-                self.navigate(
-                    f'C dynamic bypass {index}', transit,
-                    handoff_distance=transit.get('handoff', 0.30),
-                    strict_handoff=transit.get('strict_handoff', False),
-                    lock_route=True)
+                try:
+                    self.navigate(
+                        f'C dynamic bypass {index}', transit,
+                        handoff_distance=transit.get('handoff', 0.30),
+                        strict_handoff=transit.get('strict_handoff', False),
+                        lock_route=True,
+                        no_progress_timeout=(
+                            6.0 if (crossing_mode == 'deep_south'
+                                    and index == len(staging) + 1)
+                            else None),
+                        _allow_stall_retry=not (
+                            crossing_mode == 'deep_south'
+                            and index == len(staging) + 1))
+                except RuntimeError as error:
+                    if not (crossing_mode == 'deep_south'
+                            and index == len(staging) + 1):
+                        raise
+                    self.get_logger().warning(
+                        'Deep-south crossing made no reliable progress; '
+                        f'falling back to guarded row in-task: {error}')
+                    fallback_west = {
+                        'x': -0.50, 'y': -6.90, 'yaw': 0.0,
+                    }
+                    fallback_east = {
+                        'x': 3.90, 'y': -6.90, 'yaw': 0.0,
+                    }
+                    self.navigate(
+                        'C deep fallback west staging', fallback_west,
+                        handoff_distance=0.10, strict_handoff=True,
+                        lock_route=True, no_progress_timeout=8.0)
+                    self._wait_for_c_south_crossing_clear()
+                    self.navigate(
+                        'C deep fallback guarded crossing', fallback_east,
+                        handoff_distance=0.20, strict_handoff=True,
+                        lock_route=True, no_progress_timeout=10.0)
+                    self._c_crossing_mode = 'south'
+                    return
             return
         if self.destination == 'B':
             object_pose = self._relative_pose(self.object_id, 'world')
@@ -2187,12 +2244,11 @@ class PickPlaceTest(Node):
         if self.destination != 'C':
             return
         # red_cube_2 is on the same east side of obstacle 2 and north of the
-        # fixed C wall endpoint.  After the last C placement, reach it by the
-        # open eastern homotopy instead of crossing the south gate westward,
-        # picking red5, and immediately retracing the map toward A.  Nav2's
-        # locked route and all normal cost/collision layers remain active.
+        # fixed C wall endpoint.  Reach it by the open eastern homotopy instead
+        # of crossing the south gate westward and immediately retracing that
+        # crossing after pickup.  This is valid whether red2's next destination
+        # is A or C; Nav2 and all normal cost/collision layers remain active.
         if (next_pickup is not None
-                and next_pickup.get('destination') == 'A'
                 and next_pickup.get('object_id') == 'red_cube_2'):
             target = dict(next_pickup['pickup'])
             self.get_logger().info(
@@ -2475,6 +2531,7 @@ class PickPlaceTest(Node):
                 local_y = -sin_zone * dx + cos_zone * dy
                 if abs(local_x) <= 0.50 and abs(local_y) <= 0.25:
                     occupied.append((local_x, local_y, name))
+            self._destination_occupied_count = len(occupied)
             # Keep every chassis dock on the zone's open east side
             # (local x=+0.18)
             # and distribute cargo across the short y axis.  Moving the slot
@@ -2533,7 +2590,12 @@ class PickPlaceTest(Node):
                     (-0.16, 0.05), (0.16, 0.05),
                 ]
             preferred_indices = {
-                'A': ({5: 1, 2: 2, 3: 0, 1: 4, 4: 3}
+                # red4 released from nominal inner slot (0.28,-0.13)
+                # swept to x>0.50 after a valid x=0.409 pre-release
+                # alignment in random round 2.  Keep the two-item red task
+                # on opposite outer-row edges; the live cost/clearance gates
+                # still choose a fallback if either dock is occupied.
+                'A': ({5: 1, 2: 1, 3: 0, 1: 2, 4: 2}
                       if self.object_id.startswith('red_cube_')
                       else {4: 0, 3: 1, 2: 2, 5: 3, 1: 3}),
                 'B': {5: 1, 4: 2, 3: 0, 2: 4, 1: 3},
