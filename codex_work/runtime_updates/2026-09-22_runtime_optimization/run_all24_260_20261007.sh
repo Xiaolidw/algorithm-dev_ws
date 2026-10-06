@@ -2,7 +2,7 @@
 set -o pipefail
 
 workspace=/home/ros/dev_ws
-tag=all24_260_20261007
+tag=${1:-all24_260_20261007}
 summary="$workspace/logs/${tag}.csv"
 progress="$workspace/logs/${tag}.progress"
 cleanup="$workspace/src/moon_warehouse_bringup/scripts/ros_runtime_cleanup.sh"
