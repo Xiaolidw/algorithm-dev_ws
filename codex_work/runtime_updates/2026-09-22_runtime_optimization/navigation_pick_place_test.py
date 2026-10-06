@@ -1657,11 +1657,13 @@ class PickPlaceTest(Node):
                     'C common west staging', common_staging,
                     handoff_distance=0.30, lock_route=True)
                 crossing_mode, obstacle_y = self._choose_c_crossing()
-                if self._destination_occupied_count == 0:
-                    crossing_mode = 'deep_south'
-                    self.get_logger().info(
-                        'C empty-inventory adaptive fast path: trying deep '
-                        'south with bounded guarded fallback')
+                # Keep the first C delivery on the ETA-selected guarded row.
+                # A 20-run pressure test showed that forcing an empty-inventory
+                # delivery onto y=-7.40 was bimodal: successful crossings took
+                # about 79--82 s, but 5/9 blue-to-C first deliveries stalled and
+                # paid the full y=-6.90 fallback, taking about 99--101 s.  The
+                # deep row remains enabled for cube5, where the direct-south
+                # approach avoids this risky entry geometry.
             self._c_crossing_mode = crossing_mode
             if crossing_mode == 'north':
                 route_mode = 'c_eta_north_crossing'

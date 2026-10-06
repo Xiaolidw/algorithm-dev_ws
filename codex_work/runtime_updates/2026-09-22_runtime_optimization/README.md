@@ -76,3 +76,18 @@
 - South-route ETA prediction now uses the exact same safe window as the physical gate. Directed two-C evidence is 2/2, recovery 0, 160.916 s (`c_two_eta_exact_window_20260928.log`).
 - Holding the existing C final pre-approach boundary at exactly 0.20 m produced 2/2, recovery 0, 159.196 s (`c_two_final_strict020_20260928.log`). It is a small safe candidate, not yet evidence of a stable improvement over the 153.098 s best phase.
 - The physical lower bound remains dominated by the 9.10 m guarded south approach, a roughly 12 s obstacle cycle with a narrow stable release window, mandatory manipulation validation, and a 30--45 s guarded exit for each non-final C item. Those costs must not be hidden by map edits or weakened gates.
+## 2026-10-06 random-20 reliability result
+
+The `random20_275_20261006` pressure batch completed all 20 valid five-item
+missions (100/100 items, 100% mission completion). Mean and median mission
+times were 286.249 s and 284.984 s; 4/20 were at or below 275 s, 9/20 at or
+below 280 s, and 10/20 at or below 285 s. Two in-mission simulator crashes and
+three launch-readiness failures were isolated and replayed by the runner rather
+than counted as algorithm failures.
+
+The remaining long tail was traced to the empty-C deep-south trial. Successful
+first blue-to-C crossings took about 79--82 s, while 5/9 samples stalled on the
+`y=-7.40` crossing and paid the bounded `y=-6.90` fallback, increasing the first
+item to about 99--101 s. Empty-C deliveries now retain the ETA-selected guarded
+crossing. The deep-south path remains limited to cube 5's direct-south entry,
+where it avoids the risky approach geometry and still has bounded recovery.
