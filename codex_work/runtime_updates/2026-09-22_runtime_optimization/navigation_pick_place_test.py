@@ -2210,8 +2210,22 @@ class PickPlaceTest(Node):
                     # the exact placement yaw. This avoids arriving 1 mm
                     # outside the strict gate with the target beside the
                     # chassis and keeps all motion under Collision Monitor.
+                    # C used to rotate to the final placement yaw immediately
+                    # before this live-target lineup.  On the four-C trace that
+                    # first rotation cost 3.1--3.6 s per item, after which this
+                    # controller deliberately rotated another 0.26--0.31 rad
+                    # toward the actual target point.  ``initial_lineup`` runs
+                    # only at the same stopped pre-approach where the removed
+                    # alignment already used a proven 1.50 rad/s cap, so turn
+                    # directly to the live target once.  Translation still
+                    # starts only after the unchanged 0.06 rad bearing gate.
+                    lineup_cap = (
+                        1.50 if self.destination == 'C' else 0.45)
+                    lineup_gain = (
+                        2.00 if self.destination == 'C' else 1.40)
                     angular = max(
-                        -0.45, min(0.45, 1.40 * heading_error))
+                        -lineup_cap,
+                        min(lineup_cap, lineup_gain * heading_error))
                     self._publish_dock_command(0.0, angular)
                     if now - last_log >= 1.0:
                         self.get_logger().info(
@@ -3432,10 +3446,19 @@ def execute_one_task(node, requested_object, destination,
             lock_route=True,
             no_progress_timeout=(
                 6.0 if destination in ('A', 'B') else None))
-        node.align_dropoff_heading(
-            float(dropoff['yaw']),
-            angular_cap=(1.50 if destination == 'C' else
-                         1.25 if destination in ('A', 'B') else 1.00))
+        if destination != 'C':
+            node.align_dropoff_heading(
+                float(dropoff['yaw']),
+                angular_cap=(
+                    1.25 if destination in ('A', 'B') else 1.00))
+        else:
+            # C's fine controller begins by facing the live target point, and
+            # the strict stopped alignment below still restores/validates the
+            # exact placement yaw after parking.  A separate pre-alignment to
+            # that yaw was immediately undone by the live-target lineup and
+            # added about fourteen seconds to a four-C mission.
+            node.get_logger().info(
+                'C pre-place yaw alignment merged into live-target lineup')
     else:
         node.navigate(f'destination {destination}', dropoff, lock_route=True)
     node.publish_navigation_status(
