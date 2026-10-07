@@ -4,6 +4,7 @@ set -o pipefail
 workspace=/home/ros/dev_ws
 tag=${1:-all24_260_20261007}
 only_round=${2:-}
+batch_override=${3:-}
 summary="$workspace/logs/${tag}.csv"
 progress="$workspace/logs/${tag}.progress"
 cleanup="$workspace/src/moon_warehouse_bringup/scripts/ros_runtime_cleanup.sh"
@@ -53,6 +54,10 @@ for index in "${!specs[@]}"; do
   red_count=$((5 - blue_count))
   label="b${blue_count}${blue_destination}_r${red_count}${red_destination}"
   batch=$(make_batch "$blue_count" "$blue_destination" "$red_destination")
+  if [[ -n $batch_override ]]; then
+    batch=$batch_override
+    label="${label}_ordered"
+  fi
   printf 'ROUND_START,%s,%s,%s\n' "$round" "$label" "$(date +%s)" | tee -a "$progress"
 
   result=LAUNCH_FAILED

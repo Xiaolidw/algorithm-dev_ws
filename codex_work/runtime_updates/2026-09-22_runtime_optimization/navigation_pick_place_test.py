@@ -3503,6 +3503,50 @@ def execute_one_task(node, requested_object, destination,
             next_selected = node.select_object(
                 next_requested_object, next_approaches)
             if (destination == 'C'
+                    and next_destination == 'C'
+                    and next_requested_object in (
+                        'fastest-blue', 'fastest-red')):
+                # A four-item C batch can contain one upper-rail cube and a
+                # two-cube deep-south cluster after the first central cube is
+                # placed.  The myopic nearest-two selector exits C south and
+                # services that cluster first, then pays a complete south ->
+                # upper-rail -> C -> south traversal for the final C item.
+                # Round 24 showed that visiting the upper cube now and sweeping
+                # the southern cluster afterwards removes 25.7 s without
+                # changing any individual navigation or manipulation gate.
+                # Detect the geometry rather than colour/object numbers so the
+                # same transition policy is considered by geometry, not by an
+                # object ID.  It can trigger only while one live upper cube
+                # and at least two live deep-south cubes remain outside C; a
+                # red four-C cross-check without that cluster was 18.2 s slower
+                # when forcibly broadened to all non-upper candidates.
+                live_candidates = []
+                for candidate in next_approaches:
+                    candidate_in_c = node._relative_pose(
+                        candidate, ZONE_MODELS['C'])
+                    if (abs(float(candidate_in_c.position.x)) <= 0.50
+                            and abs(float(candidate_in_c.position.y)) <= 0.25):
+                        continue
+                    candidate_world = node._relative_pose(candidate, 'world')
+                    live_candidates.append((
+                        candidate,
+                        float(candidate_world.position.x),
+                        float(candidate_world.position.y)))
+                upper_candidates = [
+                    candidate for candidate, _, candidate_y
+                    in live_candidates if candidate_y >= 3.20]
+                deep_south_candidates = [
+                    candidate for candidate, _, candidate_y
+                    in live_candidates if candidate_y < -5.50]
+                if (len(upper_candidates) == 1
+                        and len(deep_south_candidates) >= 2):
+                    next_selected = upper_candidates[0]
+                    node.get_logger().info(
+                        'map2 C-cluster lookahead: service the sole upper-rail '
+                        f'cube {next_selected} before the '
+                        f'{len(deep_south_candidates)}-cube south sweep; '
+                        'reason=avoid_final_south_upper_south_traversal')
+            if (destination == 'C'
                     and next_destination == 'A'
                     and next_requested_object == 'fastest-blue'
                     and 'blue_cube_4' in next_approaches):
