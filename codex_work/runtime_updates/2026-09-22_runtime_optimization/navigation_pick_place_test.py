@@ -476,6 +476,17 @@ class PickPlaceTest(Node):
                 # the measured A carry topology risk and prefer another of the
                 # nearest candidates for A.
                 route_risk_penalty = 20.0
+            elif (self.destination == 'C'
+                    and float(pose.position.x) < -7.00
+                    and float(pose.position.y) > -2.00):
+                # The geometric score omitted the red4 detour, wall-end
+                # crossing and four extra stop/reacquire boundaries required
+                # by blue3->C.  Round 24 measured that fourth item at 107.5 s,
+                # while the alternative upper-rail blue1 complete-route score
+                # differed by only 0.38 m.  Charge the validated topology cost
+                # so nearest-two selects blue1 when both remain available;
+                # blue3 stays usable when it is actually required.
+                route_risk_penalty = 8.0
             score = (pickup_distance + 1.15 * carry_distance
                      + route_risk_penalty)
             ranked.append({
@@ -1299,7 +1310,13 @@ class PickPlaceTest(Node):
                 # braking-distance term may enlarge it at cruise speed.  The
                 # following strict pickup dock and fine dock still establish
                 # the actual grasp geometry.
-                handoff_distance=0.08 if index == 2 else None,
+                # ``staged_mode`` slices away rail point 1, so the remaining
+                # north-side point is re-enumerated as index 1.  Key the
+                # position-only handoff to geometry instead of loop index;
+                # otherwise a C-staged upper pickup waits 20+ seconds for
+                # unnecessary exact yaw convergence at distance_remaining=0.
+                handoff_distance=(
+                    0.08 if float(transit['y']) >= 3.40 else None),
                 lock_route=True)
 
     def _wait_for_red5_rail_crossing_clear(self, timeout_sec=30.0):
@@ -1726,6 +1743,30 @@ class PickPlaceTest(Node):
                     f'object_y={float(object_pose.position.y):.3f}; '
                     'skipping common west staging')
             else:
+                far_west_staging = (
+                    float(object_pose.position.x) < -4.50
+                    and float(object_pose.position.y) < 2.00)
+                if far_west_staging:
+                    # The same live red4 at (-6,0) that blocked round 21's
+                    # B return also blocks blue3's chord to C common staging.
+                    # Reuse the validated southern pass, then cross the fixed
+                    # wall's eastern endpoint above y=-0.75 before joining C.
+                    west_clearance = (
+                        {'x': -7.00, 'y': -0.55, 'yaw': 0.0},
+                        {'x': -5.10, 'y': -0.55, 'yaw': 0.0},
+                        {'x': -2.60, 'y': 0.20, 'yaw': 0.0},
+                    )
+                    for index, transit in enumerate(west_clearance, 1):
+                        self.publish_navigation_status(
+                            phase='DROPOFF_TRANSIT', event='phase_start',
+                            transit_index=index,
+                            transit_count=len(west_clearance),
+                            route_mode='far_west_to_c_clearance')
+                        self.navigate(
+                            f'{self.object_id} far-west to-C clearance '
+                            f'{index}', transit,
+                            handoff_distance=0.35, lock_route=True,
+                            no_progress_timeout=8.0)
                 common_staging = {
                     'x': -0.50, 'y': -1.00, 'yaw': -math.pi / 2.0,
                 }
@@ -2195,7 +2236,7 @@ class PickPlaceTest(Node):
                     c_terminal_arc = (
                         self.destination == 'C'
                         and distance <= 0.25
-                        and abs(heading_error) <= 0.75)
+                        and abs(heading_error) <= 0.90)
                     if abs(heading_error) > 0.60 and not c_terminal_arc:
                         linear = 0.0
                     else:
@@ -2217,6 +2258,19 @@ class PickPlaceTest(Node):
                     angular = max(-0.30, min(0.30, 1.55 * heading_error))
                     if abs(heading_error) <= 0.015:
                         angular = 0.0
+                    if c_terminal_arc and abs(heading_error) > 0.25:
+                        # Keep the target inside the commanded turning circle.
+                        # Round-24's fourth C slot reached 0.122 m, then its
+                        # heading error grew to 0.80 rad.  The former 0.071
+                        # m/s arc with a 0.30 rad/s yaw cap had a 0.237 m
+                        # radius, so it could only orbit a target 0.12--0.19
+                        # m away.  Bound linear speed by the live radius while
+                        # retaining the same collision monitor and 0.11 m
+                        # parking gate.
+                        linear = min(
+                            linear,
+                            max(0.020,
+                                0.60 * abs(angular) * distance))
                     self._publish_dock_command(linear, angular)
                     if now - last_log >= 1.0:
                         self.get_logger().info(
