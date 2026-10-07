@@ -78,6 +78,7 @@ class PickPlaceTest(Node):
         self._navigation_feedback_recoveries = 0
         self.base_velocity = None
         self.base_velocity_received = 0.0
+        self._last_rejected_odom_warning = 0.0
         self.model_poses = {}
         self.model_twists = {}
         self.models_received = 0.0
@@ -100,7 +101,26 @@ class PickPlaceTest(Node):
             self._global_costmap_callback, costmap_qos)
 
     def _odom_callback(self, message):
-        self.base_velocity = message.twist.twist
+        velocity = message.twist.twist
+        linear = float(velocity.linear.x)
+        angular = float(velocity.angular.z)
+        # Gazebo can emit a one-frame ODE impulse during a contact event.  A
+        # 15--17 m/s or 40 rad/s sample is physically impossible for this base
+        # and must not be accepted as evidence that it is still moving during
+        # a Nav2 handoff.  Reject only the impossible sample: the previous
+        # timestamp is deliberately not refreshed, so the strict stop gate
+        # continues waiting for a new sane odometry sample instead of treating
+        # stale data as zero velocity.
+        if (not math.isfinite(linear) or not math.isfinite(angular)
+                or abs(linear) > 3.0 or abs(angular) > 6.0):
+            now = time.monotonic()
+            if now - self._last_rejected_odom_warning >= 1.0:
+                self.get_logger().warning(
+                    'Rejected physically impossible odometry sample: '
+                    f'vx={linear:.4f}m/s, wz={angular:.4f}rad/s')
+                self._last_rejected_odom_warning = now
+            return
+        self.base_velocity = velocity
         self.base_velocity_received = time.monotonic()
 
     def _models_callback(self, message):
@@ -1252,7 +1272,14 @@ class PickPlaceTest(Node):
         # west end.  Selection is based on live y, never colour or cube ID.
         transits = (
             {'x': -2.75, 'y': 2.00, 'yaw': math.pi / 2.0},
-            {'x': -2.75, 'y': 3.50, 'yaw': 0.0},
+            # red1 is approached from its east face on y=4.0.  Stay on that
+            # lane after crossing at the west endpoint instead of travelling
+            # parallel only 0.70 m from the 0.60 m-wide moving obstacle on
+            # y=2.8; the old centre-to-centre clearance was smaller than the
+            # combined physical half-widths of obstacle and chassis.
+            {'x': -2.75,
+             'y': 4.00 if self.object_id == 'red_cube_1' else 3.50,
+             'yaw': 0.0},
         )
         if staged_mode == 'map2_upper_rail_1':
             transits = transits[1:]
@@ -1309,6 +1336,59 @@ class PickPlaceTest(Node):
                 last_log = now
         raise RuntimeError(
             'moving_obstacle_1 did not clear the red5 crossing in time')
+
+    def _wait_for_upper_rail_carried_window(self, timeout_sec=30.0):
+        """Release an east-to-west carried transit while rail 1 is separated.
+
+        The global costmap deliberately filters the known moving obstacle, so
+        it can select the narrow south side of blue1.  Collision Monitor still
+        sees the real obstacle and correctly stops the base when both occupy
+        that gap.  Start the short westbound transit only while obstacle 1 is
+        at its east end and still separating from the crossing; at carried
+        cruise speed the robot clears the conflict before the obstacle can
+        return west.
+        """
+        # At x=-0.25 the obstacle is still 1.20 m south of the carried base.
+        # Both then clear one another in opposite directions before the robot
+        # descends toward y=3.5.  Waiting until x=0.75 added about 4.0 s after
+        # all collision geometry was already separating.
+        release_x = -0.25
+        deadline = time.monotonic() + float(timeout_sec)
+        stable_since = None
+        last_log = 0.0
+        while rclpy.ok() and time.monotonic() < deadline:
+            self._publish_dock_command(0.0, 0.0)
+            rclpy.spin_once(self, timeout_sec=0.10)
+            now = time.monotonic()
+            obstacle = self.model_poses.get('moving_obstacle_1')
+            twist = self.model_twists.get('moving_obstacle_1')
+            fresh = now - self.models_received < 0.35
+            obstacle_x = (float(obstacle.position.x)
+                          if obstacle is not None else float('nan'))
+            obstacle_vx = (float(twist.linear.x)
+                           if twist is not None else float('nan'))
+            separated = (
+                fresh and obstacle is not None and twist is not None
+                and obstacle_x >= release_x and obstacle_vx >= -0.02)
+            if separated:
+                stable_since = stable_since or now
+                if now - stable_since >= 0.25:
+                    self.get_logger().info(
+                        'Upper-rail carried transit released: '
+                        f'obstacle_x={obstacle_x:.3f}, '
+                        f'obstacle_vx={obstacle_vx:.3f}')
+                    return
+            else:
+                stable_since = None
+            if now - last_log >= 1.0:
+                self.get_logger().info(
+                    'Upper-rail carried transit hold: '
+                    f'obstacle_x={obstacle_x:.3f}, '
+                    f'obstacle_vx={obstacle_vx:.3f}, '
+                    f'release_when_x>={release_x:.2f}_and_eastbound')
+                last_log = now
+        raise RuntimeError(
+            'moving_obstacle_1 did not provide a carried transit window')
 
     def _wait_for_c_north_crossing_clear(self, timeout_sec=30.0):
         """Hold west of obstacle 2 until the north crossing is separated."""
@@ -1760,6 +1840,9 @@ class PickPlaceTest(Node):
         if self.destination == 'B':
             object_pose = self._relative_pose(self.object_id, 'world')
             north_of_rail = self._north_of_upper_rail(self.object_id)
+            far_west_return = (
+                float(object_pose.position.x) < -4.50
+                and float(object_pose.position.y) < 2.00)
             if north_of_rail:
                 rail_exit_transits = (
                     {'x': -2.75, 'y': 3.50, 'yaw': math.pi},
@@ -1779,7 +1862,19 @@ class PickPlaceTest(Node):
                     or float(object_pose.position.y) > 1.30):
                 # Geometry, rather than colour/number, selects the proven
                 # central doorway before the B east-side approach.
-                cross_zone_transits = (
+                cross_zone_transits = ()
+                if far_west_return:
+                    # blue3 at (-8,0) returns past the still-live red4 at
+                    # (-6,0).  The direct chord stopped exactly beside that
+                    # cube even after straight pickup clearance.  The north
+                    # side is closed by the static wall at y~=0.9; use the
+                    # open 0.55 m southern lane, then join the central route
+                    # above the wall's eastern endpoint.
+                    cross_zone_transits += (
+                        {'x': -7.00, 'y': -0.55, 'yaw': 0.0},
+                        {'x': -5.10, 'y': -0.55, 'yaw': 0.0},
+                    )
+                cross_zone_transits += (
                     {'x': -2.30, 'y': 1.30, 'yaw': -math.pi / 2.0},
                     {'x': -2.25, 'y': -0.25, 'yaw': -math.pi / 2.0},
                 )
@@ -1791,7 +1886,8 @@ class PickPlaceTest(Node):
                         route_mode='west_to_b_central_doorway')
                     self.navigate(
                         f'{self.object_id} to-B doorway transit {index}', transit,
-                        handoff_distance=0.35, lock_route=True)
+                        handoff_distance=0.35, lock_route=True,
+                        no_progress_timeout=(8.0 if far_west_return else None))
             # The fixed stone west of the centre corridor makes the direct B
             # chord intermittently stop about 1.2 m from the dock.  Approach
             # its east side first; this point is already proven in the
@@ -1845,6 +1941,7 @@ class PickPlaceTest(Node):
                 {'x': -2.75, 'y': 3.50, 'yaw': math.pi},
                 {'x': -2.75, 'y': 2.00, 'yaw': -math.pi / 2.0},
             )
+            self._wait_for_upper_rail_carried_window()
             for index, transit in enumerate(rail_transits, 1):
                 self.publish_navigation_status(
                     phase='DROPOFF_TRANSIT', event='phase_start',
@@ -1853,7 +1950,8 @@ class PickPlaceTest(Node):
                     route_mode='map2_upper_rail_to_a')
                 self.navigate(
                     f'{self.object_id} carried rail bypass {index}', transit,
-                    handoff_distance=0.35, lock_route=True)
+                    handoff_distance=0.35, lock_route=True,
+                    no_progress_timeout=10.0 if index == 1 else None)
         # These two position handoffs constrain the chassis to the verified
         # east-side doorway.  NavigateThroughPoses was deliberately removed:
         # the default through-poses BT oscillated at the second waypoint
@@ -2271,33 +2369,169 @@ class PickPlaceTest(Node):
         finally:
             self._publish_navigation_stop()
 
+    def prepare_upper_rail_carried_return(
+            self, travel_distance=0.50, timeout_sec=6.0):
+        """Create turning clearance after the east upper-rail pickup.
+
+        The red cube at (1, 4) is grasped with the chassis facing east.  Asking
+        Nav2 to immediately reach the west rail point makes the carried
+        footprint turn around the pickup cell; repeated full-batch traces
+        stopped at 3.1--3.2 m remaining before and after a goal retry.  Backing
+        straight along the already validated pickup approach first moves the
+        attached cube and chassis into open space.  Collision Monitor remains
+        in the command path, and this helper is enabled only for the matching
+        live geometry rather than for every upper-rail object.
+        """
+        if not self._north_of_upper_rail(self.object_id):
+            return
+        object_pose = self._relative_pose(self.object_id, 'world')
+        robot = self._await_fresh_robot_pose()
+        q = robot.orientation
+        start_yaw = math.atan2(
+            2.0 * (q.w*q.z + q.x*q.y),
+            1.0 - 2.0 * (q.y*q.y + q.z*q.z))
+        if (float(object_pose.position.x) <= 0.25
+                or float(object_pose.position.y) <= 3.50
+                or abs(math.atan2(
+                    math.sin(start_yaw), math.cos(start_yaw))) > 0.40):
+            return
+
+        start_x = float(robot.position.x)
+        start_y = float(robot.position.y)
+        target_x = start_x - float(travel_distance) * math.cos(start_yaw)
+        target_y = start_y - float(travel_distance) * math.sin(start_yaw)
+        target_cost = self._global_costmap_cell(target_x, target_y)
+        if target_cost is not None and target_cost >= 99:
+            raise RuntimeError(
+                'Upper-rail carried escape target is lethal in global costmap '
+                f'(cost={target_cost})')
+
+        deadline = time.monotonic() + float(timeout_sec)
+        last_progress = time.monotonic()
+        best_travel = 0.0
+        self.get_logger().info(
+            'Starting upper-rail carried escape: '
+            f'target travel={travel_distance:.3f}m, target_cost={target_cost}')
+        self.publish_navigation_status(
+            phase='POST_PICK_CARRIED_ESCAPE', event='phase_start',
+            egress_target_distance=float(travel_distance))
+        try:
+            while rclpy.ok() and time.monotonic() < deadline:
+                rclpy.spin_once(self, timeout_sec=0.05)
+                robot = self._await_fresh_robot_pose()
+                travelled = math.hypot(
+                    float(robot.position.x) - start_x,
+                    float(robot.position.y) - start_y)
+                if travelled > best_travel + 0.008:
+                    best_travel = travelled
+                    last_progress = time.monotonic()
+                if travelled >= float(travel_distance):
+                    self.get_logger().info(
+                        'Upper-rail carried escape succeeded: '
+                        f'travelled={travelled:.3f}m')
+                    self.publish_navigation_status(
+                        event='egress_complete', egress_distance=travelled)
+                    return
+                if time.monotonic() - last_progress > 1.5:
+                    raise RuntimeError(
+                        'Upper-rail carried escape made no progress')
+                q = robot.orientation
+                yaw = math.atan2(
+                    2.0 * (q.w*q.z + q.x*q.y),
+                    1.0 - 2.0 * (q.y*q.y + q.z*q.z))
+                yaw_error = math.atan2(
+                    math.sin(start_yaw - yaw), math.cos(start_yaw - yaw))
+                angular = max(-0.14, min(0.14, 1.2 * yaw_error))
+                self._publish_dock_command(-0.28, angular)
+            raise RuntimeError('Upper-rail carried escape timed out')
+        finally:
+            self._publish_navigation_stop()
+
+    def prepare_far_west_carried_return(
+            self, travel_distance=0.50, timeout_sec=6.0):
+        """Create turning clearance after a far-west pickup.
+
+        The west-row dock leaves the base beside the grasped cube while the
+        first B doorway goal is behind it.  Full-batch round 21 advanced only
+        about 1.1 m before the carried footprint stopped at the same remaining
+        distance after a retry.  Move straight away from the live cube first,
+        through Collision Monitor, then allow Nav2 to make the eastbound turn
+        in open space.
+        """
+        object_pose = self._relative_pose(self.object_id, 'world')
+        if (float(object_pose.position.x) >= -4.50
+                or float(object_pose.position.y) >= 2.00):
+            return
+        robot = self._await_fresh_robot_pose()
+        start_x = float(robot.position.x)
+        start_y = float(robot.position.y)
+        q = robot.orientation
+        start_yaw = math.atan2(
+            2.0 * (q.w*q.z + q.x*q.y),
+            1.0 - 2.0 * (q.y*q.y + q.z*q.z))
+        away_x = start_x - float(object_pose.position.x)
+        away_y = start_y - float(object_pose.position.y)
+        heading_dot_away = (
+            math.cos(start_yaw) * away_x + math.sin(start_yaw) * away_y)
+        command = 0.28 if heading_dot_away >= 0.0 else -0.28
+        target_x = start_x + math.copysign(
+            float(travel_distance), command) * math.cos(start_yaw)
+        target_y = start_y + math.copysign(
+            float(travel_distance), command) * math.sin(start_yaw)
+        target_cost = self._global_costmap_cell(target_x, target_y)
+        if target_cost is not None and target_cost >= 99:
+            raise RuntimeError(
+                'Far-west carried escape target is lethal in global costmap '
+                f'(cost={target_cost})')
+
+        deadline = time.monotonic() + float(timeout_sec)
+        last_progress = time.monotonic()
+        best_travel = 0.0
+        self.get_logger().info(
+            'Starting far-west carried escape: '
+            f'target travel={travel_distance:.3f}m, target_cost={target_cost}, '
+            f'direction={"forward" if command > 0.0 else "reverse"}')
+        try:
+            while rclpy.ok() and time.monotonic() < deadline:
+                rclpy.spin_once(self, timeout_sec=0.05)
+                robot = self._await_fresh_robot_pose()
+                travelled = math.hypot(
+                    float(robot.position.x) - start_x,
+                    float(robot.position.y) - start_y)
+                if travelled > best_travel + 0.008:
+                    best_travel = travelled
+                    last_progress = time.monotonic()
+                if travelled >= float(travel_distance):
+                    self.get_logger().info(
+                        'Far-west carried escape succeeded: '
+                        f'travelled={travelled:.3f}m')
+                    return
+                if time.monotonic() - last_progress > 1.5:
+                    raise RuntimeError(
+                        'Far-west carried escape made no progress')
+                q = robot.orientation
+                yaw = math.atan2(
+                    2.0 * (q.w*q.z + q.x*q.y),
+                    1.0 - 2.0 * (q.y*q.y + q.z*q.z))
+                yaw_error = math.atan2(
+                    math.sin(start_yaw - yaw), math.cos(start_yaw - yaw))
+                angular = max(-0.14, min(0.14, 1.2 * yaw_error))
+                self._publish_dock_command(command, angular)
+            raise RuntimeError('Far-west carried escape timed out')
+        finally:
+            self._publish_navigation_stop()
+
     def navigate_c_post_place_exit(
             self, next_pickup=None, pickup_handoff_distance=0.70):
         """Leave C through the same guarded corridor used on entry."""
         if self.destination != 'C':
             return
-        # red_cube_2 is on the same east side of obstacle 2 and north of the
-        # fixed C wall endpoint.  Reach it by the open eastern homotopy instead
-        # of crossing the south gate westward and immediately retracing that
-        # crossing after pickup.  This is valid whether red2's next destination
-        # is A or C; Nav2 and all normal cost/collision layers remain active.
-        if (next_pickup is not None
-                and next_pickup.get('object_id') == 'red_cube_2'):
-            target = dict(next_pickup['pickup'])
-            self.get_logger().info(
-                'C east-side exit merged directly with red_cube_2 pickup; '
-                'south obstacle crossing is not on this homotopy')
-            self.publish_navigation_status(
-                phase='POST_PLACE_TRANSIT', event='phase_start',
-                transit_index=1, transit_count=1,
-                route_mode='c_east_to_red2_pickup')
-            self.navigate(
-                'C east-side exit to red_cube_2', target,
-                handoff_distance=float(pickup_handoff_distance),
-                lock_route=True)
-            next_pickup['staged_mode'] = 'pickup_handoff'
-            self.get_logger().info('Guarded C east-side exit complete')
-            return
+        # Do not shortcut directly from C's east edge to red_cube_2.  Three
+        # independent replays showed path-length discontinuities followed by
+        # ODE impulses on that homotopy, including with an explicit waypoint
+        # above the fixed wall and with extra straight egress clearance.  Use
+        # the same phase-gated south/north corridor as every other C exit; the
+        # generic lookahead below still merges its final leg into red2 pickup.
         # A direct next-pick goal lets Nav2 choose a shorter-looking path
         # through the fixed wall and obstacle-2 rail.  Retrace the proven
         # corridor to its north-west staging point before normal selection of
@@ -2411,6 +2645,15 @@ class PickPlaceTest(Node):
                         after_crossing = (
                             after_crossing[:-1]
                             + (blue4_wall_bypass, final_target))
+                    elif next_object == 'red_cube_2':
+                        # Preserve the proven west-side rise to (-0.5,-1.0)
+                        # before turning east toward red2.  Replacing that
+                        # node made the south-gate-to-red2 diagonal stall for
+                        # 23 s and require a fresh goal in the first safe
+                        # round-5 replay.  The extra node is already part of
+                        # the validated C exit and avoids that obstacle-2
+                        # inflation shoulder without relaxing any handoff.
+                        after_crossing = after_crossing + (final_target,)
                     else:
                         after_crossing = after_crossing[:-1] + (final_target,)
                 self.get_logger().info(
@@ -3006,6 +3249,18 @@ def execute_one_task(node, requested_object, destination,
     pickup = (
         dict(cached_pickup['pickup']) if cached_pickup is not None
         else node.nearest_dock_target(selected, approaches[selected]))
+    if (selected == 'red_cube_1'
+            and node._north_of_upper_rail(selected)):
+        selected_pose = node._relative_pose(selected, 'world')
+        pickup.update({
+            'x': float(selected_pose.position.x) + 0.38,
+            'y': float(selected_pose.position.y),
+            'yaw': math.pi,
+        })
+        node.get_logger().info(
+            'red1 upper-lane pickup override: using east-face dock to keep '
+            'the chassis clear of moving_obstacle_1 and align the carried '
+            'return westward')
     staged_mode = (
         cached_pickup.get('staged_mode')
         if cached_pickup is not None else None)
@@ -3024,6 +3279,7 @@ def execute_one_task(node, requested_object, destination,
         lock_far_west_pickup_route = (
             float(pickup['x']) < -4.50
             and float(pickup['y']) < 2.00)
+        lock_upper_rail_pickup_route = node._north_of_upper_rail(selected)
         node.navigate(
             f'pickup {selected}', pickup,
             handoff_distance=pickup_handoff_distance,
@@ -3038,8 +3294,11 @@ def execute_one_task(node, requested_object, destination,
             # in the west corridor, preserve the first valid far-west path
             # unless it becomes invalid instead of replanning every cycle.
             lock_route=(lock_southwest_a_route
-                        or lock_far_west_pickup_route),
-            no_progress_timeout=(8.0 if lock_far_west_pickup_route else None))
+                        or lock_far_west_pickup_route
+                        or lock_upper_rail_pickup_route),
+            no_progress_timeout=(
+                8.0 if (lock_far_west_pickup_route
+                        or lock_upper_rail_pickup_route) else None))
     node.publish_navigation_status(phase='FINE_DOCK', event='phase_start')
     node.fine_dock()
     node.check_pick_alignment()
@@ -3060,6 +3319,8 @@ def execute_one_task(node, requested_object, destination,
         node.check_pick_alignment()
         node.manipulate('pick')
     node.configure_dropoff_tracking()
+    node.prepare_upper_rail_carried_return()
+    node.prepare_far_west_carried_return()
     dropoff = node.compute_dropoff_target(dropoff)
     node.navigate_dropoff_transits()
     node.publish_navigation_status(

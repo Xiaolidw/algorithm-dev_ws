@@ -3,9 +3,15 @@ set -o pipefail
 
 workspace=/home/ros/dev_ws
 tag=${1:-all24_260_20261007}
+only_round=${2:-}
 summary="$workspace/logs/${tag}.csv"
 progress="$workspace/logs/${tag}.progress"
 cleanup="$workspace/src/moon_warehouse_bringup/scripts/ros_runtime_cleanup.sh"
+
+if [[ -n $only_round && ! $only_round =~ ^([1-9]|1[0-9]|2[0-4])$ ]]; then
+  printf 'ERROR: optional round must be an integer from 1 to 24\n' >&2
+  exit 2
+fi
 
 # Four non-empty colour splits times six directed pairs of distinct zones.
 # Format: blue_count blue_destination red_destination
@@ -32,10 +38,17 @@ make_batch() {
 
 printf 'round,label,blue_count,blue_destination,red_count,red_destination,result,total_s,le260,completed_items,item_times_s,mission_log,launch_log\n' > "$summary"
 : > "$progress"
-printf 'CASE_COUNT,%s\n' "${#specs[@]}" | tee -a "$progress"
+case_count=${#specs[@]}
+if [[ -n $only_round ]]; then
+  case_count=1
+fi
+printf 'CASE_COUNT,%s\n' "$case_count" | tee -a "$progress"
 
 for index in "${!specs[@]}"; do
   round=$((index + 1))
+  if [[ -n $only_round && $round -ne $only_round ]]; then
+    continue
+  fi
   read -r blue_count blue_destination red_destination <<< "${specs[$index]}"
   red_count=$((5 - blue_count))
   label="b${blue_count}${blue_destination}_r${red_count}${red_destination}"
@@ -96,8 +109,15 @@ for index in "${!specs[@]}"; do
     else
       result=FAIL
     fi
+    if [[ $result != PASS ]]; then
+      # Lifecycle-manager fatal messages can arrive just after the mission
+      # client exits.  Give the launch log a short flush window so a collapsed
+      # controller server is replayed as infrastructure instead of being
+      # mislabelled as an algorithm failure.
+      sleep 3
+    fi
     infrastructure_failure=$(grep -Eci \
-      'gzserver.*process has died|CRITICAL FAILURE: SERVER .* IS DOWN' \
+      'gzserver.*process has died|planner_server.*process has died|controller_server.*process has died|map_server.*process has died|CRITICAL FAILURE: SERVER .* IS DOWN' \
       "$launch_log" 2>/dev/null || true)
     if [[ $result != PASS && $infrastructure_failure -gt 0 && $mission_attempt -lt 2 ]]; then
       printf 'INFRA_RETRY,%s,%s,%s,%s\n' "$round" "$label" "$mission_attempt" "$(date +%s)" | tee -a "$progress"
