@@ -2164,6 +2164,7 @@ class PickPlaceTest(Node):
         deadline = time.monotonic() + float(timeout_sec)
         stable_since = None
         last_log = 0.0
+        initial_lineup = True
         initial = self._await_fresh_robot_pose()
         initial_distance = math.hypot(
             initial.position.x - target_x, initial.position.y - target_y)
@@ -2199,6 +2200,28 @@ class PickPlaceTest(Node):
                     math.sin(path_heading - yaw),
                     math.cos(path_heading - yaw))
                 now = time.monotonic()
+                if (initial_lineup and distance > target_tolerance
+                        and abs(heading_error) > 0.06):
+                    # Nav2 hands over within 0.20 m of the pre-approach, so a
+                    # small lateral endpoint error can make the final target
+                    # bearing differ by 0.20--0.35 rad from the slot's final
+                    # yaw. Face the live target point before translating;
+                    # after parking, the existing stopped alignment restores
+                    # the exact placement yaw. This avoids arriving 1 mm
+                    # outside the strict gate with the target beside the
+                    # chassis and keeps all motion under Collision Monitor.
+                    angular = max(
+                        -0.45, min(0.45, 1.40 * heading_error))
+                    self._publish_dock_command(0.0, angular)
+                    if now - last_log >= 1.0:
+                        self.get_logger().info(
+                            'Low-speed destination initial lineup: '
+                            f'distance={distance:.3f}, '
+                            f'heading_error={heading_error:.3f}, '
+                            f'cmd_angular={angular:.3f}')
+                        last_log = now
+                    continue
+                initial_lineup = False
                 if distance <= target_tolerance:
                     self._publish_dock_command(0.0, 0.0)
                     stable_since = stable_since or now
@@ -3428,8 +3451,13 @@ def execute_one_task(node, requested_object, destination,
         # The first map2 C run reached 0.104 m, then the 0.09 m threshold
         # forced an in-place turn that introduced caster drift.  A 0.11 m
         # threshold still leaves 0.065 m inside the release boundary and lets
-        # the separate stopped yaw alignment finish the pose safely.
-        dropoff_tolerance = 0.11
+        # the separate stopped yaw alignment finish the pose safely.  Once
+        # initial target-bearing alignment removed the old caster oscillation,
+        # a reordered upper-rail sample showed that 0.11 m radial error can
+        # still project 0.091 m onto the narrow y axis after final-yaw
+        # alignment.  Tighten (never relax) the north-row position gate to
+        # 0.07 m so the carried cube remains inside the 0.175 m half-depth.
+        dropoff_tolerance = 0.07
     node.fine_dropoff_approach(
         dropoff, target_tolerance=dropoff_tolerance)
     node.publish_navigation_status(
